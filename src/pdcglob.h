@@ -68,5 +68,6 @@ EXTERN FILE *sel_infile;	/* For select input */
 
 EXTERN char *copyright;
 EXTERN char *runfilename;
+EXTERN int run_plain; /* non-curses stdin/stdout mode for opencomalrun */
 
 EXTERN struct env_list *env_root;

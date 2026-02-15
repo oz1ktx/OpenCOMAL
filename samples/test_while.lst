@@ -1,0 +1,9 @@
+5 PRINT "Test 1"
+10 done = 0
+15 PRINT "Test 2"
+20 WHILE done = 0 DO
+30   PRINT "In loop"
+40   done = 1
+50 ENDWHILE
+60 PRINT "After loop"
+70 END

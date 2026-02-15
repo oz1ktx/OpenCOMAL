@@ -129,7 +129,7 @@ PRIVATE struct {
 	localSYM, 0, "LOCAL"}, {
 	tsrsSYM, _LOWER, "LOWER$"}, {
 	loadSYM, 0, "LOAD"}, {
-	tnrnSYM, _LOG, "LOG"}, {
+	tsrnSYM, _ROUND, "ROUND"}, {
 	loopSYM, 0, "LOOP"}, {
 	mkdirSYM, 0, "MKDIR"}, {
 	modSYM, 0, "MOD"}, {
@@ -190,6 +190,7 @@ PRIVATE struct {
 	rsSYM, _UNIT, "UNIT$"}, {
 	untilSYM, 0, "UNTIL"}, {
 	tsrsSYM, _UPPER, "UPPER$"}, {
+	tsrsnSYM, _SPLIT, "SPLIT$"}, {
 	usingSYM, 0, "USING"}, {
 	tsrnSYM, _VAL, "VAL"}, {
 	whenSYM, 0, "WHEN"}, {

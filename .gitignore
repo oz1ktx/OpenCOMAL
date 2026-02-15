@@ -1,0 +1,34 @@
+# Build outputs
+bin/
+src/*.d
+src/*.o
+*.o
+*.a
+*.so
+*.dll
+
+# Generated parser/lexer
+src/lex.yy.c
+src/pdcpars.tab.c
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Python
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.gz
+*.tar
+*.zip

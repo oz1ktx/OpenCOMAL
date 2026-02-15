@@ -1825,9 +1825,21 @@ PRIVATE int input_line(char *s, char *p)
 		}
 	}
 
-	esc = sys_get(MSG_PROGRAM, s, MAX_LINELEN, p);
+	/* In plain (pipe) mode do not print prompts; pass empty prompt. */
+	if (run_plain)
+		esc = sys_get(MSG_PROGRAM, s, MAX_LINELEN, "");
+	else
+		esc = sys_get(MSG_PROGRAM, s, MAX_LINELEN, p);
+
+	/* If sys_get returned EOF/escape while running in plain (pipe) mode,
+	   terminate the running program quietly instead of re-prompting or
+	   emitting an error message. Jump to the RESTART point with QUIT. */
+	if (esc && run_plain) {
+		longjmp(RESTART, QUIT);
+	}
 
 	return esc;
+
 }
 
 
@@ -1913,11 +1925,20 @@ PRIVATE void input_con(struct string *prompt, struct exp_list *lvalroot)
 			if (quote)
 				j++;
 
-			while (*j && !((*j == ',' && !quote)
+			if (run_plain && !quote) {
+				/* In plain mode, unquoted string consumes the rest of the line */
+				while (*j) {
+					++n;
+					field[n] = *j;
+					j++;
+				}
+			} else {
+				while (*j && !((*j == ',' && !quote)
 				       || (*j == '"' && quote))) {
-				++n;
-				field[n] = *j;
-				j++;
+					++n;
+					field[n] = *j;
+					j++;
+				}
 			}
 
 			while ((field[n] == ' ' || field[n] == '\t')

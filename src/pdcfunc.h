@@ -52,3 +52,5 @@
 #define _LOWER			4036
 #define _FRAC			4037
 #define _ROUND			4038
+
+#define _SPLIT		4039

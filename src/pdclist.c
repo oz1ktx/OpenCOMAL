@@ -178,12 +178,12 @@ PUBLIC void list_exp(char **buf, struct expression *exp)
 		break;
 
 	case T_SYS:
-		list_sym(buf, sysSYM);
+		list_sym(buf, exp->op);
 		list_explist(buf, exp->e.exproot, 1);
 		break;
 
 	case T_SYSS:
-		list_sym(buf, syssSYM);
+		list_sym(buf, exp->op);
 		list_explist(buf, exp->e.exproot, 1);
 		break;
 
@@ -264,11 +264,19 @@ PRIVATE void list_explist(char **buf, struct exp_list *exproot, int parens)
 	if (parens)
 		list_char(buf, '(');
 
-	while (exproot) {
+	/* exp_list is stored with head == last parameter. Reverse it
+	   temporarily so we list parameters in logical (first..last)
+	   order, then restore the original order. */
+	struct exp_list *rev = my_reverse(exproot);
+	struct exp_list *walk = rev;
+	while (walk) {
 		list_comma(buf, &first, ',');
-		list_exp(buf, exproot->exp);
-		exproot = exproot->next;
+		list_exp(buf, walk->exp);
+		walk = walk->next;
 	}
+
+	/* restore original order */
+	my_reverse(rev);
 
 	if (parens)
 		list_char(buf, ')');

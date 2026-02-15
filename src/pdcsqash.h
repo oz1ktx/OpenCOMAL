@@ -41,3 +41,4 @@
 
 extern void sqash_2file(char *fname);
 extern struct comal_line *expand_fromfile(char *fname);
+extern struct comal_line *expand_from_textfile(char *fname);

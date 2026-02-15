@@ -1,0 +1,15 @@
+5 PRINT "Starting"
+10 INPUT req$
+15 PRINT "Got request"
+20 done = 0
+30 WHILE done = 0 DO
+40   INPUT hdr$
+50   IF hdr$ = "" THEN
+60     done = 1
+70   ENDIF
+80 ENDWHILE
+85 PRINT "Loop done"
+90 PRINT "HTTP/1.0 200 OK"
+100 PRINT ""
+110 PRINT req$
+120 END

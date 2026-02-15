@@ -1,0 +1,15 @@
+10 INPUT req$
+20 INPUT hdr$
+30 IF hdr$ = "" THEN GOTO 50
+40 GOTO 20
+50 m$ = SPLIT$(req$, " ", 1)
+60 p$ = SPLIT$(req$, " ", 2)
+70 PRINT "HTTP/1.1 200 OK"
+80 PRINT "Content-Type: text/html"
+90 PRINT ""
+100 PRINT "<html><body>"
+110 PRINT "<h1>COMAL CGI Server</h1>"
+120 PRINT "<p>Method: "; m$; "</p>"
+130 PRINT "<p>Path: "; p$; "</p>"
+140 PRINT "</body></html>"
+150 END

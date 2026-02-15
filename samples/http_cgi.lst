@@ -1,0 +1,45 @@
+REM HTTP CGI Handler - demonstrates SPLIT$ for parsing requests
+
+10 INPUT req$
+REM Skip headers
+20 WHILE 1
+30   INPUT hdr$
+40   IF hdr$ = "" THEN EXIT
+50 ENDWHILE
+
+REM Parse the request line: "GET /path?query HTTP/1.0"
+60 method$ = SPLIT$(req$, " ", 1)
+70 path_query$ = SPLIT$(req$, " ", 2)
+80 protocol$ = SPLIT$(req$, " ", 3)
+
+REM Split path and query string
+90 path$ = SPLIT$(path_query$, "?", 1)
+100 query_string$ = SPLIT$(path_query$, "?", 2)
+
+REM Parse query parameters: "key1=value1&key2=value2"
+110 param1$ = SPLIT$(query_string$, "&", 1)
+120 param2$ = SPLIT$(query_string$, "&", 2)
+
+REM Output HTTP response
+130 PRINT "HTTP/1.1 200 OK"
+140 PRINT "Content-Type: text/html; charset=utf-8"
+150 PRINT "Connection: close"
+160 PRINT ""
+
+REM Output HTML response
+170 PRINT "<html>"
+180 PRINT "<head><title>COMAL CGI Test</title></head>"
+190 PRINT "<body>"
+200 PRINT "<h1>COMAL HTTP Request Parser</h1>"
+210 PRINT "<table border='1' cellpadding='5'>"
+220 PRINT "<tr><th>Field</th><th>Value</th></tr>"
+230 PRINT "<tr><td>Method</td><td>"; method$; "</td></tr>"
+240 PRINT "<tr><td>Path</td><td>"; path$; "</td></tr>"
+250 PRINT "<tr><td>Query String</td><td>"; query_string$; "</td></tr>"
+260 PRINT "<tr><td>Param 1</td><td>"; param1$; "</td></tr>"
+270 PRINT "<tr><td>Param 2</td><td>"; param2$; "</td></tr>"
+280 PRINT "</table>"
+290 PRINT "<p><a href='/'>Back to home</a></p>"
+300 PRINT "</body>"
+310 PRINT "</html>"
+320 END

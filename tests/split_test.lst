@@ -1,0 +1,11 @@
+REM SPLIT$ function tests
+PRINT "SPLIT$ tests"
+PRINT SPLIT$("a;b;c",";",1)
+PRINT SPLIT$("a;b;c",";",2)
+PRINT SPLIT$("a;b;c",";",3)
+LET s$ = "x:y:z"
+PRINT SPLIT$(s$, ":", 2)
+PRINT SPLIT$("no-sep",";",1)
+PRINT SPLIT$("no-sep",";",2)
+PRINT SPLIT$("abc","",1)
+PRINT SPLIT$("abc","",2)

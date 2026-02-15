@@ -1,0 +1,13 @@
+10 INPUT req$
+20 PRINT "Request line"
+30 INPUT hdr$
+40 IF hdr$ = "" THEN GOTO 80
+50 PRINT "Header"
+60 GOTO 30
+80 m$ = SPLIT$(req$, " ", 1)
+90 p$ = SPLIT$(req$, " ", 2)
+100 PRINT "HTTP/1.0 200 OK"
+110 PRINT ""
+120 PRINT "Method: "; m$
+130 PRINT "Path: "; p$
+140 END

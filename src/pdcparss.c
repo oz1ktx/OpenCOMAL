@@ -142,7 +142,7 @@ PUBLIC struct expression *pars_exp_sys(int sym, enum optype type,
 	work->optype = type;
 	work->op = sym;
 
-	work->e.exproot = exproot;
+	 work->e.exproot = exproot;
 
 	return work;
 }

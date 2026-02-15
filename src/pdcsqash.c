@@ -18,6 +18,11 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <string.h>
+/* Needed for parser helper functions used by expand_from_textfile */
+#include "pdclexs.h"
+#include "pdcparss.h"
+
+extern struct comal_line c_line;
 
 PRIVATE void sqash_exp();
 PRIVATE void sqash_horse();
@@ -187,6 +192,7 @@ PRIVATE void sqash_exp(struct expression *exp)
 
 	case T_SYS:
 	case T_SYSS:
+		sqash_putint(0, exp->op);
 		sqash_explist(exp->e.exproot);
 		break;
 
@@ -810,6 +816,7 @@ PRIVATE struct expression *expand_exp()
 	case T_SYS:
 	case T_SYSS:
 		EXP_ALLOC(struct exp_list *);
+		exp->op = expand_getint();
 		exp->e.exproot = expand_explist();
 		break;
 
@@ -1333,6 +1340,52 @@ PUBLIC struct comal_line *expand_fromfile(char *fname)
 	if (close(sqash_file) < 0)
 		run_error(CLOSE_ERR, "Error closing file: %s",
 			  strerror(errno));
+
+	return root;
+}
+
+/* Load a plain text COMAL program listing (one source line per input
+   line). If `fname` is "-" the program is read from stdin. This
+   function returns a linked list of `comal_line` structures similar to
+   `expand_fromfile`. */
+PUBLIC struct comal_line *expand_from_textfile(char *fname)
+{
+	struct comal_line *root = NULL;
+	struct comal_line *line = NULL;
+	struct comal_line *last = NULL;
+	FILE *f;
+	char buf[MAX_LINELEN];
+
+	if (strcmp(fname, "-") == 0)
+		f = stdin;
+	else {
+		f = fopen(fname, "r");
+
+		if (!f)
+			run_error(OPEN_ERR, "File open error: %s", strerror(errno));
+	}
+
+	while (fgets(buf, sizeof(buf), f)) {
+		/* feed parser and duplicate parsed line */
+		lex_setinput(buf);
+		if (yyparse())
+			run_error(SQASH_ERR, "Parse error in program listing");
+
+		if (pars_handle_error())
+			run_error(SQASH_ERR, "Syntax error in program listing");
+
+		line = stat_dup(&c_line);
+
+		if (last)
+			last->ld->next = line;
+		else
+			root = line;
+
+		last = line;
+	}
+
+	if (f != stdin)
+		fclose(f);
 
 	return root;
 }

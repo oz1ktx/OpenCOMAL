@@ -1,0 +1,7 @@
+5 PRINT "Test 1"
+10 WHILE 1 DO
+20   PRINT "Before INPUT"
+30   INPUT x$
+40   PRINT "After INPUT: ["; x$; "]"
+50   IF x$ = "" THEN END
+60 ENDWHILE

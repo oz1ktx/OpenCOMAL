@@ -1,0 +1,11 @@
+10 INPUT req$
+20 WHILE 1 DO
+30   INPUT hdr$
+40   IF hdr$ = "" THEN
+50     PRINT "HTTP/1.0 200 OK"
+60     PRINT ""
+70     PRINT req$
+80     END
+90   ENDIF
+100   PRINT "Hdr: "; hdr$
+110 ENDWHILE

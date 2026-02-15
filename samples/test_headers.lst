@@ -1,0 +1,9 @@
+10 INPUT req$
+20 PRINT "Request: "; req$
+30 INPUT hdr$
+40 WHILE hdr$ <> "" DO
+50   PRINT "Header: "; hdr$
+60   INPUT hdr$
+70 ENDWHILE
+80 PRINT "Done"
+90 END

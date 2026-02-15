@@ -19,6 +19,7 @@
 #include "pdcmisc.h"
 #include "pdcenv.h"
 #include "pdcexec.h"
+#include <string.h>
 
 
 PUBLIC void prog_addline(struct comal_line *line)
@@ -136,11 +137,44 @@ PUBLIC void prog_new()
 
 PUBLIC void prog_load(char *fn)
 {
+	FILE *f;
+	size_t marker_len = strlen(SQ_MARKER);
+	char *hdr = NULL;
+
 	if (comal_debug)
 		my_printf(MSG_DEBUG, 1, "LOADing %s", fn);
 
 	prog_new();
-	curenv->progroot = expand_fromfile(fn);
+
+	/* Try to detect sqash (binary save) marker; if not present, treat
+	   file as a plain-text program listing. Use stdin when fn == "-". */
+	if (strcmp(fn, "-") == 0) {
+		curenv->progroot = expand_from_textfile(fn);
+	} else {
+		f = fopen(fn, "rb");
+
+		if (!f)
+			run_error(OPEN_ERR, "File open error: %s", strerror(errno));
+
+		hdr = mem_alloc(MISC_POOL, marker_len + 1);
+		if (fread(hdr, 1, marker_len, f) != marker_len) {
+			/* Short file — treat as text listing */
+			fclose(f);
+			mem_free(hdr);
+			curenv->progroot = expand_from_textfile(fn);
+		} else {
+			hdr[marker_len] = '\0';
+			fclose(f);
+
+			if (strncmp(hdr, SQ_MARKER, marker_len) == 0)
+				curenv->progroot = expand_fromfile(fn);
+			else
+				curenv->progroot = expand_from_textfile(fn);
+
+			mem_free(hdr);
+		}
+	}
+
 	curenv->changed = 0;
 }
 

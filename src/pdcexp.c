@@ -1050,6 +1050,121 @@ PRIVATE void exp_sys(struct expression *exp, void **result, enum
 PRIVATE void exp_syss(struct expression *exp, struct string **result,
 		      enum VAL_TYPE *type)
 {
+	/* Support for built-in multi-arg string functions (e.g. SPLIT$)
+	   If not handled here, fall back to extension SYS$ handlers. */
+	if (exp->op == _SPLIT) {
+		struct exp_list *args = exp->e.exproot;
+		void *r1, *r2, *r3;
+		enum VAL_TYPE t1, t2, t3;
+		struct string *src = NULL;
+		struct string *sep = NULL;
+		long idx;
+		char *sstart, *sfound;
+		long i, toklen;
+		
+		if (!args || !args->next || !args->next->next)
+			run_error(PARM_ERR, "SPLIT$ expects three parameters");
+
+		/* exp_list stores parameters in reverse (head is last parameter).
+		   Collect into array so we can index by logical order. */
+		int argc = nr_items((struct my_list *) args);
+		if (argc < 3)
+			run_error(PARM_ERR, "SPLIT$ expects three parameters");
+		struct expression **parr = mem_alloc(RUN_POOL, argc * sizeof(struct expression *));
+		{
+			struct exp_list *walk = args;
+			int i = 0;
+			while (walk) {
+				parr[i++] = walk->exp;
+				walk = walk->next;
+			}
+		}
+		/* parr[0] == last param, parr[argc-1] == first param */
+		calc_exp(parr[argc-1], &r1, &t1);
+		calc_exp(parr[argc-2], &r2, &t2);
+		calc_exp(parr[argc-3], &r3, &t3);
+
+		/* Accept numeric arguments by coercing to string where reasonable */
+		if (t1 != V_STRING) {
+			if (t1 == V_INT || t1 == V_FLOAT)
+				r1 = (void *) my_str(&r1, &t1);
+			else
+				run_error(TYPE_ERR, "SPLIT$ first parameter must be a string");
+		}
+		if (t2 != V_STRING) {
+			if (t2 == V_INT || t2 == V_FLOAT)
+				r2 = (void *) my_str(&r2, &t2);
+			else
+				run_error(TYPE_ERR, "SPLIT$ second parameter must be a string");
+		}
+
+		src = (struct string *) r1;
+		sep = (struct string *) r2;
+
+		if (t3 == V_INT)
+			idx = *(long *) r3;
+		else if (t3 == V_FLOAT)
+			idx = (long) *(double *) r3;
+		else
+			run_error(TYPE_ERR, "SPLIT$ third parameter must be numeric");
+
+		/* normalize index */
+		if (idx < 1) {
+			val_free(src, t1);
+			val_free(sep, t2);
+			cell_free(r3);
+			*result = str_make(RUN_POOL, "");
+			*type = V_STRING;
+			return;
+		}
+
+		/* empty separator: defined as returning whole string only for idx==1 */
+		if (sep->len == 0) {
+			if (idx == 1) *result = str_dup(RUN_POOL, src);
+			else *result = str_make(RUN_POOL, "");
+			*type = V_STRING;
+			val_free(src, t1);
+			val_free(sep, t2);
+			cell_free(r3);
+			return;
+		}
+
+		/* iterate tokens */
+		sstart = src->s;
+		for (i = 1;; i++) {
+			sfound = strstr(sstart, sep->s);
+			if (i == idx) {
+				if (sfound)
+					toklen = (long)(sfound - sstart);
+				else
+					toklen = src->len - (sstart - src->s);
+
+				*result = STR_ALLOC(RUN_POOL, toklen + 1);
+				(*result)->len = toklen;
+				memcpy((*result)->s, sstart, toklen);
+				(*result)->s[toklen] = '\0';
+				*type = V_STRING;
+				val_free(src, t1);
+				val_free(sep, t2);
+				cell_free(r3);
+				return;
+			}
+
+			if (!sfound) break;
+			sstart = sfound + sep->len;
+			if (sstart >= src->s + src->len) break;
+		}
+
+		/* not found: return empty string */
+		val_free(src, t1);
+		val_free(sep, t2);
+		cell_free(r3);
+		*result = str_make(RUN_POOL, "");
+		*type = V_STRING;
+		return;
+	}
+
+	/* fallback to extension handling */
 	sys_syss_exp(exp->e.exproot, result, type);
 }
 

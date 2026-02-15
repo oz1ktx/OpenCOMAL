@@ -1,0 +1,8 @@
+10 WHILE 1 DO
+20   INPUT x$
+30   IF x$ = "" THEN
+40     PRINT "Got empty"
+50   ELSE
+60     PRINT "Got: ["; x$; "]"
+70   ENDIF
+80 ENDWHILE

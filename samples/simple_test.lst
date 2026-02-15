@@ -1,0 +1,3 @@
+10 INPUT req$
+20 PRINT "Request: "; req$
+30 END

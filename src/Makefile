@@ -20,7 +20,7 @@ OBJ1=pdcpars.tab.o lex.yy.o pdcmain.o pdcmisc.o pdccmd.o  pdclexs.o  \
 	pdcseg.o pdcval.o pdccloop.o
 
 TARG2=../bin/opencomalrun
-OBJ2=pdcmain.o pdcmisc.o \
+OBJ2=pdcpars.tab.o lex.yy.o pdclexs.o pdcparss.o pdcmain.o pdcmisc.o \
 	pdcid.o  pdcscan.o pdcenv.o pdcsym.o pdcexec.o pdcfree.o \
 	pdcexp.o pdcmem.o pdcsqash.o pdcstr.o pdcprog.o pdcext.o pdcseg.o \
 	pdcval.o pdcrun.o
@@ -30,7 +30,7 @@ STATIC=
 #PROFILE=-pg
 PROFILE=
 
-COPTS=-c -Wall -Wextra -std=c11 -DOS_LINUX $(PROFILE) -flto
+COPTS=-c -Wall -Wextra -std=c11 -DOS_LINUX $(PROFILE) -D_POSIX_C_SOURCE=200809L -g
 ifeq ($(OPSYS),macos)
 COPTS+=-Oz -I/usr/local/opt/readline/include
 else
@@ -41,12 +41,12 @@ ifneq ($(OPSYS),macos)
 LIBS+=-lm
 endif
 
-LDOPTS=$(STATIC) $(LIBS) -flto
+LDOPTS=$(STATIC) $(LIBS) -g
 
 %.d: %.c
-		set -e; $(CC) -M $(CPPFLAGS) $< \
+		set -e; $(CC) -MM $(CPPFLAGS) $< \
 			| sed 's/\($*\)\.o[ :]*/\1.o $@ : /g' > $@; \
-			[ -s $@ ] || rm -f $@
+		[ -s $@ ] || rm -f $@
 
 all:		build $(TARG1) $(TARG2)
 

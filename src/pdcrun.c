@@ -15,9 +15,8 @@
 #include "pdcprog.h"
 #include "pdcmisc.h"
 
-PUBLIC int yydebug = 0;		/* To replace YACC's yydebug */
+extern int yydebug; /* yydebug provided by parser (pdcpars.tab.c) */
 PUBLIC int show_exec = 0;	/* To replace PDCLIST.C's show_exec */
-
 
 PUBLIC char *sys_interpreter()
 {
@@ -25,10 +24,7 @@ PUBLIC char *sys_interpreter()
 }
 
 
-PUBLIC char *lex_sym()
-{
-	return "<Undefined>";
-}
+
 
 
 PUBLIC void line_list(char **buf, struct comal_line *line)

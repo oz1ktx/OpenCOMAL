@@ -1,0 +1,19 @@
+10 INPUT req$
+20 done = 0
+30 WHILE done = 0 DO
+40   INPUT hdr$
+50   IF hdr$ = "" THEN
+60     done = 1
+70   ELSE
+80     PRINT "Header: "; hdr$
+90   ENDIF
+100 ENDWHILE
+101 PRINT "After loop"
+120 m$ = SPLIT$(req$, " ", 1)
+130 PRINT "Split done"
+140 p$ = SPLIT$(req$, " ", 2)
+150 PRINT "HTTP/1.0 200 OK"
+160 PRINT ""
+170 PRINT "Method: "; m$
+180 PRINT "Path: "; p$
+190 END

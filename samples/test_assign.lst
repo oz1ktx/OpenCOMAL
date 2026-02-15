@@ -1,0 +1,4 @@
+5 PRINT "Test 1"
+10 done = 0
+15 PRINT "Test 2"
+20 END

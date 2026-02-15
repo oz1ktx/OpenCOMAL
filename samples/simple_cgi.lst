@@ -1,0 +1,24 @@
+REM Simple COMAL CGI Handler
+REM Reads HTTP request and returns a simple response
+
+10 INPUT req$
+REM Read and discard headers
+20 WHILE 1
+30   INPUT hdr$
+40   IF hdr$ = "" THEN EXIT
+50 ENDWHILE
+
+REM Extract method and path using SPLIT$ (use assignment without LET to avoid semicolon issues)
+60 method$ = SPLIT$(req$, " ", 1)
+70 path$ = SPLIT$(req$, " ", 2)
+
+REM Output HTTP response
+80 PRINT "HTTP/1.1 200 OK"
+90 PRINT "Content-Type: text/html"
+100 PRINT "Connection: close"
+110 PRINT ""
+120 PRINT "<html><body>"
+130 PRINT "<h1>Hello from COMAL!</h1>"
+140 PRINT "<p>You requested: "; method$; " "; path$; "</p>"
+150 PRINT "</body></html>"
+160 END

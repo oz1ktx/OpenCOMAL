@@ -1,0 +1,9 @@
+10 INPUT a$
+20 PRINT "Got: ["; a$; "]"
+30 IF a$ = "" THEN
+40   PRINT "Empty string detected"
+50 ELSE
+60   PRINT "Non-empty"
+70 ENDIF
+80 PRINT "After if"
+90 END

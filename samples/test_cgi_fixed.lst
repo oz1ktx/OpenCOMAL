@@ -1,0 +1,22 @@
+10 INPUT req$
+20 PRINT "Request line: "; req$
+30 INPUT hdr$
+40 IF hdr$ <> "" THEN
+50   PRINT "Header: "; hdr$
+60   GOTO 30
+70 ENDIF
+80 REM Parse request line to extract method and path
+90 m$ = SPLIT$(req$, " ", 1)
+100 p$ = SPLIT$(req$, " ", 2)
+110 PRINT "HTTP/1.0 200 OK"
+120 PRINT "Content-Type: text/html"
+130 PRINT ""
+140 PRINT "<html><body>"
+150 PRINT "<h1>COMAL CGI Demo</h1>"
+160 PRINT "<p>Your request:</p>"
+170 PRINT "<pre>"
+180 PRINT "Method: "; m$
+190 PRINT "Path: "; p$
+200 PRINT "</pre>"
+210 PRINT "</body></html>"
+220 END

@@ -1,0 +1,19 @@
+10 INPUT req$
+20 INPUT hdr$
+30 WHILE hdr$ <> "" DO
+40   INPUT hdr$
+50 ENDWHILE
+60 m$ = SPLIT$(req$, " ", 1)
+70 p$ = SPLIT$(req$, " ", 2)
+80 PRINT "HTTP/1.0 200 OK"
+90 PRINT "Content-Type: text/html"
+100 PRINT ""
+110 PRINT "<html><body>"
+120 PRINT "<h1>COMAL CGI Demo using SPLIT$</h1>"
+130 PRINT "<p>Your request:</p>"
+140 PRINT "<pre>"
+150 PRINT "Method: "; m$
+160 PRINT "Path: "; p$
+170 PRINT "</pre>"
+180 PRINT "</body></html>"
+190 END

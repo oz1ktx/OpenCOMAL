@@ -1,0 +1,15 @@
+10 PRINT "DBG: start"
+20 INPUT req$
+30 PRINT "DBG: got req:"; req$
+40 INPUT hdr$
+50 PRINT "DBG: got hdr:"; hdr$
+60 WHILE hdr$ <> "" DO
+70   INPUT hdr$
+80   PRINT "DBG: loop hdr:"; hdr$
+90 ENDWHILE
+100 PRINT "HTTP/1.0 200 OK"
+110 PRINT "Content-Type: text/plain"
+120 PRINT ""
+130 PRINT "Hello from COMAL socket server"
+140 PRINT "Request: "; req$
+150 END

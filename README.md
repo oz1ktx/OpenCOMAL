@@ -53,3 +53,31 @@ description and readable code.
   [German](https://de.wikipedia.org/wiki/COMAL),
   [English](https://en.wikipedia.org/wiki/COMAL), and
   [Polish](https://pl.wikipedia.org/wiki/Comal).
+
+## Plain / Pipe Mode and Socket Serving
+
+This fork includes a pipe-friendly runtime mode for `opencomalrun` and
+small helpers to use COMAL programs in Unix pipelines or over TCP sockets.
+
+- `opencomalrun --plain`: forces non-curses stdin/stdout mode. In plain
+  mode `opencomalrun` suppresses the startup banner, does not use
+  `readline`/`ncurses`, treats `INPUT` prompts as silent, and EOF on
+  stdin cleanly terminates the running program.
+
+- Program format: `opencomalrun` still prefers the saved binary format
+  (SqAsH). If the file does not contain the binary header, the file is
+  parsed as a plain-text COMAL listing. Use `-` to read the program
+  listing from stdin.
+
+- Example — pipe input through a COMAL filter program:
+
+  ```bash
+  printf 'hello\n\n' | bin/opencomalrun --plain samples/filter_pipe.lst
+  ```
+
+- Server skeleton: `scripts/serve_comal.sh` launches `opencomalrun --plain`
+  per TCP connection using `ncat` or `socat`. A minimal web skeleton is
+  provided at `samples/web_skeleton.lst`.
+
+See `doc/PIPELINE.md` for more examples and `samples/tests/pipe_test.sh`
+for an automated pipe test.

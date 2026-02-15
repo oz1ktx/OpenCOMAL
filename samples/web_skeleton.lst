@@ -1,0 +1,11 @@
+10 INPUT req$
+20 INPUT hdr$
+30 WHILE hdr$ <> "" DO
+40   INPUT hdr$
+50 ENDWHILE
+60 PRINT "HTTP/1.0 200 OK"
+70 PRINT "Content-Type: text/plain"
+80 PRINT ""
+90 PRINT "Hello from COMAL socket server"
+100 PRINT "Request: "; req$
+110 END

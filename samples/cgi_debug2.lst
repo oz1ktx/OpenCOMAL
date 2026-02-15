@@ -1,0 +1,12 @@
+10 INPUT req$
+20 PRINT "Got request"
+30 WHILE 1 DO
+40   PRINT "Loop start"
+50   INPUT hdr$
+60   PRINT "Got header: ["; hdr$; "]"
+70   IF hdr$ = "" THEN
+80     PRINT "Empty detected"
+90     END
+100   ENDIF
+110   PRINT "Processing header"
+120 ENDWHILE

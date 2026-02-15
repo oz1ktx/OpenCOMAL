@@ -24,6 +24,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -204,6 +205,12 @@ PUBLIC void sys_init()
 {
 	ext_init();
 	signal(SIGINT, int_handler);
+
+	/* If running in plain mode (opencomalrun), do not initialize curses
+	   or readline wrappers; operate on stdin/stdout directly. */
+	if (run_plain)
+		return;
+
 	screen_init();
 }
 
@@ -274,12 +281,20 @@ PUBLIC void sys_put(int stream, char *buf, long len)
 	if (len < 0)
 		len = strlen(buf);
 
+	/* Always send to extension hooks */
+	ext_put(stream, buf, len);
+
+	if (run_plain) {
+		fwrite(buf, 1, (size_t)len, stdout);
+		fflush(stdout);
+		return;
+	}
+
 	lines = len / width;
 
 	if ((len % width) > 0)
 		lines++;
 
-	ext_put(stream, buf, len);
 	do_put(stream, buf, len);
 
 	if (paged) {
@@ -325,6 +340,12 @@ PUBLIC void sys_cursor(FILE * f, long x, long y)
 PUBLIC void sys_nl(int stream)
 {
 	ext_nl();
+	if (run_plain) {
+		fputc('\n', stdout);
+		fflush(stdout);
+		return;
+	}
+
 	addch('\n');
 	refresh();
 }
@@ -338,6 +359,18 @@ PUBLIC void sys_screen_readjust()
 PUBLIC int sys_yn(int stream, char *prompt)
 {
 	char c;
+
+	if (run_plain) {
+		if (prompt) {
+			fputs(prompt, stdout);
+			fflush(stdout);
+		}
+
+		c = getchar();
+		if (c == EOF) return 0;
+		if (c == 'y' || c == 'Y') return 1;
+		return 0;
+	}
 
 	do_put(stream, prompt, strlen(prompt));
 
@@ -383,8 +416,33 @@ PUBLIC int sys_get(int stream, char *line, int maxlen, char *prompt)
 {
 	if (ext_get(stream, line, maxlen, prompt))
 		return 0;
-	else
-		return do_get(stream, line, maxlen, prompt, 1);
+
+	if (run_plain) {
+		if (prompt) {
+			fputs(prompt, stdout);
+			fflush(stdout);
+		}
+
+		if (!fgets(line, maxlen, stdin))
+			return 1; /* EOF/escape */
+
+		/* Strip trailing LF and optional CR so code comparing to "" works
+		   with network input that uses CRLF (HTTP). */
+		{
+			size_t l = strlen(line);
+			if (l > 0 && line[l-1] == '\n') {
+				line[l-1] = '\0';
+				--l;
+			}
+			if (l > 0 && line[l-1] == '\r') {
+				line[l-1] = '\0';
+			}
+		}
+
+		return 0;
+	}
+
+	return do_get(stream, line, maxlen, prompt, 1);
 }
 
 
@@ -548,7 +606,8 @@ PUBLIC void sys_sys_exp(struct exp_list *exproot, void **result, enum
                                   "SYS(sbrk) takes no further parameters");
 
                 *result = cell_alloc(INT_CPOOL);
-		**( (long **) result )=(long)sbrk(0);
+		// **( (long **) result )=(long)sbrk(0);
+		**( (long **) result )=(long)malloc(0);
                 *type = V_INT;
 	} else if (strcmp(cmd, "now") == 0) {
                 if (exproot->next)

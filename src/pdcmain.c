@@ -29,25 +29,48 @@ unsigned _stklen = 32768;
 
 PUBLIC int main(int argc, char *argv[])
 {
+
+	/* If invoked as the runtime binary `opencomalrun`, prefer plain IO
+	   (no ncurses) so the program can be used in pipes. Also allow
+	   enabling plain mode explicitly via `--plain` flag. */
+	if (argc > 0 && argv[0] && strstr(argv[0], "opencomalrun") != NULL)
+		run_plain = 1;
+
+	/* Parse `--plain` flag and remove it from argv so the remaining
+	   arguments behave as before (program filename at argv[1]). */
+	for (int i = 1; i < argc; ++i) {
+		if (strcmp(argv[i], "--plain") == 0) {
+			run_plain = 1;
+			/* shift remaining args left by one */
+			for (int j = i; j < argc - 1; ++j)
+				argv[j] = argv[j + 1];
+			argv[argc - 1] = NULL;
+			--argc;
+			--i; /* re-check this index after shift */
+		}
+	}
+
 	sys_init();
 	copyright = "(c) Copyright 1992-2002  Jos Visser <josv@osp.nl>";
 
+	if (!run_plain) {
 #if defined(OS_WIN32) || defined(OS_MSDOS)
-	my_printf(MSG_DIALOG, 1,
-		  "OpenComal -- A free Comal implementation (version %s; %s)",
-		  OPENCOMAL_VERSION,HOST_OS);
+		my_printf(MSG_DIALOG, 1,
+			  "OpenComal -- A free Comal implementation (version %s; %s)",
+			  OPENCOMAL_VERSION,HOST_OS);
 #else
-	my_printf(MSG_DIALOG, 1,
-		  "OpenComal -- A free Comal implementation (version %s; %s; build %s)",
-		  OPENCOMAL_VERSION,HOST_OS,OPENCOMAL_BUILD);
+		my_printf(MSG_DIALOG, 1,
+			  "OpenComal -- A free Comal implementation (version %s; %s; build %s)",
+			  OPENCOMAL_VERSION,HOST_OS,OPENCOMAL_BUILD);
 #endif
 
-	my_printf(MSG_DIALOG, 1, "             %s", copyright);
-	my_printf(MSG_DIALOG, 1, "             Built on %s at approximately %s", __DATE__, __TIME__);
-	my_nl(MSG_DIALOG);
-	my_printf(MSG_DIALOG, 1,"OpenComal is licensed under the GNU General Public License (GPL) version 2");
-	my_printf(MSG_DIALOG, 1,"(The GPL contains a very nice statement on WARRANTY; you might want to read it)");
-	my_nl(MSG_DIALOG);
+		my_printf(MSG_DIALOG, 1, "             %s", copyright);
+		my_printf(MSG_DIALOG, 1, "             Built on %s at approximately %s", __DATE__, __TIME__);
+		my_nl(MSG_DIALOG);
+		my_printf(MSG_DIALOG, 1,"OpenComal is licensed under the GNU General Public License (GPL) version 2");
+		my_printf(MSG_DIALOG, 1,"(The GPL contains a very nice statement on WARRANTY; you might want to read it)");
+		my_nl(MSG_DIALOG);
+	}
 
 	comal_debug = (argc == 2 && strcmp(argv[1], "/d") == 0);
 	yydebug = (argc == 2 && strcmp(argv[1], "/y") == 0);
@@ -56,6 +79,10 @@ PUBLIC int main(int argc, char *argv[])
 
 	runfilename = NULL;
 	curenv = env_new("nirvana");
+	/* If running in plain mode (opencomalrun), disallow interactive
+	   escape behavior so EOF on stdin causes program termination. */
+	if (run_plain)
+		curenv->escallowed = 0;
 	entering = 0;
 	sel_infile = NULL;
 	sel_outfile = NULL;

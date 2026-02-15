@@ -177,7 +177,7 @@ extern int yylex();
 %token	whileSYM 
 %token	writeSYM
 
-%token	<inum>		rnSYM rsSYM tnrnSYM tnrsSYM tsrnSYM tonrsSYM tsrsSYM
+%token	<inum>		rnSYM rsSYM tnrnSYM tnrsSYM tsrnSYM tonrsSYM tsrsSYM tsrsnSYM
 %token	<dubbel>	floatnumSYM
 %token	<id>		idSYM intidSYM stringidSYM
 %token	<num>		intnumSYM
@@ -1526,6 +1526,10 @@ string_factor	:	strlvalue2
 		|	syssSYM lparenSYM exp_list rparenSYM
 			{
 				$$=pars_exp_sys(syssSYM,T_SYSS,$3);
+			}
+		|	tsrsnSYM lparenSYM exp_list rparenSYM
+			{
+			$$=pars_exp_sys($1,T_SYSS,$3);
 			}
 		|	lparenSYM stringexp2 rparenSYM
 			{

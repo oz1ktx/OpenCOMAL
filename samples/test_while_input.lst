@@ -1,0 +1,11 @@
+5 PRINT "Test 1"
+10 done = 0
+15 PRINT "Test 2"
+20 WHILE done = 0 DO
+30   PRINT "Before INPUT"
+35   INPUT x$
+40   PRINT "After INPUT: ["; x$; "]"
+50   done = 1
+60 ENDWHILE
+70 PRINT "After loop"
+80 END
