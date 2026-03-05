@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/comal-run.dir/link.d "CMakeFiles/comal-run.dir/tools/comal_run.cpp.o" -o comal-run  libcomal-runtime.a ../libcomal-parser/libcomal-parser.a

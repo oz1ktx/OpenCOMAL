@@ -1,0 +1,7 @@
+       10 PRINT "before"
+       20 greet("World")
+       30 PRINT "after"
+       40 //
+       50 PROC greet(who$)
+       60   PRINT "Hello, "; who$
+       70 ENDPROC

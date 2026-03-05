@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/comal-ast-demo.dir/link.d "CMakeFiles/comal-ast-demo.dir/tools/ast_demo.cpp.o" -o comal-ast-demo  libcomal-parser.a
