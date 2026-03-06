@@ -5,6 +5,15 @@
 #include "comal_interpreter.h"
 #include <iostream>
 #include <string>
+#include <csignal>
+
+// Global pointer for signal handler → interpreter bridge.
+static comal::runtime::Interpreter* g_interp = nullptr;
+
+static void sigintHandler(int /*sig*/) {
+    if (g_interp)
+        g_interp->interrupt().request();
+}
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -16,9 +25,22 @@ int main(int argc, char* argv[]) {
 
     comal::runtime::Interpreter interp;
 
+    // Install SIGINT handler so Ctrl-C triggers cooperative interrupt.
+    g_interp = &interp;
+    struct sigaction sa{};
+    sa.sa_handler = sigintHandler;
+    sa.sa_flags = 0;   // no SA_RESTART — interrupt blocking reads too
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, nullptr);
+
     try {
         interp.loadFile(filename);
         interp.run();
+    } catch (const comal::runtime::EscapeSignal&) {
+        std::cerr << "Escape\n";
+        return 0;
+    } catch (const comal::runtime::StopSignal&) {
+        return 0;
     } catch (const comal::runtime::ComalError& e) {
         std::cerr << "Runtime error";
         if (e.line() > 0)

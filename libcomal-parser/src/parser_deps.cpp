@@ -429,6 +429,9 @@ struct id_rec *id_search(char *id)
 		return NULL;
 	}
 
+	// Lowercase the name before lookup/insertion (matches legacy pdcid.c)
+	strlwr(id);
+
 	while (*cur != NULL) {
 		cmp = strcmp(id, (*cur)->name);
 		if (cmp == 0) {

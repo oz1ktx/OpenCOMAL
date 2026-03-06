@@ -95,10 +95,31 @@ Value evaluate(Interpreter& interp, const comal::Expression* expr) {
 
     case OpType::Sys:
     case OpType::Syss: {
+        const auto* elist = std::get_if<comal::ExpList*>(&expr->data());
+
+        // SPLIT$(str, sep, index) — multi-arg builtin via tsrsnSYM
+        // Note: exp_list is built in reverse order by the parser
+        if (expr->op() == _SPLIT) {
+            if (!elist || !*elist)
+                throw ComalError(ErrorCode::Parm, "SPLIT$ requires 3 arguments");
+            const auto* n3 = *elist;           // 3rd arg (index)
+            if (!n3 || !n3->exp() || !n3->next())
+                throw ComalError(ErrorCode::Parm, "SPLIT$ requires 3 arguments");
+            const auto* n2 = n3->next();       // 2nd arg (separator)
+            if (!n2->exp() || !n2->next())
+                throw ComalError(ErrorCode::Parm, "SPLIT$ requires 3 arguments");
+            const auto* n1 = n2->next();       // 1st arg (string)
+            if (!n1->exp())
+                throw ComalError(ErrorCode::Parm, "SPLIT$ requires 3 arguments");
+            Value a1 = evaluate(interp, n1->exp());
+            Value a2 = evaluate(interp, n2->exp());
+            Value a3 = evaluate(interp, n3->exp());
+            return evalSplit(interp, a1, a2, a3);
+        }
+
         // SYS/SYS$ take a command name (identifier) — extract it from the AST
         // rather than evaluating (which would look up a variable).
         std::string cmd;
-        const auto* elist = std::get_if<comal::ExpList*>(&expr->data());
         if (elist && *elist) {
             const auto* arg = (*elist)->exp();
             // Unwrap ExpIsNum/ExpIsString wrappers

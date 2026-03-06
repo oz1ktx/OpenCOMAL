@@ -1,6 +1,6 @@
 # OpenCOMAL Modernization - Project Status
 
-**Last Updated:** 4 March 2026
+**Last Updated:** 6 March 2026
 
 ---
 
@@ -14,11 +14,11 @@
 | Modern AST - Expressions | ✅ Complete | 100% |
 | Modern AST - Statements | ✅ Complete | 100% |
 | Parser Integration | ✅ Complete | 100% |
-| Runtime Library | 🔄 In Progress | ~95% |
+| Runtime Library | 🔄 In Progress | ~97% |
 | LSP Server | 🔜 Planned | 0% |
 | KDE GUI | 🔜 Planned | 0% |
 
-**Current Phase:** Phase 4 — Runtime Library (110/113 tests passing, 3 timeout due to interactive/infinite-loop tests)
+**Current Phase:** Phase 4 — Runtime Library (111/115 tests passing + 4 skipped)
 
 ---
 
@@ -153,12 +153,13 @@ limitations, not conversion bugs. Zero segfaults.
 **Scope:** Batch-only execution of text `.lst` files. No REPL, no squash format,
 no opencomal/opencomalrun split. Focused on running COMAL programs from files.
 
-**Architecture:** Modern C++20 runtime in `libcomal-runtime/` (3500+ lines):
-- **8 Headers:** `comal_value.h`, `comal_scope.h`, `comal_evaluator.h`,
+**Architecture:** Modern C++20 runtime in `libcomal-runtime/` (4000+ lines):
+- **9 Headers:** `comal_value.h`, `comal_scope.h`, `comal_evaluator.h`,
   `comal_executor.h`, `comal_interpreter.h`, `comal_builtins.h`,
-  `comal_file_io.h`, `comal_error.h`
-- **8 Source files:** `value.cpp`, `scope.cpp`, `evaluator.cpp`, `executor.cpp`,
-  `program.cpp`, `builtins.cpp`, `file_io.cpp`, `runtime_error.cpp`
+  `comal_file_io.h`, `comal_error.h`, `comal_interrupt.h`
+- **8 Source files:** `value.cpp` (273), `scope.cpp` (138), `evaluator.cpp` (478),
+  `executor.cpp` (1627), `program.cpp` (378), `builtins.cpp` (287),
+  `file_io.cpp` (193), `runtime_error.cpp` (13) — **4200 lines total**
 - **CLI tool:** `tools/comal_run.cpp` → `comal-run` binary
 
 **Key Runtime Components:**
@@ -190,7 +191,7 @@ no opencomal/opencomalrun split. Focused on running COMAL programs from files.
 2. `structureScan()` → validate nesting, link `linePtr` (IF→ENDIF, FOR→ENDFOR, etc.)
 3. `buildProcTable()` → index PROC/FUNC names
 4. `execSeq(progroot)` → main execution loop walks linked list
-5. Signal exceptions: `EndSignal` (END), `StopSignal` (STOP), `ReturnSignal` (RETURN/ENDPROC/ENDFUNC), `ExitSignal` (EXIT)
+5. Signal exceptions: `EndSignal` (END), `StopSignal` (STOP), `ReturnSignal` (RETURN/ENDPROC/ENDFUNC), `ExitSignal` (EXIT), `EscapeSignal` (Ctrl+C / SIGINT)
 
 **Bugs Found & Fixed (during runtime implementation):**
 1. **Incomplete types in evaluator/executor:** `comal_ast.h` must be included
@@ -214,12 +215,28 @@ no opencomal/opencomalrun split. Focused on running COMAL programs from files.
 7. **String FUNC calls misidentified as array access:** `evalSid()` auto-created
    a variable before checking `procTable`, then failed with "not an array".
    Fixed: check `procTable` first for calls with arguments.
+8. **`id_search` missing `strlwr`:** Legacy `pdcid.c` calls `strlwr(idname)`
+   but modern `parser_deps.cpp` didn't. Caused uppercase variable names and
+   double-`$` suffixes. Fixed: added `strlwr(id)` to `id_search()`.
+9. **`resolveLval` ignored `OpType::Sid`:** String array element assignment
+   `a$(f):=...` failed because only Id/Array/Sarray were checked for subscripts.
+   Fixed: added `ExpSid::exproot` extraction path.
+10. **READ/INPUT FILE array support:** Only read 1 value per lvalue. Added
+    `readFileLval()` helper that loops over array elements (matches legacy).
+11. **SYS/SYS$ case sensitivity:** After `strlwr` fix, identifiers were lowercase
+    but comparisons expected uppercase. Fixed: uppercase `cmd` in `evalSys`/`evalSyss`.
+12. **PRINT FILE name extraction:** `ExpIsString` wrapper hid the underlying
+    `OpType::Sid`. Fixed: unwrap before checking OpType.
 
-**Test Results (full suite — 113 tests):**
-- **110 PASS** — All statement types, builtins, file I/O, arrays, scoping, etc.
-- **3 TIMEOUT:** rnd()1.lst, rnd()2.lst (infinite `WHILE TRUE` requiring ESCAPE key),
-  signif1.lst (IEEE 754 infinite loop — also hangs in legacy runtime)
+**Test Results (full suite — 115 tests):**
+- **111 PASS** — All statement types, builtins, file I/O, arrays, scoping, etc.
+- **4 SKIP:** rnd()1.lst, rnd()2.lst (infinite loops, need SIGINT),
+  signif1.lst (IEEE 754 infinite loop), gentest.lst (interactive/requires keyboard)
 - **0 FAIL**
+
+**New tests added:**
+- `len2.lst` — LEN() on string arrays (1D, 2D, single-element)
+- `split1.lst` — SPLIT$() comprehensive tests (12 assertions)
 
 ---
 
@@ -228,14 +245,30 @@ no opencomal/opencomalrun split. Focused on running COMAL programs from files.
 ### ⏳ Runtime Library Completion (Phase 4 — Remaining Work)
 Remaining runtime tasks:
 
-1. **ESCAPE key handling** — rnd()1/rnd()2 tests require interactive ESCAPE key
-   to break out of `WHILE TRUE` loops. Would need signal-based interrupt handling.
+1. ~~**ESCAPE key handling**~~ ✅ **Done.** `InterruptController` (`comal_interrupt.h`)
+   with `std::atomic<bool>` flag, checked at every loop iteration boundary.
+   CLI hooks SIGINT via `sigaction`; future GUI calls `interrupt().request()`.
 
-2. **IMPORT of module variables** — Not yet implemented.
+2. ~~**PRINT FILE # modifier**~~ ✅ **Done.** Routes PRINT output to an open file
+   number. Implemented in `executor.cpp` `execPrint()`.
 
-3. **ZONE/TAB print formatting** — Not yet implemented.
+3. ~~**PRINT USING modifier**~~ ✅ **Done.** Format string–controlled output
+   (e.g. `####.##` → fixed-width decimal formatting).
 
-7. **TRAP/HANDLER** — Error handling mechanism not implemented.
+4. ~~**SPLIT$ builtin**~~ ✅ **Done.** `SPLIT$(str$, sep$, index)` returns the
+   index'th substring of str$ split by sep$. Implemented in `builtins.cpp`
+   `evalSplit()`, dispatched from `evaluator.cpp` via `_SPLIT` opcode (4039).
+   Note: parser builds `exp_list` in reverse (LIFO) order.
+
+5. ~~**LEN() for string arrays**~~ ✅ **Done.** `LEN(a$)` where `a$` is a DIM'd
+   array returns the number of elements. Implemented in `builtins.cpp` `evalBuiltinUnary()`.
+
+6. **LEN() for numeric arrays** — Extend LEN to accept numeric array arguments.
+   Requires grammar change since LEN is currently `tsrnSYM` (takes string only).
+
+7. **FUNC variable calls** — Calling a FUNC reference stored in a variable.
+   Legacy code uses `S_FUNCVAR`/`S_PROCVAR` symbol types in `routine_search()`
+   (`pdcexec.c` line 183). Modern runtime only searches `procTable` by name.
 
 ---
 
@@ -357,22 +390,23 @@ legacy line numbers.
 
 **Modern Code — Runtime (`libcomal-runtime/`):**
 - `include/comal_value.h` (136 lines) - Value variant type
-- `include/comal_scope.h` (132 lines) - Scope/symbol table
+- `include/comal_scope.h` (154 lines) - Scope/symbol table
 - `include/comal_evaluator.h` (41 lines) - Expression evaluator API
 - `include/comal_executor.h` (33 lines) - Statement executor API
-- `include/comal_interpreter.h` (151 lines) - Interpreter state
+- `include/comal_interpreter.h` (163 lines) - Interpreter state
+- `include/comal_interrupt.h` (58 lines) - InterruptController (atomic, signal/GUI-safe)
 - `include/comal_builtins.h` (34 lines) - Builtin function API
 - `include/comal_file_io.h` (73 lines) - File I/O abstraction
 - `include/comal_error.h` (118 lines) - Error codes and exceptions
-- `src/value.cpp` (252 lines) - Value arithmetic and conversion
-- `src/scope.cpp` (116 lines) - Scope stack and symbol lookup
-- `src/evaluator.cpp` (402 lines) - Expression evaluation dispatch
-- `src/executor.cpp` (1185 lines) - Statement execution (40+ types)
-- `src/program.cpp` (364 lines) - File loading, structure scan, proc table
-- `src/builtins.cpp` (222 lines) - Builtin function implementations
-- `src/file_io.cpp` (215 lines) - File operations
+- `src/value.cpp` (273 lines) - Value arithmetic and conversion
+- `src/scope.cpp` (138 lines) - Scope stack and symbol lookup
+- `src/evaluator.cpp` (457 lines) - Expression evaluation dispatch
+- `src/executor.cpp` (1496 lines) - Statement execution (40+ types)
+- `src/program.cpp` (378 lines) - File loading, structure scan, proc table
+- `src/builtins.cpp` (245 lines) - Builtin function implementations
+- `src/file_io.cpp` (193 lines) - File operations
 - `src/runtime_error.cpp` (13 lines) - Error formatting
-- `tools/comal_run.cpp` (34 lines) - CLI batch runner
+- `tools/comal_run.cpp` (56 lines) - CLI batch runner with SIGINT handling
 
 **Legacy Code:**
 - `legacy/src/` - Original C implementation

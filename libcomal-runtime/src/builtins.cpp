@@ -75,7 +75,10 @@ Value evalBuiltinUnary(Interpreter& interp, int op, const Value& arg) {
     case _NOT: return makeInt(arg.toInt() ? 0 : 1);
 
     // ── String functions ────────────────────────────────────────────────
-    case _LEN: return makeInt(static_cast<int64_t>(arg.asString().size()));
+    case _LEN:
+        if (arg.isArray())
+            return makeInt(static_cast<int64_t>(arg.asArray().elements.size()));
+        return makeInt(static_cast<int64_t>(arg.asString().size()));
 
     case _ORD: {
         const std::string& s = arg.asString();
@@ -213,8 +216,10 @@ Value evalRnd0(Interpreter& interp) {
 
 // ── SYS ─────────────────────────────────────────────────────────────────
 
-Value evalSys(Interpreter& interp, const std::string& cmd) {
+Value evalSys(Interpreter& interp, const std::string& cmd_in) {
     (void)interp;
+    std::string cmd = cmd_in;
+    for (auto& c : cmd) c = std::toupper(static_cast<unsigned char>(c));
     if (cmd == "VERSION") {
         return Value(0.26);  // matches legacy OPENCOMAL_VERSION "0.2.6"
     }
@@ -226,8 +231,10 @@ Value evalSys(Interpreter& interp, const std::string& cmd) {
     throw ComalError(ErrorCode::Sys, "Unknown SYS command: " + cmd);
 }
 
-Value evalSyss(Interpreter& interp, const std::string& cmd) {
+Value evalSyss(Interpreter& interp, const std::string& cmd_in) {
     (void)interp;
+    std::string cmd = cmd_in;
+    for (auto& c : cmd) c = std::toupper(static_cast<unsigned char>(c));
     if (cmd == "HOST")
         return Value(std::string("Linux"));
     if (cmd == "INTERPRETER")
@@ -240,6 +247,41 @@ Value evalSyss(Interpreter& interp, const std::string& cmd) {
     if (cmd == "DEBUG" || cmd == "YYDEBUG" || cmd == "SHOW_EXEC" || cmd == "SHORT_CIRCUIT")
         return Value(std::string("off"));
     throw ComalError(ErrorCode::Sys, "Unknown SYS$ command: " + cmd);
+}
+
+Value evalSplit(Interpreter& interp, const Value& str, const Value& sep, const Value& idx) {
+    (void)interp;
+    const std::string& s = str.asString();
+    const std::string& delim = sep.asString();
+    int64_t index = idx.toInt();
+
+    if (index < 1)
+        return Value(std::string{});
+
+    if (delim.empty()) {
+        // No separator: each character is a substring
+        if (index > static_cast<int64_t>(s.size()))
+            return Value(std::string{});
+        return Value(std::string(1, s[index - 1]));
+    }
+
+    // Walk through substrings separated by delim
+    int64_t count = 0;
+    size_t pos = 0;
+    while (pos <= s.size()) {
+        size_t next = s.find(delim, pos);
+        ++count;
+        if (count == index) {
+            if (next == std::string::npos)
+                return Value(s.substr(pos));
+            return Value(s.substr(pos, next - pos));
+        }
+        if (next == std::string::npos)
+            break;
+        pos = next + delim.size();
+    }
+
+    return Value(std::string{});
 }
 
 } // namespace comal::runtime

@@ -53,6 +53,8 @@ void execSeq(Interpreter& interp, ComalLine* start) {
     interp.curline = start;
 
     while (interp.curline) {
+        interp.checkInterrupt();
+
         ComalLine* line = interp.curline;
 
         // Trace mode
@@ -441,13 +443,144 @@ void execLine(Interpreter& interp, ComalLine* line) {
     }
 }
 
+// ── File read helper (handles arrays) ───────────────────────────────────
+
+// Read one lvalue from a binary file, handling whole-array reads.
+// Legacy do_readfile() reads N elements when lvalue is an array.
+static void readFileLval(Interpreter& interp, int64_t fno, const Expression* lval) {
+    // Determine expected type from the lvalue (unwrap wrappers)
+    const Expression* inner = lval;
+    while (inner && (inner->opType() == OpType::ExpIsNum ||
+                     inner->opType() == OpType::ExpIsString))
+        inner = inner->asExp();
+
+    Value::Type expected = Value::Type::Int;
+    if (inner->opType() == OpType::Sid || inner->opType() == OpType::Sarray)
+        expected = Value::Type::String;
+    else if (inner->opType() == OpType::Id) {
+        const auto& eid = std::get<ExpId>(inner->data());
+        if (eid.id && eid.id->type == V_STRING)
+            expected = Value::Type::String;
+        else if (eid.id && eid.id->type == V_FLOAT)
+            expected = Value::Type::Float;
+    }
+
+    // Resolve the lvalue to check if it's an array
+    Value& target = resolveLval(interp, lval);
+    if (target.isArray()) {
+        // Read one element per array slot (matches legacy do_readfile)
+        auto& arr = target.asArray();
+        for (auto& elem : arr.elements) {
+            Value val = interp.files.readValue(fno, expected);
+            elem.assignFrom(val);
+        }
+    } else {
+        Value val = interp.files.readValue(fno, expected);
+        assignToLval(interp, lval, val, becomesSYM);
+    }
+}
+
 // ── PRINT ───────────────────────────────────────────────────────────────
+
+// PRINT FILE — binary write to file (same format as WRITE FILE)
+static void printFile(Interpreter& interp, const TwoExp& te,
+                      const PrintList* printroot) {
+    int64_t fno = evaluate(interp, te.exp1).toInt();
+    if (te.exp2) {
+        int64_t pos = evaluate(interp, te.exp2).toInt();
+        interp.files.seek(fno, pos);
+    }
+
+    for (auto* node = printroot; node; node = node->next()) {
+        if (node->exp()) {
+            Value val = evaluate(interp, node->exp());
+            if (val.isArray()) {
+                // Legacy behavior: PRINT FILE rejects whole arrays
+                // Unwrap ExpIsNum/ExpIsString wrappers to get the actual Id/Sid
+                const Expression* inner = node->exp();
+                while (inner && (inner->opType() == OpType::ExpIsNum ||
+                                 inner->opType() == OpType::ExpIsString))
+                    inner = inner->asExp();
+                std::string varname = "array";
+                if (inner && inner->opType() == OpType::Id) {
+                    auto& eid = std::get<ExpId>(inner->data());
+                    if (eid.id) varname = eid.id->name;
+                } else if (inner && inner->opType() == OpType::Sid) {
+                    auto& esid = std::get<ExpSid>(inner->data());
+                    if (esid.id) varname = esid.id->name;
+                }
+                throw ComalError(ErrorCode::Array,
+                    "Missing string array indices on " + varname);
+            }
+            interp.files.writeValue(fno, val);
+        }
+    }
+}
+
+// PRINT USING — formatted numeric output
+// Format string uses '#' for digits, '.' for decimal point.
+// e.g. "####" → width 4, 0 decimals; "##.##" → width 5, 2 decimals.
+static void printUsing(Interpreter& interp, const Expression* fmtExpr,
+                       const PrintList* printroot, int pr_sep) {
+    Value fmtVal = evaluate(interp, fmtExpr);
+    if (!fmtVal.isString())
+        throw ComalError(ErrorCode::Using, "USING format must be a string");
+    const std::string& fmt = fmtVal.asString();
+
+    // Parse USING format: count total width and decimal precision
+    int width = 0, prec = 0;
+    bool decpoint = false;
+    for (char c : fmt) {
+        width++;
+        if (c == '#') {
+            if (decpoint) prec++;
+        } else if (c == '.') {
+            if (decpoint)
+                throw ComalError(ErrorCode::Using, "USING string format error");
+            decpoint = true;
+        } else {
+            throw ComalError(ErrorCode::Using, "USING string format error");
+        }
+    }
+
+    char spec[32];
+    std::snprintf(spec, sizeof(spec), "%%%d.%dlf", width, prec);
+
+    for (auto* node = printroot; node; node = node->next()) {
+        if (node->exp()) {
+            double d = evaluate(interp, node->exp()).toDouble();
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), spec, d);
+            interp.print(buf);
+        }
+
+        int sep = node->separator();
+        if (sep == commaSYM)
+            interp.print("\t");
+    }
+
+    if (pr_sep == 0)
+        interp.newline();
+    else if (pr_sep == commaSYM)
+        interp.print("\t");
+}
 
 static void execPrint(Interpreter& interp, ComalLine* line) {
     const auto& pr = line->asPrint();
 
-    // TODO: handle FILE modifier (PRINT FILE#...)
-    // TODO: handle USING modifier
+    if (pr.modifier) {
+        if (pr.modifier->type == fileSYM) {
+            if (auto* te = std::get_if<TwoExp>(&pr.modifier->data)) {
+                printFile(interp, *te, pr.printroot);
+                return;
+            }
+        } else if (pr.modifier->type == usingSYM) {
+            if (auto* fmtExpr = std::get_if<Expression*>(&pr.modifier->data)) {
+                printUsing(interp, *fmtExpr, pr.printroot, pr.pr_sep);
+                return;
+            }
+        }
+    }
 
     for (auto* node = pr.printroot; node; node = node->next()) {
         if (node->exp()) {
@@ -485,21 +618,7 @@ static void execInput(Interpreter& interp, ComalLine* line) {
             int64_t fno = evaluate(interp, te->exp1).toInt();
 
             for (auto* node = inp.lvalroot; node; node = node->next()) {
-                const Expression* lval = node->exp();
-                // Determine expected type from the lvalue
-                Value::Type expected = Value::Type::Int;
-                if (lval->opType() == OpType::Sid || lval->opType() == OpType::Sarray)
-                    expected = Value::Type::String;
-                else if (lval->opType() == OpType::Id) {
-                    const auto& eid = std::get<ExpId>(lval->data());
-                    if (eid.id && eid.id->type == V_STRING)
-                        expected = Value::Type::String;
-                    else if (eid.id && eid.id->type == V_FLOAT)
-                        expected = Value::Type::Float;
-                }
-
-                Value val = interp.files.readValue(fno, expected);
-                assignToLval(interp, lval, val, becomesSYM);
+                readFileLval(interp, fno, node->exp());
             }
             return;
         }
@@ -677,14 +796,19 @@ static Value& resolveLval(Interpreter& interp, const Expression* lval) {
 
     // Array element?
     if (sym->resolve().isArray()) {
-        const ExpId* eidp = nullptr;
+        // Extract subscript expressions — check both ExpId and ExpSid
+        const ExpList* exproot = nullptr;
         if (lval->opType() == OpType::Array || lval->opType() == OpType::Sarray ||
             lval->opType() == OpType::Id) {
-            eidp = std::get_if<ExpId>(&lval->data());
+            if (auto* eidp = std::get_if<ExpId>(&lval->data()))
+                exproot = eidp->exproot;
+        } else if (lval->opType() == OpType::Sid) {
+            auto& esid = std::get<ExpSid>(lval->data());
+            exproot = esid.exproot;
         }
-        if (eidp && eidp->exproot) {
+        if (exproot) {
             std::vector<int64_t> idx;
-            for (auto* node = eidp->exproot; node; node = node->next())
+            for (auto* node = exproot; node; node = node->next())
                 idx.push_back(evalInt(interp, node->exp()));
             auto& arr = sym->resolve().asArray();
             int64_t flat = arr.flatIndex(idx);
@@ -809,6 +933,7 @@ static void execFor(Interpreter& interp, ComalLine* line) {
     // Short-form FOR x := a TO b DO stat
     if (fr.stat) {
         while (true) {
+            interp.checkInterrupt();
             Value cur = evaluate(interp, fr.lval);
             if (pastEnd(cur.toDouble(), to_val.toDouble())) break;
             execLine(interp, fr.stat);
@@ -824,6 +949,7 @@ static void execFor(Interpreter& interp, ComalLine* line) {
     if (!endfor) throw ComalError(ErrorCode::For, "FOR without ENDFOR");
 
     while (true) {
+        interp.checkInterrupt();
         Value cur = evaluate(interp, fr.lval);
         if (pastEnd(cur.toDouble(), to_val.toDouble())) break;
 
@@ -861,6 +987,7 @@ static void execWhile(Interpreter& interp, ComalLine* line) {
     // Short-form: WHILE cond DO stat
     if (iw.stat) {
         while (true) {
+            interp.checkInterrupt();
             Value cond = evaluate(interp, iw.exp);
             if (cond.toInt() == 0) break;
             execLine(interp, iw.stat);
@@ -873,6 +1000,7 @@ static void execWhile(Interpreter& interp, ComalLine* line) {
     if (!endwhile) throw ComalError(ErrorCode::Scan, "WHILE without ENDWHILE");
 
     while (true) {
+        interp.checkInterrupt();
         Value cond = evaluate(interp, iw.exp);
         if (cond.toInt() == 0) break;
 
@@ -900,6 +1028,7 @@ static void execRepeat(Interpreter& interp, ComalLine* line) {
     const auto* iw = std::get_if<IfWhileRec>(&line->contents());
     if (iw && iw->stat) {
         do {
+            interp.checkInterrupt();
             execLine(interp, iw->stat);
         } while (iw->exp && evaluate(interp, iw->exp).toInt() == 0);
         return;
@@ -910,6 +1039,7 @@ static void execRepeat(Interpreter& interp, ComalLine* line) {
     if (!until_line) throw ComalError(ErrorCode::Scan, "REPEAT without UNTIL");
 
     while (true) {
+        interp.checkInterrupt();
         try {
             ComalLine* saved = interp.curline;
             interp.curline = line->next();
@@ -940,6 +1070,7 @@ static void execLoop(Interpreter& interp, ComalLine* line) {
     if (!endloop) throw ComalError(ErrorCode::Scan, "LOOP without ENDLOOP");
 
     while (true) {
+        interp.checkInterrupt();
         try {
             ComalLine* saved = interp.curline;
             interp.curline = line->next();
@@ -1231,17 +1362,10 @@ static void execRead(Interpreter& interp, ComalLine* line) {
     const auto& rr = line->asRead();
 
     if (rr.modifier) {
-        // File READ
+        // File READ — uses binary format with type tags
         int64_t fno = evalInt(interp, rr.modifier->exp1);
         for (auto* node = rr.lvalroot; node; node = node->next()) {
-            // Determine expected type from the lvalue
-            Value::Type expected = Value::Type::Int;
-            const Expression* lval = node->exp();
-            if (lval->opType() == OpType::Sid || lval->opType() == OpType::Sarray)
-                expected = Value::Type::String;
-
-            Value val = interp.files.readValue(fno, expected);
-            assignToLval(interp, lval, val, becomesSYM);
+            readFileLval(interp, fno, node->exp());
         }
         return;
     }
@@ -1289,10 +1413,23 @@ static void execWrite(Interpreter& interp, ComalLine* line) {
 // ── TRAP..HANDLER..ENDTRAP ──────────────────────────────────────────────
 
 static void execTrap(Interpreter& interp, ComalLine* line) {
-    ComalLine* handler = line->linePtr();  // HANDLER line
-    if (!handler)
-        throw ComalError(ErrorCode::Scan, "TRAP without HANDLER");
-    ComalLine* endtrap = handler->linePtr();  // ENDTRAP line
+    ComalLine* linked = line->linePtr();
+    if (!linked)
+        throw ComalError(ErrorCode::Scan, "TRAP without HANDLER/ENDTRAP");
+
+    // Determine if this is TRAP..HANDLER..ENDTRAP or TRAP..ENDTRAP (no handler).
+    // linePtr from TRAP points to HANDLER if present, otherwise to ENDTRAP.
+    ComalLine* handler = nullptr;
+    ComalLine* endtrap = nullptr;
+    if (linked->command() == StatementType::Handler) {
+        handler = linked;
+        endtrap = handler->linePtr();  // HANDLER→ENDTRAP
+    } else {
+        // TRAP..ENDTRAP with no HANDLER — errors are silently swallowed
+        endtrap = linked;
+    }
+
+    ComalLine* body_end = handler ? handler : endtrap;
 
     bool retry;
     do {
@@ -1300,7 +1437,7 @@ static void execTrap(Interpreter& interp, ComalLine* line) {
         try {
             // Execute TRAP body
             interp.curline = line->next();
-            while (interp.curline && interp.curline != handler) {
+            while (interp.curline && interp.curline != body_end) {
                 ComalLine* cur_line = interp.curline;
                 interp.curline = cur_line->next();
                 execLine(interp, cur_line);
@@ -1311,17 +1448,20 @@ static void execTrap(Interpreter& interp, ComalLine* line) {
             interp.lastErrorMsg = e.what();
             interp.lastErrorLine = e.line();
 
-            // Execute HANDLER body
-            try {
-                interp.curline = handler->next();
-                while (interp.curline && interp.curline != endtrap) {
-                    ComalLine* cur_line = interp.curline;
-                    interp.curline = cur_line->next();
-                    execLine(interp, cur_line);
+            if (handler) {
+                // Execute HANDLER body
+                try {
+                    interp.curline = handler->next();
+                    while (interp.curline && interp.curline != endtrap) {
+                        ComalLine* cur_line = interp.curline;
+                        interp.curline = cur_line->next();
+                        execLine(interp, cur_line);
+                    }
+                } catch (RetrySignal&) {
+                    retry = true;
                 }
-            } catch (RetrySignal&) {
-                retry = true;
             }
+            // else: no HANDLER — error is silently swallowed
         }
     } while (retry);
 

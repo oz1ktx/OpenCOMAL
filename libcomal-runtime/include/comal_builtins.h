@@ -29,6 +29,9 @@ Value evalSys(Interpreter& interp, const std::string& cmd);
 /// SYS$(cmd) — string system function (cmd is identifier name, e.g. "HOST")
 Value evalSyss(Interpreter& interp, const std::string& cmd);
 
+/// SPLIT$(str, sep, index) — return the index'th substring of str split by sep.
+Value evalSplit(Interpreter& interp, const Value& str, const Value& sep, const Value& idx);
+
 } // namespace comal::runtime
 
 #endif // COMAL_BUILTINS_H

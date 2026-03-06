@@ -22,6 +22,7 @@
 #include "comal_scope.h"
 #include "comal_file_io.h"
 #include "comal_error.h"
+#include "comal_interrupt.h"
 #include "comal_ast_modern.h"
 
 namespace comal::runtime {
@@ -105,6 +106,14 @@ public:
     /// Trace mode flag.
     bool trace{false};
 
+    /// Interrupt controller — signal-safe, GUI-safe cancellation.
+    /// CLI installs a SIGINT handler; GUI connects a Stop button.
+    InterruptController& interrupt() noexcept { return interrupt_; }
+
+    /// Check for pending interrupt (convenience wrapper).
+    /// Call at loop iteration boundaries and in execSeq.
+    void checkInterrupt() { interrupt_.check(); }
+
     /// Last error info (for ERR, ERR$, ERRLINE).
     ErrorCode lastError{ErrorCode::None};
     std::string lastErrorMsg;
@@ -139,6 +148,9 @@ public:
     void resetRunState();
 
 private:
+    /// Interrupt controller instance.
+    InterruptController interrupt_;
+
     /// Storage for parsed lines (owns the ParseTree objects).
     std::vector<std::unique_ptr<ParseTree>> trees_;
 
