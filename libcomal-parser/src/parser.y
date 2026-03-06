@@ -86,6 +86,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	delSYM 
 %token	dimSYM
 %token  dirSYM
+%token  drawSYM
 %token	divideSYM 
 %token	divSYM 
 %token	doSYM 
@@ -183,7 +184,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	whileSYM 
 %token	writeSYM
 
-%token	<inum>		rnSYM rsSYM tnrnSYM tnrsSYM tsrnSYM tonrsSYM tsrsSYM tsrsnSYM
+%token	<inum>		rnSYM rsSYM tnrnSYM tnrsSYM tsrnSYM tonrsSYM tsrsSYM tsrsnSYM lenSYM
 %token	<dubbel>	floatnumSYM
 %token	<id>		idSYM intidSYM stringidSYM
 %token	<num>		intnumSYM
@@ -230,7 +231,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %type	<cl>		select_out_stat stop_stat sys_stat write_stat assign_stat
 %type	<cl>		select_in_stat exit_stat trace_stat cursor_stat chdir_stat
 %type	<cl>		rmdir_stat mkdir_stat repeat_stat
-%type	<cl>		local_stat trap_stat dir_stat unit_stat
+%type	<cl>		local_stat trap_stat dir_stat unit_stat draw_stat
 
 %type	<pcl>		optsimple_stat 
 
@@ -454,6 +455,7 @@ program_line	:	complex_stat
 		
 complex_stat	:	case_stat
 		|	data_stat
+		|	draw_stat
 		|	elif_stat
 		|	exit_stat
 		|	for_stat
@@ -639,6 +641,13 @@ mkdir_stat	:	mkdirSYM stringexp
 data_stat	:	dataSYM exp_list
 			{
 				$$.cmd=dataSYM;
+				$$.lc.exproot=PARS_REVERSE(struct exp_list, $2);
+			}
+		;
+
+draw_stat	:	drawSYM exp_list
+			{
+				$$.cmd=drawSYM;
 				$$.lc.exproot=PARS_REVERSE(struct exp_list, $2);
 			}
 		;
@@ -1447,6 +1456,14 @@ numexp2		:	numexp2 eqlSYM numexp2
 			}
 		|	numlvalue2
 		|	tsrnSYM lparenSYM stringexp2 rparenSYM
+			{
+				$$=pars_exp_unary($1,$3);
+			}
+		|	lenSYM lparenSYM stringexp2 rparenSYM
+			{
+				$$=pars_exp_unary($1,$3);
+			}
+		|	lenSYM lparenSYM numexp2 rparenSYM
 			{
 				$$=pars_exp_unary($1,$3);
 			}

@@ -14,11 +14,11 @@
 | Modern AST - Expressions | ✅ Complete | 100% |
 | Modern AST - Statements | ✅ Complete | 100% |
 | Parser Integration | ✅ Complete | 100% |
-| Runtime Library | 🔄 In Progress | ~97% |
+| Runtime Library | ✅ Complete | 100% |
 | LSP Server | 🔜 Planned | 0% |
 | KDE GUI | 🔜 Planned | 0% |
 
-**Current Phase:** Phase 4 — Runtime Library (111/115 tests passing + 4 skipped)
+**Current Phase:** Phase 4 — Runtime Library ✅ Complete (115/119 tests passing + 4 skipped)
 
 ---
 
@@ -148,7 +148,7 @@ limitations, not conversion bugs. Zero segfaults.
    `e.expid`/`e.expsid` for SYS/SYSS expressions — parser actually stores
    these as `e.exproot`. Fixed: separate handling for Sys/Syss in conversion.
 
-### 🔄 Runtime Library - Phase 4 (In Progress)
+### ✅ Runtime Library - Phase 4 (Complete)
 
 **Scope:** Batch-only execution of text `.lst` files. No REPL, no squash format,
 no opencomal/opencomalrun split. Focused on running COMAL programs from files.
@@ -228,8 +228,8 @@ no opencomal/opencomalrun split. Focused on running COMAL programs from files.
 12. **PRINT FILE name extraction:** `ExpIsString` wrapper hid the underlying
     `OpType::Sid`. Fixed: unwrap before checking OpType.
 
-**Test Results (full suite — 115 tests):**
-- **111 PASS** — All statement types, builtins, file I/O, arrays, scoping, etc.
+**Test Results (full suite — 119 tests):**
+- **115 PASS** — All statement types, builtins, file I/O, arrays, scoping, etc.
 - **4 SKIP:** rnd()1.lst, rnd()2.lst (infinite loops, need SIGINT),
   signif1.lst (IEEE 754 infinite loop), gentest.lst (interactive/requires keyboard)
 - **0 FAIL**
@@ -237,13 +237,22 @@ no opencomal/opencomalrun split. Focused on running COMAL programs from files.
 **New tests added:**
 - `len2.lst` — LEN() on string arrays (1D, 2D, single-element)
 - `split1.lst` — SPLIT$() comprehensive tests (12 assertions)
+- `len3.lst` — LEN() on numeric arrays (1D, 2D, single-element)
+- `funcvar1.lst` — FUNC variable calls (passing FUNC as parameter)
+- `funcvar2.lst` — FUNC variable calls: string FUNC$, zero-arg, multi-arg
+- `draw1.lst` — DRAW placeholder (accepts mixed expression lists)
 
 ---
 
 ## What's Next (Immediate)
 
-### ⏳ Runtime Library Completion (Phase 4 — Remaining Work)
-Remaining runtime tasks:
+### ✅ Runtime Library Complete (Phase 4)
+All runtime tasks completed. 115/119 tests passing (4 skipped: interactive/infinite-loop).
+
+**DRAW command placeholder** added — `DRAW expr, expr, ...` is parsed (comma-separated
+expression list of any length/type) and silently ignored at runtime. When the graphics
+addon (`future_graphics_addon.md`) is connected, the expression list will be forwarded
+to the graphics renderer.
 
 1. ~~**ESCAPE key handling**~~ ✅ **Done.** `InterruptController` (`comal_interrupt.h`)
    with `std::atomic<bool>` flag, checked at every loop iteration boundary.
@@ -263,12 +272,16 @@ Remaining runtime tasks:
 5. ~~**LEN() for string arrays**~~ ✅ **Done.** `LEN(a$)` where `a$` is a DIM'd
    array returns the number of elements. Implemented in `builtins.cpp` `evalBuiltinUnary()`.
 
-6. **LEN() for numeric arrays** — Extend LEN to accept numeric array arguments.
-   Requires grammar change since LEN is currently `tsrnSYM` (takes string only).
+6. ~~**LEN() for numeric arrays**~~ ✅ **Done.** Gave LEN its own parser token
+   (`lenSYM`) so it accepts both `stringexp2` and `numexp2` arguments.
+   Grammar rules added to `parser.y`; keyword table updated in
+   `lexer_support.cpp`. Runtime `evalBuiltinUnary` already handled arrays.
 
-7. **FUNC variable calls** — Calling a FUNC reference stored in a variable.
-   Legacy code uses `S_FUNCVAR`/`S_PROCVAR` symbol types in `routine_search()`
-   (`pdcexec.c` line 183). Modern runtime only searches `procTable` by name.
+7. ~~**FUNC variable calls**~~ ✅ **Done.** `SymbolKind::FuncRef` symbols
+   (created when passing FUNC as parameter) are now resolved in `evalId()` and
+   `evalSid()`. Both with-args and zero-arg cases handled. `execCall()` already
+   looked up FuncRef/ProcRef in the scope stack; the evaluator just needed to
+   route through `execFuncCall()` instead of throwing NotImpl.
 
 ---
 

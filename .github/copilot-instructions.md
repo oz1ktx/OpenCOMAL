@@ -62,15 +62,13 @@ This project has a **modern C++20** frontend and runtime, plus a **legacy C** co
 **Testing & validation tips:**
 - Test programs: `legacy/samples/tests/*.lst` (~115 files)
 - Run single test: `./build/libcomal-runtime/comal-run legacy/samples/tests/for1.lst`
-- Run all tests: `cd build && bash run_tests.sh` (111 PASS / 0 FAIL / 4 SKIP)
+- Run all tests: `cd build && bash run_tests.sh` (115 PASS / 0 FAIL / 4 SKIP)
 - Test runner: `build/run_tests.sh` — skips interactive/infinite-loop tests
-- Some tests need INPUT (will timeout with no stdin) — use timeout
+- New tests: len2.lst (LEN on string arrays), split1.lst (SPLIT$ comprehensive), len3.lst (LEN on numeric arrays), funcvar1.lst, funcvar2.lst (FUNC variable calls), draw1.lst (DRAW placeholder)
 
 **Current project phase:**
-- Phases 1-3 complete (Expression AST, Statement AST, Parser Integration)
-- Phase 4 nearly complete (~97%): Runtime Library — batch execution of .lst files
-- 111/115 tests passing (4 skipped: interactive/infinite-loop)
-- Remaining: LEN() for numeric arrays, FUNC variable calls
+- Phases 1-4 complete (Expression AST, Statement AST, Parser Integration, Runtime Library)
+- 115/119 tests passing (4 skipped: interactive/infinite-loop)
 - See `docs/PROJECT_STATUS.md` for detailed status, bugs found/fixed, and priorities
 
 **Editing notes for contributors/agents:**

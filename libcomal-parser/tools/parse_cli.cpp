@@ -352,6 +352,7 @@ static void print_modern_line(const ComalLine* line) {
 		break;
 	}
 	case StatementType::Data:
+	case StatementType::Draw:
 	case StatementType::Close: {
 		auto* el = std::get_if<ExpList*>(&line->contents());
 		if (el) print_exp_list(*el);

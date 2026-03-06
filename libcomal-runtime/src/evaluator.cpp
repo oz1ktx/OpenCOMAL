@@ -263,9 +263,7 @@ static Value evalId(Interpreter& interp, const comal::ExpId& eid) {
             }
             // If it's a FUNC reference, call it
             if (sym->kind == SymbolKind::FuncRef) {
-                // TODO: call through func reference
-                throw ComalError(ErrorCode::NotImpl,
-                    "FUNC variable call not yet implemented");
+                return execFuncCall(interp, name, eid.exproot);
             }
         }
 
@@ -280,6 +278,9 @@ static Value evalId(Interpreter& interp, const comal::ExpId& eid) {
 
     // Simple variable lookup
     Symbol* sym = interp.scopes.current().find(name);
+    if (sym && sym->kind == SymbolKind::FuncRef) {
+        return execFuncCall(interp, name, nullptr);
+    }
     if (sym && sym->kind == SymbolKind::NameThunk) {
         // NAME parameter: re-evaluate expression in caller's scope
         Scope* thunk_scope = sym->name_scope;
@@ -334,6 +335,11 @@ static Value evalSid(Interpreter& interp, const comal::ExpSid& esid) {
 
     // If there are arguments, check for FUNC call first
     if (esid.exproot) {
+        // Check for FUNC variable reference
+        Symbol* sym_check = interp.scopes.current().find(name);
+        if (sym_check && sym_check->kind == SymbolKind::FuncRef) {
+            return execFuncCall(interp, name, esid.exproot);
+        }
         auto it = interp.procTable.find(name);
         if (it != interp.procTable.end()) {
             return execFuncCall(interp, name, esid.exproot);
@@ -342,6 +348,9 @@ static Value evalSid(Interpreter& interp, const comal::ExpSid& esid) {
 
     // Look up the variable
     Symbol* sym = interp.scopes.current().find(name);
+    if (sym && sym->kind == SymbolKind::FuncRef) {
+        return execFuncCall(interp, name, nullptr);
+    }
     if (sym && sym->kind == SymbolKind::NameThunk) {
         Scope proxy;
         proxy.parent = sym->name_scope;

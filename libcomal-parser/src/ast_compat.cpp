@@ -569,6 +569,7 @@ static StatementType map_cmd(int cmd) {
         case select_outputSYM: return StatementType::Select_Output;
         case select_inputSYM:  return StatementType::Select_Input;
         case dirSYM:           return StatementType::Dir;
+        case drawSYM:          return StatementType::Draw;
         case unitSYM:          return StatementType::Unit;
         case chdirSYM:         return StatementType::Chdir;
         case mkdirSYM:         return StatementType::Mkdir;
@@ -723,6 +724,7 @@ ComalLine* convert_comal_line(const struct comal_line* old_line) {
         // ---- Expression list (lc.exproot) ----
         case closeSYM:
         case dataSYM:
+        case drawSYM:
         case sysSYM:
             contents = convert_exp_list(old_line->lc.exproot);
             break;

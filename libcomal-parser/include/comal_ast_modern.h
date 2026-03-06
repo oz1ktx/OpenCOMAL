@@ -584,6 +584,7 @@ enum class StatementType : int {
     Mkdir,              // MKDIR path
     Rmdir,              // RMDIR path
     Os,                 // OS command
+    Draw,               // DRAW expr, ... (graphics placeholder)
     Retry,              // RETRY (in HANDLER)
     Trace,              // TRACE on/off
     Label,              // label:

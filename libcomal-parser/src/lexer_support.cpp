@@ -72,6 +72,7 @@ PRIVATE struct {
 	delSYM, 0, "DEL"}, {
 	dimSYM, 0, "DIM"}, {
 	dirSYM, 0, "DIR"}, {
+	drawSYM, 0, "DRAW"}, {
 	rsSYM, _DIR, "DIR$"}, {
 	divSYM, 0, "DIV"}, {
 	doSYM, 0, "DO"}, {
@@ -117,7 +118,7 @@ PRIVATE struct {
 	inputSYM, 0, "INPUT"}, {
 	tnrnSYM, _INT, "INT"}, {
 	rsSYM, _KEY, "KEY$"}, {
-	tsrnSYM, _LEN, "LEN"}, {
+	lenSYM, _LEN, "LEN"}, {
 	listSYM, 0, "LIST"}, {
 	tnrnSYM, _LN, "LN"}, {
 	tnrnSYM, _LOG, "LOG"}, {

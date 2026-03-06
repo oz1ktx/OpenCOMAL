@@ -431,6 +431,10 @@ void execLine(Interpreter& interp, ComalLine* line) {
     case StatementType::Env:
     case StatementType::Quit:
     case StatementType::Run:
+    case StatementType::Draw:
+        // Graphics placeholder — silently ignored until graphics addon is available
+        break;
+
     case StatementType::Dir:
     case StatementType::Unit:
         // Not applicable in batch mode — ignore or warn
