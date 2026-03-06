@@ -23,11 +23,11 @@ Value evalRnd(Interpreter& interp, const Value& lo, const Value& hi);
 /// Evaluate RND with no arguments (returns float in [0,1)).
 Value evalRnd0(Interpreter& interp);
 
-/// SYS(n) — numeric system function
-Value evalSys(Interpreter& interp, const Value& arg);
+/// SYS(cmd) — numeric system function (cmd is identifier name, e.g. "VERSION")
+Value evalSys(Interpreter& interp, const std::string& cmd);
 
-/// SYS$(n) / SYS$(n, arg) — string system function
-Value evalSyss(Interpreter& interp, const Value& arg);
+/// SYS$(cmd) — string system function (cmd is identifier name, e.g. "HOST")
+Value evalSyss(Interpreter& interp, const std::string& cmd);
 
 } // namespace comal::runtime
 

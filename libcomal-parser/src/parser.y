@@ -1113,7 +1113,7 @@ trace_stat	:	traceSYM numexp
 			{
 				char *cmd=exp_cmd($2);
 				
-				if (strcmp(cmd,"on")!=0 && strcmp(cmd,"off")!=0)
+				if (strcasecmp(cmd,"on")!=0 && strcasecmp(cmd,"off")!=0)
 					pars_error("TRACE \"on\" or \"off\"");
 				
 				$$.cmd=traceSYM;

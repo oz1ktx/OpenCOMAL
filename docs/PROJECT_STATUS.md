@@ -14,11 +14,11 @@
 | Modern AST - Expressions | ✅ Complete | 100% |
 | Modern AST - Statements | ✅ Complete | 100% |
 | Parser Integration | ✅ Complete | 100% |
-| Runtime Library | � In Progress | ~50% |
+| Runtime Library | 🔄 In Progress | ~95% |
 | LSP Server | 🔜 Planned | 0% |
 | KDE GUI | 🔜 Planned | 0% |
 
-**Current Phase:** Phase 4 — Runtime Library (batch execution working, fixing remaining built-in/feature gaps)
+**Current Phase:** Phase 4 — Runtime Library (110/113 tests passing, 3 timeout due to interactive/infinite-loop tests)
 
 ---
 
@@ -215,51 +215,63 @@ no opencomal/opencomalrun split. Focused on running COMAL programs from files.
    a variable before checking `procTable`, then failed with "not an array".
    Fixed: check `procTable` first for calls with arguments.
 
-**Test Results (partial run — 25 of ~113 tests):**
-- **13 PASS:** abs()1, append1, assign1, bigstr, case1, chr$()1, closed1,
-  closed2, cursor1, deg()1, dim3, eod1, eof()1
-- **12 FAIL:** acs()1, asn()1, atn()1, cos()1 (timeout — missing trig builtins),
-  arr1, bigarray, dim1, dim2 (array issues), close1, dirs, del1 (file I/O),
-  end1
-
-**Known Unimplemented Features:**
-- Trig builtins: ACS, ASN, ATN, COS (cause timeouts — likely infinite loop
-  in unimplemented/misrouted builtin dispatch)
-- Array DIM with multiple dimensions (dim1, dim2 failures)
-- File I/O: CLOSE, DELETE, DIRECTORY (close1, del1, dirs failures)
-- Substring assignment: `c$(1:4):="ABC"`
-- TRAP/HANDLER error handling
-- IMPORT of module variables
-- ZONE/TAB print formatting
+**Test Results (full suite — 113 tests):**
+- **110 PASS** — All statement types, builtins, file I/O, arrays, scoping, etc.
+- **3 TIMEOUT:** rnd()1.lst, rnd()2.lst (infinite `WHILE TRUE` requiring ESCAPE key),
+  signif1.lst (IEEE 754 infinite loop — also hangs in legacy runtime)
+- **0 FAIL**
 
 ---
 
 ## What's Next (Immediate)
 
 ### ⏳ Runtime Library Completion (Phase 4 — Remaining Work)
-Priority order for remaining runtime tasks:
+Remaining runtime tasks:
 
-1. **Fix trig builtin routing** — ACS, ASN, ATN, COS cause timeouts (likely
-   infinite loop in unimplemented or misrouted builtin dispatch). Check
-   `builtins.cpp` dispatch and `evaluator.cpp` for how function-code constants
-   from `comal_functions.h` are mapped.
+1. **ESCAPE key handling** — rnd()1/rnd()2 tests require interactive ESCAPE key
+   to break out of `WHILE TRUE` loops. Would need signal-based interrupt handling.
 
-2. **Fix array DIM** — dim1.lst and dim2.lst fail. Need to verify multi-dimension
-   DIM, string DIM with length (`DIM a$ OF 20`), and array element assignment.
+2. **IMPORT of module variables** — Not yet implemented.
 
-3. **Complete test suite run** — Run all ~113 `legacy/samples/tests/*.lst` with
-   `timeout 2 ./libcomal-runtime/comal-run <file>`. Categorize all results.
-
-4. **Implement missing builtins** — Based on test results, fill in stubs in
-   `builtins.cpp` (trig functions, string functions, etc.).
-
-5. **File I/O** — CLOSE, DELETE, DIRECTORY not implemented. close1.lst, del1.lst,
-   dirs.lst fail.
-
-6. **Substring assignment** — `c$(from:to):="ABC"` needs special LHS handling
-   in `execAssign()`.
+3. **ZONE/TAB print formatting** — Not yet implemented.
 
 7. **TRAP/HANDLER** — Error handling mechanism not implemented.
+
+---
+
+## Investigation Notes (Future)
+
+### File I/O Simplification
+The legacy COMAL has overlapping file statements that caused confusion during
+implementation: INPUT FILE vs READ FILE (both do binary reads), and PRINT FILE
+vs WRITE FILE (both do binary writes). The modern runtime currently mirrors the
+legacy behavior, but we should investigate whether this can be **simplified and
+made more consistent** — e.g. one clear binary I/O path and one text I/O path,
+rather than four partially-overlapping statement forms.
+
+### Extended INPUT Sources
+The INPUT FILE construct opens an interesting design direction: INPUT could be
+generalized to accept different **source types** beyond keyboard and file:
+
+- **Stream input** (`INPUT STREAM`): Read from stdin/pipes line by line, making
+  COMAL usable as a **stream processor** similar to AWK. This would enable COMAL
+  programs in Unix pipelines (`cat data.txt | comal-run filter.lst`).
+- **Message queue input** (`INPUT QUEUE`): Read from an inter-thread message
+  queue, enabling a **multithreading model** where COMAL PROCs run in separate
+  threads and communicate via typed message channels.
+
+These would be modern extensions beyond the original COMAL spec but could make
+the language relevant for contemporary use cases. Worth investigating once the
+core runtime is stable.
+
+### Parser Support for Line-Number-Free Source Files
+The current Bison grammar only accepts `complex_stat` (FOR, IF, WHILE, REPEAT,
+CASE, PROC, FUNC, and their END markers) when preceded by a line number. Without
+a number, only `simple_stat` is matched. This means source files **must** have
+COMAL line numbers for any non-trivial program. The fix is to add `program_line`
+as a direct alternative in the `comal_line` rule (which subsumes the existing
+`simple_stat` case). This will be needed when the GUI saves programs without
+legacy line numbers.
 
 ---
 
@@ -417,22 +429,20 @@ When returning to this project:
 
 1. **Read first:** This file (`docs/PROJECT_STATUS.md`) for overall status
 2. **Reference:** `docs/AST_USAGE.md` for modern AST patterns
-3. **Current task:** Phase 4 runtime — fix remaining test failures
+3. **Current task:** Phase 4 runtime — 110/113 tests passing, 3 timeout (interactive/infinite-loop)
 4. **Key files to review:**
    - `libcomal-runtime/src/executor.cpp` — main execution dispatch
    - `libcomal-runtime/src/evaluator.cpp` — expression evaluation
    - `libcomal-runtime/src/builtins.cpp` — builtin function implementations
 5. **Test with:** `cd build && make -j$(nproc) && ./libcomal-runtime/comal-run <file.lst>`
-6. **Partial test results** saved in `/tmp/tr.txt` (25 of ~113 run)
+6. **Full test suite:** Use Python runner (see Quick Commands) — shell `timeout -s KILL` kills process groups
 
 **Where we stopped:**
-- FOR loop (step direction) and FUNC calls (including string FUNCs) are fixed
-- 13/25 tests pass in partial run; remaining failures are trig builtins (timeout),
-  array DIM issues, and file I/O stubs
-- Full test suite run was interrupted — needs to be completed
-- Next priority: fix trig builtin routing (acs, asn, atn, cos cause timeouts),
-  then array DIM, then run full suite
+- 110/113 tests pass, 0 fail, 3 timeout
+- Timeouts: rnd()1/rnd()2 (WHILE TRUE + ESCAPE), signif1 (IEEE 754 infinite loop, also hangs in legacy)
+- All builtins, file I/O (binary + text), arrays, scoping, PROC/FUNC, TRAP/HANDLER,
+  SYS/SYS$, OS, INPUT FILE, WRITE FILE, TRACE, etc. implemented
+- Next: ESCAPE key signal handling, IMPORT, ZONE/TAB formatting, or move to Phase 5 (LSP)
 
-Phases 1–3 complete (parser integration). Phase 4 runtime ~50% done: core
-execution, scoping, FOR/IF/WHILE/CASE/PROC/FUNC working. Batch runner
-`comal-run` operational. Remaining: builtins, arrays, file I/O, error handling.
+Phases 1–3 complete (parser integration). Phase 4 runtime ~95% done: 110/113
+tests passing. Batch runner `comal-run` fully operational.

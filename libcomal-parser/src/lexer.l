@@ -112,7 +112,7 @@ exp			[Ee][\-\+]?{number}+
 \;						RETURN(semicolonSYM);
 \,						RETURN(commaSYM);
 \#						RETURN(fileSYM);
-\/\/[^\r?\n]*					RETURN(lex_rem());
+\/\/[^\r\n]*					RETURN(lex_rem());
 \"(\"\"|\\\"|[^\"\n])*\"?			RETURN(lex_string_flatten());
 {letter}{netter}*				RETURN(lex_id(idSYM));
 {letter}{netter}*\#				RETURN(lex_id(intidSYM));
@@ -173,10 +173,13 @@ PUBLIC void lex_setinput(char *line)
 	{
 		#ifdef FLEX
 			yyrestart(NULL);
+			if (YY_CURRENT_BUFFER)
+				yy_flush_buffer(YY_CURRENT_BUFFER);
 		#endif
 
 		strcpy(curline,line);
 		lineptr=0;
+		unputsp=0;
 	}
 		
 	

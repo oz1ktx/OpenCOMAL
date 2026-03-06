@@ -21,6 +21,7 @@ struct id_rec;   // forward from legacy parser
 
 namespace comal {
 class ComalLine;
+class Expression;
 }
 
 namespace comal::runtime {
@@ -32,7 +33,10 @@ enum class SymbolKind {
     RefAlias,      // REF parameter — points to another Variable's storage
     ProcRef,       // PROC variable (passed as parameter)
     FuncRef,       // FUNC variable (passed as parameter)
+    NameThunk,     // NAME parameter — unevaluated expression + calling scope
 };
+
+class Scope;  // forward declaration for use in Symbol
 
 /// One symbol in a scope.
 struct Symbol {
@@ -47,6 +51,10 @@ struct Symbol {
 
     /// For ProcRef / FuncRef: the line defining the routine.
     ComalLine* routine_line{nullptr};
+
+    /// For NameThunk: the unevaluated expression and calling scope.
+    const Expression* name_expr{nullptr};
+    Scope* name_scope{nullptr};
 
     // Convenience
     Value& resolve() { return ref_target ? *ref_target : value; }
@@ -82,6 +90,9 @@ public:
     /// Define a REF alias.
     Symbol& defineRef(const std::string& name, Value* target);
 
+    /// Define a NAME thunk (unevaluated expression + calling scope).
+    Symbol& defineName(const std::string& name, const Expression* expr, Scope* caller_scope);
+
     /// Define a PROC/FUNC reference.
     Symbol& defineProcFunc(const std::string& name, SymbolKind kind,
                            ComalLine* routine);
@@ -112,7 +123,10 @@ public:
     Scope& global() { return *scopes_.front(); }
 
     /// The current (top-most) scope.
-    Scope& current() { return *scopes_.back(); }
+    Scope& current() {
+        if (!raw_stack_.empty()) return *raw_stack_.back();
+        return *scopes_.back();
+    }
 
     /// Push a new scope (for a PROC/FUNC call).
     Scope& push(const std::string& name, bool closed, ComalLine* proc, int level);
@@ -120,11 +134,19 @@ public:
     /// Pop the current scope (returning from a PROC/FUNC).
     void pop();
 
+    /// Push a borrowed scope pointer (for NAME thunk evaluation).
+    /// The caller retains ownership; must call popRaw() before the scope is destroyed.
+    void pushRaw(Scope* s);
+
+    /// Pop a borrowed scope pushed via pushRaw().
+    void popRaw();
+
     /// Depth (1 = global only).
-    size_t depth() const { return scopes_.size(); }
+    size_t depth() const { return scopes_.size() + raw_stack_.size(); }
 
 private:
     std::vector<std::unique_ptr<Scope>> scopes_;
+    std::vector<Scope*> raw_stack_;    // borrowed scope pointers from pushRaw
 };
 
 } // namespace comal::runtime

@@ -12,6 +12,7 @@
 #include "parser.tab.h"          // token constants
 
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <cstdlib>
@@ -189,6 +190,22 @@ void execLine(Interpreter& interp, ComalLine* line) {
         break;
     }
 
+    case StatementType::Trace: {
+        auto* expr = std::get_if<Expression*>(&line->contents());
+        if (expr && *expr) {
+            // Unwrap ExpIsNum/ExpIsString wrapper if present
+            const Expression* e = *expr;
+            if (e->opType() == OpType::ExpIsNum || e->opType() == OpType::ExpIsString)
+                e = e->asExp();
+            if (e->opType() == OpType::Id) {
+                std::string name = std::get<ExpId>(e->data()).id->name;
+                for (auto& c : name) c = std::toupper(c);
+                interp.trace = (name == "ON");
+            }
+        }
+        break;
+    }
+
     // ── File I/O ────────────────────────────────────────────────────────
     case StatementType::Open:
         execOpen(interp, line);
@@ -212,9 +229,15 @@ void execLine(Interpreter& interp, ComalLine* line) {
         break;
 
     // ── TRAP/HANDLER ────────────────────────────────────────────────────
-    case StatementType::Trap:
+    case StatementType::Trap: {
+        const auto& tr = line->asTrap();
+        if (tr.esc != 0) {
+            // TRAP ESC+/- : simple statement, no-op in batch mode
+            break;
+        }
         execTrap(interp, line);
         break;
+    }
 
     case StatementType::Handler:
         // If we fall through to HANDLER, skip to ENDTRAP
@@ -296,10 +319,11 @@ void execLine(Interpreter& interp, ComalLine* line) {
     }
 
     case StatementType::Os: {
-        auto* str = std::get_if<string*>(&line->contents());
-        if (str && *str) {
-            std::string cmd((*str)->s, (*str)->len);
-            std::system(cmd.c_str());
+        auto* expr = std::get_if<Expression*>(&line->contents());
+        if (expr && *expr) {
+            std::string cmd = evalString(interp, *expr);
+            if (!cmd.empty())
+                std::system(cmd.c_str());
         }
         break;
     }
@@ -315,14 +339,64 @@ void execLine(Interpreter& interp, ComalLine* line) {
 
     // ── SELECT OUTPUT / INPUT ───────────────────────────────────────────
     case StatementType::Select_Output: {
-        const auto& te = line->asTwoExp();
-        interp.selOutput = evalInt(interp, te.exp1);
+        auto* expr = std::get_if<Expression*>(&line->contents());
+        if (expr && *expr) {
+            Value v = evaluate(interp, *expr);
+            if (v.isString()) {
+                const std::string& fname = v.asString();
+                if (fname.empty()) {
+                    // Restore stdout
+                    if (interp.out != &std::cout) {
+                        delete interp.out;
+                        interp.out = &std::cout;
+                    }
+                } else {
+                    // Redirect output to file
+                    auto* ofs = new std::ofstream(fname);
+                    if (!ofs->is_open()) {
+                        delete ofs;
+                        throw ComalError(ErrorCode::Open,
+                            "Cannot open '" + fname + "' for output");
+                    }
+                    if (interp.out != &std::cout)
+                        delete interp.out;
+                    interp.out = ofs;
+                }
+            } else {
+                interp.selOutput = v.toInt();
+            }
+        }
         break;
     }
 
     case StatementType::Select_Input: {
-        const auto& te = line->asTwoExp();
-        interp.selInput = evalInt(interp, te.exp1);
+        auto* expr = std::get_if<Expression*>(&line->contents());
+        if (expr && *expr) {
+            Value v = evaluate(interp, *expr);
+            if (v.isString()) {
+                const std::string& fname = v.asString();
+                if (fname.empty()) {
+                    // Restore stdin
+                    if (interp.in != &std::cin) {
+                        delete interp.in;
+                        interp.in = &std::cin;
+                    }
+                } else {
+                    // Redirect input from file
+                    auto* ifs = new std::ifstream(fname);
+                    if (!ifs->is_open()) {
+                        delete ifs;
+                        throw ComalError(ErrorCode::Open,
+                            "Cannot open '" + fname + "' for input");
+                    }
+                    if (interp.in != &std::cin)
+                        delete interp.in;
+                    interp.in = ifs;
+                }
+            } else {
+                interp.selInput = v.toInt();
+            }
+        }
         break;
     }
 
@@ -405,6 +479,32 @@ static void execPrint(Interpreter& interp, ComalLine* line) {
 static void execInput(Interpreter& interp, ComalLine* line) {
     const auto& inp = line->asInput();
 
+    // Check for INPUT FILE modifier — binary read, same as READ FILE
+    if (inp.modifier) {
+        if (auto* te = std::get_if<TwoExp>(&inp.modifier->data)) {
+            int64_t fno = evaluate(interp, te->exp1).toInt();
+
+            for (auto* node = inp.lvalroot; node; node = node->next()) {
+                const Expression* lval = node->exp();
+                // Determine expected type from the lvalue
+                Value::Type expected = Value::Type::Int;
+                if (lval->opType() == OpType::Sid || lval->opType() == OpType::Sarray)
+                    expected = Value::Type::String;
+                else if (lval->opType() == OpType::Id) {
+                    const auto& eid = std::get<ExpId>(lval->data());
+                    if (eid.id && eid.id->type == V_STRING)
+                        expected = Value::Type::String;
+                    else if (eid.id && eid.id->type == V_FLOAT)
+                        expected = Value::Type::Float;
+                }
+
+                Value val = interp.files.readValue(fno, expected);
+                assignToLval(interp, lval, val, becomesSYM);
+            }
+            return;
+        }
+    }
+
     std::string prompt = "? ";
 
     // Handle AT modifier (prompt string)
@@ -414,13 +514,24 @@ static void execInput(Interpreter& interp, ComalLine* line) {
         }
     }
 
-    // Read values for each lvalue
-    for (auto* node = inp.lvalroot; node; node = node->next()) {
-        std::string input_str = interp.readLine(prompt);
+    // Read one line, then parse fields from it
+    std::string input_line = interp.readLine(prompt);
+    size_t pos = 0;
 
-        // Try to parse as number first, then use as string
-        Value val;
+    for (auto* node = inp.lvalroot; node; node = node->next()) {
         const Expression* lval = node->exp();
+
+        // Skip whitespace
+        while (pos < input_line.size() && (input_line[pos] == ' ' || input_line[pos] == '\t'))
+            pos++;
+
+        // If we exhausted the line, read another
+        if (pos >= input_line.size()) {
+            input_line = interp.readLine("?? ");
+            pos = 0;
+            while (pos < input_line.size() && (input_line[pos] == ' ' || input_line[pos] == '\t'))
+                pos++;
+        }
 
         // Determine target type from the lvalue
         bool is_string = false;
@@ -433,27 +544,65 @@ static void execInput(Interpreter& interp, ComalLine* line) {
                 is_string = true;
         }
 
+        Value val;
         if (is_string) {
-            val = Value(std::move(input_str));
+            // Parse string field
+            std::string field;
+            if (pos < input_line.size() && input_line[pos] == '"') {
+                // Quoted string — read until closing quote
+                pos++;  // skip opening quote
+                while (pos < input_line.size() && input_line[pos] != '"') {
+                    field += input_line[pos++];
+                }
+                if (pos < input_line.size()) pos++;  // skip closing quote
+            } else {
+                // Unquoted string — read until comma or end of line, trim trailing space
+                size_t start = pos;
+                while (pos < input_line.size() && input_line[pos] != ',') {
+                    pos++;
+                }
+                field = input_line.substr(start, pos - start);
+                // Trim trailing whitespace
+                while (!field.empty() && (field.back() == ' ' || field.back() == '\t'))
+                    field.pop_back();
+            }
+            val = Value(std::move(field));
         } else {
-            // Try integer, then float
+            // Parse numeric field
+            size_t start = pos;
+            // Extract until comma or end
+            while (pos < input_line.size() && input_line[pos] != ',') {
+                pos++;
+            }
+            std::string numstr = input_line.substr(start, pos - start);
+            // Trim trailing whitespace
+            while (!numstr.empty() && (numstr.back() == ' ' || numstr.back() == '\t'))
+                numstr.pop_back();
+            // Trim leading whitespace
+            size_t fpos = numstr.find_first_not_of(" \t");
+            if (fpos != std::string::npos) numstr = numstr.substr(fpos);
             try {
-                size_t pos;
-                long long ll = std::stoll(input_str, &pos);
-                if (pos == input_str.size()) {
+                size_t ppos;
+                long long ll = std::stoll(numstr, &ppos);
+                if (ppos == numstr.size()) {
                     val = Value(static_cast<int64_t>(ll));
                 } else {
-                    double d = std::stod(input_str, &pos);
+                    double d = std::stod(numstr, &ppos);
                     val = Value(d);
                 }
             } catch (...) {
                 throw ComalError(ErrorCode::Input,
-                    "Cannot parse '" + input_str + "' as a number");
+                    "Cannot parse '" + numstr + "' as a number");
             }
         }
 
+        // Skip comma separator
+        while (pos < input_line.size() && (input_line[pos] == ' ' || input_line[pos] == '\t'))
+            pos++;
+        if (pos < input_line.size() && input_line[pos] == ',')
+            pos++;
+
         assignToLval(interp, lval, val, becomesSYM);
-        prompt = "? ";  // subsequent prompts
     }
 }
 
@@ -470,6 +619,10 @@ static void execAssign(Interpreter& interp, ComalLine* line) {
 // ── Lvalue resolution ───────────────────────────────────────────────────
 
 static std::string lvalName(const Expression* lval) {
+    // Unwrap ExpIsNum/ExpIsString wrappers
+    while (lval->opType() == OpType::ExpIsNum || lval->opType() == OpType::ExpIsString)
+        lval = lval->asExp();
+
     switch (lval->opType()) {
     case OpType::Id: {
         const auto& eid = std::get<ExpId>(lval->data());
@@ -491,31 +644,47 @@ static std::string lvalName(const Expression* lval) {
 }
 
 static Value& resolveLval(Interpreter& interp, const Expression* lval) {
+    // Unwrap ExpIsNum/ExpIsString wrappers
+    while (lval->opType() == OpType::ExpIsNum || lval->opType() == OpType::ExpIsString)
+        lval = lval->asExp();
+
     std::string name = lvalName(lval);
 
     Symbol* sym = interp.scopes.current().find(name);
     if (!sym) {
-        // Auto-create
+        // Auto-create in the nearest CLOSED scope (or global), matching legacy behavior
         Value init;
         switch (lval->opType()) {
         case OpType::Sid:
         case OpType::Sarray:
             init = Value(std::string{});
             break;
-        default:
-            init = Value(int64_t{0});
+        default: {
+            // Check id_rec type for V_FLOAT variables
+            bool is_float = false;
+            if (auto* eid = std::get_if<ExpId>(&lval->data()))
+                is_float = (eid->id && eid->id->type == V_FLOAT);
+            init = is_float ? Value(0.0) : Value(int64_t{0});
             break;
         }
-        sym = &interp.scopes.current().define(name, std::move(init));
+        }
+        // Walk up to nearest CLOSED scope for variable creation
+        Scope* target = &interp.scopes.current();
+        while (target->parent && !target->closed)
+            target = target->parent;
+        sym = &target->define(name, std::move(init));
     }
 
     // Array element?
-    if ((lval->opType() == OpType::Array || lval->opType() == OpType::Sarray) &&
-        sym->resolve().isArray()) {
-        const auto& eid = std::get<ExpId>(lval->data());
-        if (eid.exproot) {
+    if (sym->resolve().isArray()) {
+        const ExpId* eidp = nullptr;
+        if (lval->opType() == OpType::Array || lval->opType() == OpType::Sarray ||
+            lval->opType() == OpType::Id) {
+            eidp = std::get_if<ExpId>(&lval->data());
+        }
+        if (eidp && eidp->exproot) {
             std::vector<int64_t> idx;
-            for (auto* node = eid.exproot; node; node = node->next())
+            for (auto* node = eidp->exproot; node; node = node->next())
                 idx.push_back(evalInt(interp, node->exp()));
             auto& arr = sym->resolve().asArray();
             int64_t flat = arr.flatIndex(idx);
@@ -531,6 +700,30 @@ static Value& resolveLval(Interpreter& interp, const Expression* lval) {
 static void assignToLval(Interpreter& interp, const Expression* lval,
                          const Value& val, int op) {
     Value& target = resolveLval(interp, lval);
+
+    // Whole-array assignment: fill all elements with the scalar value
+    if (target.isArray() && !val.isArray()) {
+        auto& arr = target.asArray();
+        for (auto& elem : arr.elements) {
+            switch (op) {
+            case becomesSYM: elem.assignFrom(val); break;
+            case becplusSYM: elem = elem + val; break;
+            case becminusSYM: elem = elem - val; break;
+            default: elem.assignFrom(val); break;
+            }
+        }
+        return;
+    }
+
+    // Whole-array to whole-array copy (a():=b())
+    if (target.isArray() && val.isArray()) {
+        auto& tarr = target.asArray();
+        const auto& sarr = val.asArray();
+        size_t n = std::min(tarr.elements.size(), sarr.elements.size());
+        for (size_t i = 0; i < n; ++i)
+            tarr.elements[i].assignFrom(sarr.elements[i]);
+        return;
+    }
 
     switch (op) {
     case becomesSYM:
@@ -583,6 +776,15 @@ static void execFor(Interpreter& interp, ComalLine* line) {
     Value from_val = evaluate(interp, fr.from);
     Value to_val = evaluate(interp, fr.to);
     Value step_val = fr.step ? evaluate(interp, fr.step) : Value(int64_t{1});
+
+    // If any of from/to/step is float, promote from_val to float so
+    // the loop variable is created as float (prevents int truncation of step)
+    if (to_val.isNumeric() && step_val.isNumeric()) {
+        bool needs_float = to_val.isFloat() || step_val.isFloat() || from_val.isFloat();
+        if (needs_float && !from_val.isFloat()) {
+            from_val = Value(from_val.toDouble());
+        }
+    }
 
     bool downto = (fr.mode == downtoSYM);
 
@@ -1003,8 +1205,24 @@ static void execOpen(Interpreter& interp, ComalLine* line) {
 // ── CLOSE ───────────────────────────────────────────────────────────────
 
 static void execClose(Interpreter& interp, ComalLine* line) {
-    int fno = line->asInt();
-    interp.files.close(fno);
+    // CLOSE can be: monostate (close all), Expression* (close one),
+    // or ExpList* (close multiple files)
+    auto* elist = std::get_if<ExpList*>(&line->contents());
+    if (elist && *elist) {
+        for (auto* node = *elist; node; node = node->next()) {
+            int64_t fno = evalInt(interp, node->exp());
+            interp.files.close(fno);
+        }
+        return;
+    }
+    auto* expr = std::get_if<Expression*>(&line->contents());
+    if (expr && *expr) {
+        int64_t fno = evalInt(interp, *expr);
+        interp.files.close(fno);
+        return;
+    }
+    // No arguments: close all files
+    interp.files.closeAll();
 }
 
 // ── READ (from DATA or file) ────────────────────────────────────────────
@@ -1057,7 +1275,14 @@ static void execWrite(Interpreter& interp, ComalLine* line) {
 
     for (auto* node = wr.exproot; node; node = node->next()) {
         Value val = evaluate(interp, node->exp());
-        interp.files.writeValue(fno, val);
+        if (val.isArray()) {
+            // Write each element individually (matches legacy behavior)
+            for (auto& elem : val.asArray().elements) {
+                interp.files.writeValue(fno, elem);
+            }
+        } else {
+            interp.files.writeValue(fno, val);
+        }
     }
 }
 
@@ -1127,36 +1352,113 @@ static void execRestore(Interpreter& interp, ComalLine* line) {
 
 static void execCall(Interpreter& interp, const std::string& name,
                      const ExpList* args, bool isFunc) {
-    ComalLine* proc_line = interp.findRoutine(name);
+    // Check if this is a PROC/FUNC variable call
+    ComalLine* proc_line = nullptr;
+    Symbol* proc_sym = interp.scopes.current().find(name);
+    if (proc_sym && (proc_sym->kind == SymbolKind::ProcRef || proc_sym->kind == SymbolKind::FuncRef)) {
+        proc_line = proc_sym->routine_line;
+    } else {
+        proc_line = interp.findRoutine(name);
+    }
     const auto& pf = proc_line->asProcFunc();
+
+    // EXTERNAL procs/funcs are not loadable — treat as no-op
+    if (pf.external) {
+        if (isFunc) {
+            interp.returnValue = Value(int64_t{0});
+        }
+        return;
+    }
+
+    // Evaluate arguments in the CALLER's scope before pushing new scope
+    struct BoundArg {
+        std::string name;
+        enum { Val, Ref, Name, Proc, Func } kind;
+        Value val;                        // for value params
+        Value* ref_target{nullptr};       // for REF params
+        const Expression* name_expr{nullptr}; // for NAME params
+    };
+    std::vector<BoundArg> bound;
+
+    auto* parm = pf.parmroot;
+    auto* arg = args;
+    while (parm && arg) {
+        BoundArg ba;
+        ba.name = parm->id()->name;
+        ba.kind = BoundArg::Val;
+
+        if (parm->isRef()) {
+            ba.kind = BoundArg::Ref;
+            ba.ref_target = &resolveLval(interp, arg->exp());
+        } else if (parm->isName()) {
+            ba.kind = BoundArg::Name;
+            ba.name_expr = arg->exp();
+        } else if (parm->isProc()) {
+            ba.kind = BoundArg::Proc;
+            ba.name_expr = arg->exp();  // store expr for lookup
+        } else if (parm->isFunc()) {
+            ba.kind = BoundArg::Func;
+            ba.name_expr = arg->exp();
+        } else {
+            ba.val = evaluate(interp, arg->exp());
+        }
+
+        bound.push_back(std::move(ba));
+        parm = parm->next();
+        arg = arg->next();
+    }
+
+    // Save caller scope for NAME thunks
+    Scope* caller_scope = &interp.scopes.current();
 
     // Create new scope
     Scope& scope = interp.scopes.push(
         name, pf.closed != 0, proc_line, pf.level);
 
-    // Bind parameters
-    auto* parm = pf.parmroot;
-    auto* arg = args;
-
-    while (parm && arg) {
-        std::string pname = parm->id()->name;
-
-        if (parm->isRef()) {
-            // REF parameter: alias the caller's variable
-            Value& target = resolveLval(interp, arg->exp());
-            // The resolveLval looked up in the old scope (before push)
-            // — actually we need to resolve in the caller's scope.
-            // Since we already pushed, we need the parent.
-            // For now, this is a simplification.
-            scope.defineRef(pname, &target);
-        } else {
-            // Value parameter: evaluate and copy
-            Value val = evaluate(interp, arg->exp());
-            scope.define(pname, std::move(val));
+    // Bind pre-evaluated parameters
+    for (auto& ba : bound) {
+        switch (ba.kind) {
+        case BoundArg::Ref:
+            scope.defineRef(ba.name, ba.ref_target);
+            break;
+        case BoundArg::Name:
+            scope.defineName(ba.name, ba.name_expr, caller_scope);
+            break;
+        case BoundArg::Proc: {
+            // PROC parameter: find the routine by name from the expression
+            const Expression* pexpr = ba.name_expr;
+            while (pexpr && (pexpr->opType() == OpType::ExpIsNum || pexpr->opType() == OpType::ExpIsString))
+                pexpr = pexpr->asExp();
+            std::string pname;
+            if (pexpr) {
+                if (auto* eidp = std::get_if<ExpId>(&pexpr->data()))
+                    pname = eidp->id ? eidp->id->name : "";
+                else if (auto* esidp = std::get_if<ExpSid>(&pexpr->data()))
+                    pname = esidp->id ? esidp->id->name : "";
+            }
+            ComalLine* rline = interp.findRoutine(pname);
+            scope.defineProcFunc(ba.name, SymbolKind::ProcRef, rline);
+            break;
         }
-
-        parm = parm->next();
-        arg = arg->next();
+        case BoundArg::Func: {
+            const Expression* fexpr = ba.name_expr;
+            while (fexpr && (fexpr->opType() == OpType::ExpIsNum || fexpr->opType() == OpType::ExpIsString))
+                fexpr = fexpr->asExp();
+            std::string fname;
+            if (fexpr) {
+                if (auto* eidp = std::get_if<ExpId>(&fexpr->data()))
+                    fname = eidp->id ? eidp->id->name : "";
+                else if (auto* esidp = std::get_if<ExpSid>(&fexpr->data()))
+                    fname = esidp->id ? esidp->id->name : "";
+            }
+            ComalLine* rline = interp.findRoutine(fname);
+            scope.defineProcFunc(ba.name, SymbolKind::FuncRef, rline);
+            break;
+        }
+        default:
+            scope.define(ba.name, std::move(ba.val));
+            break;
+        }
     }
 
     // Execute body

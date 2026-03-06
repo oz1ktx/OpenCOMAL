@@ -120,10 +120,10 @@ PRIVATE struct {
 	tsrnSYM, _LEN, "LEN"}, {
 	listSYM, 0, "LIST"}, {
 	tnrnSYM, _LN, "LN"}, {
+	tnrnSYM, _LOG, "LOG"}, {
 	localSYM, 0, "LOCAL"}, {
 	tsrsSYM, _LOWER, "LOWER$"}, {
 	loadSYM, 0, "LOAD"}, {
-	tsrnSYM, _ROUND, "ROUND"}, {
 	loopSYM, 0, "LOOP"}, {
 	mkdirSYM, 0, "MKDIR"}, {
 	modSYM, 0, "MOD"}, {

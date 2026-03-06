@@ -93,33 +93,29 @@ Value evaluate(Interpreter& interp, const comal::Expression* expr) {
         return evalSubstr(interp, sub);
     }
 
-    case OpType::Sys: {
-        const auto* subexpr = std::get_if<comal::Expression*>(&expr->data());
-        if (!subexpr || !*subexpr) {
-            // SYS with ExpList (from e.exproot)
-            const auto* elist = std::get_if<comal::ExpList*>(&expr->data());
-            if (elist && *elist) {
-                Value arg = evaluate(interp, (*elist)->exp());
-                return evalSys(interp, arg);
-            }
-            return evalSys(interp, Value{int64_t{0}});
-        }
-        Value arg = evaluate(interp, *subexpr);
-        return evalSys(interp, arg);
-    }
-
+    case OpType::Sys:
     case OpType::Syss: {
-        const auto* subexpr = std::get_if<comal::Expression*>(&expr->data());
-        if (!subexpr || !*subexpr) {
-            const auto* elist = std::get_if<comal::ExpList*>(&expr->data());
-            if (elist && *elist) {
-                Value arg = evaluate(interp, (*elist)->exp());
-                return evalSyss(interp, arg);
+        // SYS/SYS$ take a command name (identifier) — extract it from the AST
+        // rather than evaluating (which would look up a variable).
+        std::string cmd;
+        const auto* elist = std::get_if<comal::ExpList*>(&expr->data());
+        if (elist && *elist) {
+            const auto* arg = (*elist)->exp();
+            // Unwrap ExpIsNum/ExpIsString wrappers
+            while (arg && (arg->opType() == OpType::ExpIsNum ||
+                           arg->opType() == OpType::ExpIsString))
+                arg = arg->asExp();
+            if (arg && arg->opType() == OpType::Id) {
+                const auto& eid = std::get<comal::ExpId>(arg->data());
+                cmd = idName(eid.id);
+            } else if (arg && arg->opType() == OpType::Sid) {
+                const auto& esid = std::get<comal::ExpSid>(arg->data());
+                cmd = idName(esid.id);
             }
-            return evalSyss(interp, Value{int64_t{0}});
         }
-        Value arg = evaluate(interp, *subexpr);
-        return evalSyss(interp, arg);
+        if (expr->opType() == OpType::Sys)
+            return evalSys(interp, cmd);
+        return evalSyss(interp, cmd);
     }
 
     case OpType::ExpIsNum:
@@ -152,8 +148,15 @@ static Value evalBinary(Interpreter& interp, int op,
         return Value(evaluate(interp, right).toInt() ? int64_t{1} : int64_t{0});
     }
 
-    // RND(lo, hi) — special form
+    // RND — special form with 0, 1, or 2 args
+    // Legacy semantics: RND → [0,1], RND(x) → int [0,floor(x)], RND(x,y) → int [floor(x),floor(y)]
     if (op == _RND) {
+        if (!left && !right)
+            return evalRnd0(interp);
+        if (!left) {
+            Value hi = evaluate(interp, right);
+            return evalRnd(interp, Value(int64_t{0}), hi);
+        }
         Value lo = evaluate(interp, left);
         Value hi = evaluate(interp, right);
         return evalRnd(interp, lo, hi);
@@ -256,15 +259,48 @@ static Value evalId(Interpreter& interp, const comal::ExpId& eid) {
 
     // Simple variable lookup
     Symbol* sym = interp.scopes.current().find(name);
+    if (sym && sym->kind == SymbolKind::NameThunk) {
+        // NAME parameter: re-evaluate expression in caller's scope
+        Scope* thunk_scope = sym->name_scope;
+        const Expression* thunk_expr = sym->name_expr;
+        // Push a proxy scope that delegates to the thunk's calling scope
+        Scope proxy;
+        proxy.parent = thunk_scope;
+        proxy.closed = false;
+        proxy.name = "NAME_EVAL";
+        // Temporarily swap the scope stack's current scope
+        auto& stack = interp.scopes;
+        stack.pushRaw(&proxy);
+        Value result;
+        try {
+            result = evaluate(interp, thunk_expr);
+        } catch (...) {
+            stack.popRaw();
+            throw;
+        }
+        stack.popRaw();
+        return result;
+    }
     if (!sym) {
-        // Auto-create numeric variables as 0, string variables as ""
-        // (COMAL auto-initializes on first reference)
+        // Before auto-creating a variable, check if this is a zero-arg FUNC call
+        auto it = interp.procTable.find(name);
+        if (it != interp.procTable.end() &&
+            it->second->command() == StatementType::Func) {
+            return execFuncCall(interp, name, nullptr);
+        }
+
+        // Auto-create in the nearest CLOSED scope (or global), matching legacy behavior
         Value init;
         if (eid.id && eid.id->type == V_STRING)
             init = Value(std::string{});
+        else if (eid.id && eid.id->type == V_FLOAT)
+            init = Value(0.0);
         else
             init = Value(int64_t{0});
-        sym = &interp.scopes.current().define(name, std::move(init));
+        Scope* target = &interp.scopes.current();
+        while (target->parent && !target->closed)
+            target = target->parent;
+        sym = &target->define(name, std::move(init));
     }
 
     return sym->resolve();
@@ -285,9 +321,28 @@ static Value evalSid(Interpreter& interp, const comal::ExpSid& esid) {
 
     // Look up the variable
     Symbol* sym = interp.scopes.current().find(name);
+    if (sym && sym->kind == SymbolKind::NameThunk) {
+        Scope proxy;
+        proxy.parent = sym->name_scope;
+        proxy.closed = false;
+        proxy.name = "NAME_EVAL";
+        interp.scopes.pushRaw(&proxy);
+        Value result;
+        try {
+            result = evaluate(interp, sym->name_expr);
+        } catch (...) {
+            interp.scopes.popRaw();
+            throw;
+        }
+        interp.scopes.popRaw();
+        return result;
+    }
     if (!sym) {
-        // Auto-create string variable
-        sym = &interp.scopes.current().define(name, Value(std::string{}));
+        // Auto-create in nearest CLOSED scope
+        Scope* target = &interp.scopes.current();
+        while (target->parent && !target->closed)
+            target = target->parent;
+        sym = &target->define(name, Value(std::string{}));
     }
 
     Value base;

@@ -93,59 +93,36 @@ Value FileTable::readValue(int64_t fno, Value::Type expected_type) {
     if (!f.fp)
         throw ComalError(ErrorCode::Read, "File #" + std::to_string(fno) + " not readable");
 
-    if (f.mode == FileMode::Random) {
-        // Binary read
-        switch (expected_type) {
-        case Value::Type::Int: {
-            int64_t val;
-            if (std::fread(&val, sizeof(val), 1, f.fp) != 1)
-                throw ComalError(ErrorCode::Read, "Read error on file #" + std::to_string(fno));
-            return Value(val);
-        }
-        case Value::Type::Float: {
-            double val;
-            if (std::fread(&val, sizeof(val), 1, f.fp) != 1)
-                throw ComalError(ErrorCode::Read, "Read error on file #" + std::to_string(fno));
-            return Value(val);
-        }
-        case Value::Type::String: {
-            int32_t len;
-            if (std::fread(&len, sizeof(len), 1, f.fp) != 1)
-                throw ComalError(ErrorCode::Read, "Read error on file #" + std::to_string(fno));
-            std::string val(len, '\0');
-            if (len > 0 && std::fread(val.data(), 1, len, f.fp) != static_cast<size_t>(len))
-                throw ComalError(ErrorCode::Read, "Read error on file #" + std::to_string(fno));
-            return Value(std::move(val));
-        }
-        default:
-            throw ComalError(ErrorCode::Read, "Cannot read array from file");
-        }
-    }
-
-    // Text read: read a line
-    char buf[4096];
-    if (!std::fgets(buf, sizeof(buf), f.fp))
+    // Binary read with type tag (matches legacy COMAL format)
+    char type_byte;
+    if (std::fread(&type_byte, 1, 1, f.fp) != 1)
         throw ComalError(ErrorCode::Eof, "End of file on #" + std::to_string(fno));
 
-    // Remove trailing newline
-    size_t len = std::strlen(buf);
-    if (len > 0 && buf[len-1] == '\n') buf[--len] = '\0';
-    if (len > 0 && buf[len-1] == '\r') buf[--len] = '\0';
-
-    if (expected_type == Value::Type::String)
-        return Value(std::string(buf, len));
-
-    // Try to parse as number
-    try {
-        size_t pos;
-        long long ll = std::stoll(buf, &pos);
-        if (pos == len)
-            return Value(static_cast<int64_t>(ll));
-        double d = std::stod(buf, &pos);
-        return Value(d);
-    } catch (...) {
+    switch (type_byte) {
+    case 1: { // V_INT
+        long val;
+        if (std::fread(&val, sizeof(val), 1, f.fp) != 1)
+            throw ComalError(ErrorCode::Read, "Read error on file #" + std::to_string(fno));
+        return Value(static_cast<int64_t>(val));
+    }
+    case 2: { // V_FLOAT
+        double val;
+        if (std::fread(&val, sizeof(val), 1, f.fp) != 1)
+            throw ComalError(ErrorCode::Read, "Read error on file #" + std::to_string(fno));
+        return Value(val);
+    }
+    case 3: { // V_STRING
+        long len;
+        if (std::fread(&len, sizeof(len), 1, f.fp) != 1)
+            throw ComalError(ErrorCode::Read, "Read error on file #" + std::to_string(fno));
+        std::string val(len, '\0');
+        if (len > 0 && std::fread(val.data(), 1, len, f.fp) != static_cast<size_t>(len))
+            throw ComalError(ErrorCode::Read, "Read error on file #" + std::to_string(fno));
+        return Value(std::move(val));
+    }
+    default:
         throw ComalError(ErrorCode::Read,
-            "Cannot parse '" + std::string(buf) + "' as number");
+            "Unknown type byte " + std::to_string((int)type_byte) + " in file #" + std::to_string(fno));
     }
 }
 
@@ -157,31 +134,32 @@ void FileTable::writeValue(int64_t fno, const Value& val) {
         throw ComalError(ErrorCode::Write,
             "File #" + std::to_string(fno) + " not writable");
 
-    if (f.mode == FileMode::Random) {
-        // Binary write
-        switch (val.type()) {
-        case Value::Type::Int: {
-            int64_t v = val.asInt();
-            std::fwrite(&v, sizeof(v), 1, f.fp);
-            break;
-        }
-        case Value::Type::Float: {
-            double v = val.asFloat();
-            std::fwrite(&v, sizeof(v), 1, f.fp);
-            break;
-        }
-        case Value::Type::String: {
-            int32_t len = static_cast<int32_t>(val.asString().size());
-            std::fwrite(&len, sizeof(len), 1, f.fp);
+    // Binary write with type tag (matches legacy COMAL format)
+    switch (val.type()) {
+    case Value::Type::Int: {
+        char type_byte = 1; // V_INT
+        std::fwrite(&type_byte, 1, 1, f.fp);
+        long v = static_cast<long>(val.asInt());
+        std::fwrite(&v, sizeof(v), 1, f.fp);
+        break;
+    }
+    case Value::Type::Float: {
+        char type_byte = 2; // V_FLOAT
+        std::fwrite(&type_byte, 1, 1, f.fp);
+        double v = val.asFloat();
+        std::fwrite(&v, sizeof(v), 1, f.fp);
+        break;
+    }
+    case Value::Type::String: {
+        char type_byte = 3; // V_STRING
+        std::fwrite(&type_byte, 1, 1, f.fp);
+        long len = static_cast<long>(val.asString().size());
+        std::fwrite(&len, sizeof(len), 1, f.fp);
+        if (len > 0)
             std::fwrite(val.asString().data(), 1, len, f.fp);
-            break;
-        }
-        default: break;
-        }
-    } else {
-        // Text write
-        std::string s = val.printStr();
-        std::fputs(s.c_str(), f.fp);
+        break;
+    }
+    default: break;
     }
 }
 

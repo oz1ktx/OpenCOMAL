@@ -192,10 +192,17 @@ Value evalBuiltinUnary(Interpreter& interp, int op, const Value& arg) {
 
 Value evalRnd(Interpreter& interp, const Value& lo, const Value& hi) {
     if (lo.isFloat() || hi.isFloat()) {
-        std::uniform_real_distribution<double> dist(lo.toDouble(), hi.toDouble());
+        double dlo = lo.toDouble(), dhi = hi.toDouble();
+        if (dlo >= dhi)
+            throw ComalError(ErrorCode::Rnd, "RND(x,y) argument error (x>=y)");
+        std::uniform_real_distribution<double> dist(dlo, dhi);
         return makeFloat(dist(interp.rng));
     }
-    std::uniform_int_distribution<int64_t> dist(lo.toInt(), hi.toInt());
+    int64_t ilo = lo.toInt(), ihi = hi.toInt();
+    if (ilo == ihi) return makeInt(ilo);
+    if (ilo > ihi)
+        throw ComalError(ErrorCode::Rnd, "RND(x,y) argument error (x>=y)");
+    std::uniform_int_distribution<int64_t> dist(ilo, ihi);
     return makeInt(dist(interp.rng));
 }
 
@@ -206,17 +213,33 @@ Value evalRnd0(Interpreter& interp) {
 
 // ── SYS ─────────────────────────────────────────────────────────────────
 
-Value evalSys(Interpreter& interp, const Value& arg) {
-    // Minimal SYS() — can be extended later
+Value evalSys(Interpreter& interp, const std::string& cmd) {
     (void)interp;
-    (void)arg;
-    throw ComalError(ErrorCode::Sys, "SYS() not implemented in modern runtime");
+    if (cmd == "VERSION") {
+        return Value(0.26);  // matches legacy OPENCOMAL_VERSION "0.2.6"
+    }
+    // Flag queries return 0/1
+    if (cmd == "PROG_TRACE")
+        return Value(int64_t{interp.trace ? 1 : 0});
+    if (cmd == "DEBUG" || cmd == "YYDEBUG" || cmd == "SHOW_EXEC" || cmd == "SHORT_CIRCUIT")
+        return Value(int64_t{0});
+    throw ComalError(ErrorCode::Sys, "Unknown SYS command: " + cmd);
 }
 
-Value evalSyss(Interpreter& interp, const Value& arg) {
+Value evalSyss(Interpreter& interp, const std::string& cmd) {
     (void)interp;
-    (void)arg;
-    throw ComalError(ErrorCode::Sys, "SYS$() not implemented in modern runtime");
+    if (cmd == "HOST")
+        return Value(std::string("Linux"));
+    if (cmd == "INTERPRETER")
+        return Value(std::string("OpenComal"));
+    if (cmd == "VERSION")
+        return Value(std::string("0.2.6"));
+    // Flag queries return "on"/"off"
+    if (cmd == "PROG_TRACE")
+        return Value(std::string(interp.trace ? "on" : "off"));
+    if (cmd == "DEBUG" || cmd == "YYDEBUG" || cmd == "SHOW_EXEC" || cmd == "SHORT_CIRCUIT")
+        return Value(std::string("off"));
+    throw ComalError(ErrorCode::Sys, "Unknown SYS$ command: " + cmd);
 }
 
 } // namespace comal::runtime

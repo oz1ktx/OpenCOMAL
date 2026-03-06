@@ -201,8 +201,22 @@ void Interpreter::structureScan() {
                 }
             }
 
-            if (!is_short)
+            if (!is_short) {
+                // EXTERNAL PROC/FUNC declarations have no body — don't push
+                if (rule->is_proc) {
+                    const auto& pf = line->asProcFunc();
+                    if (pf.external) {
+                        // No body to match — skip
+                        continue;
+                    }
+                }
+                // TRAP ESC+/- is a simple statement, not a block
+                if (cmd == StatementType::Trap) {
+                    const auto& tr = line->asTrap();
+                    if (tr.esc != 0) continue;
+                }
                 stk.push({rule->pushes, line});
+            }
         }
     }
 
@@ -357,7 +371,7 @@ std::string Interpreter::readLine(const std::string& prompt) {
 
     std::string line;
     if (!std::getline(*in, line))
-        throw ComalError(ErrorCode::Eof, "End of input");
+        return "";  // Return empty on EOF (e.g. batch mode with no stdin)
     return line;
 }
 

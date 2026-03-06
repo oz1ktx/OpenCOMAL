@@ -11,6 +11,13 @@
 
 namespace comal {
 
+// ── ParmList method implementations (need token constants) ──────────────
+
+bool ParmList::isRef() const { return ref_type_ == refSYM; }
+bool ParmList::isName() const { return ref_type_ == nameSYM; }
+bool ParmList::isProc() const { return ref_type_ == procSYM; }
+bool ParmList::isFunc() const { return ref_type_ == funcSYM; }
+
 // ============================================================================
 // Forward declarations of internal conversion helpers
 // ============================================================================
@@ -263,7 +270,7 @@ static ParmList* convert_parm_list(const struct parm_list* old_list) {
     for (const struct parm_list* cur = old_list; cur; cur = cur->next) {
         auto* node = new ParmList(
             cur->id,
-            cur->ref != 0,
+            cur->ref,
             cur->array != 0,
             result
         );
@@ -606,8 +613,8 @@ static StatementType map_cmd(int cmd) {
         case renumberSYM:      return StatementType::Renumber;
         case envSYM:           return StatementType::Env;
         case quitSYM:          return StatementType::Quit;
-        case sysSYM:           return StatementType::Exec;  // SYS uses exproot like EXEC
-        case traceSYM:         return StatementType::Exec;  // TRACE stores exp
+        case sysSYM:           return StatementType::Os;  // SYS — not impl, map to Os
+        case traceSYM:         return StatementType::Trace;
         default:               return StatementType::Empty;
     }
 }

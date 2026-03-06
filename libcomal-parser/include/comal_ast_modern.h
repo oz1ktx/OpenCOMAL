@@ -253,15 +253,19 @@ public:
 class ParmList : public ASTNode {
     ParmList* next_;     /* owned */
     id_rec* id_;         /* borrowed */
-    bool ref_;           // pass by reference
+    int ref_type_;       // 0=value, refSYM=REF, nameSYM=NAME, procSYM=PROC, funcSYM=FUNC
     bool array_;         // array parameter
     
 public:
-    ParmList(id_rec* id, bool ref = false, bool array = false, ParmList* next = nullptr)
-        : next_(next), id_(id), ref_(ref), array_(array) {}
+    ParmList(id_rec* id, int ref_type = 0, bool array = false, ParmList* next = nullptr)
+        : next_(next), id_(id), ref_type_(ref_type), array_(array) {}
     
     id_rec* id() const { return id_; }
-    bool isRef() const { return ref_; }
+    bool isRef() const;   // defined out-of-line — true for refSYM
+    bool isName() const;  // true for nameSYM
+    bool isProc() const;  // true for procSYM
+    bool isFunc() const;  // true for funcSYM
+    int refType() const { return ref_type_; }
     bool isArray() const { return array_; }
     ParmList* next() const { return next_; }
     
@@ -581,6 +585,7 @@ enum class StatementType : int {
     Rmdir,              // RMDIR path
     Os,                 // OS command
     Retry,              // RETRY (in HANDLER)
+    Trace,              // TRACE on/off
     Label,              // label:
     Local,              // LOCAL vars...
 

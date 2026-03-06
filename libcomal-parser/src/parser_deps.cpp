@@ -226,7 +226,14 @@ int exp_list_of_nums(struct exp_list *root)
 
 char *exp_cmd(struct expression *exp)
 {
-	(void)exp;
+	if (!exp) return "";
+	/* Unwrap T_EXP_IS_NUM / T_EXP_IS_STRING wrapper */
+	if (exp->optype == T_EXP_IS_NUM || exp->optype == T_EXP_IS_STRING)
+		exp = exp->e.exp;
+	if (exp->optype == T_ID)
+		return exp->e.expid.id->name;
+	if (exp->optype == T_SID)
+		return exp->e.expsid.id->name;
 	return "";
 }
 
@@ -442,8 +449,18 @@ struct id_rec *id_search(char *id)
 
 	(*cur)->left = NULL;
 	(*cur)->right = NULL;
-	(*cur)->type = V_ERROR;
 	memcpy((*cur)->name, id, len + 1);
+
+	// Determine type from name suffix (matches legacy pdcid.c behavior)
+	if (len > 0) {
+		switch ((*cur)->name[len - 1]) {
+		case '#': (*cur)->type = V_INT;    break;
+		case '$': (*cur)->type = V_STRING; break;
+		default:  (*cur)->type = V_FLOAT;  break;
+		}
+	} else {
+		(*cur)->type = V_FLOAT;
+	}
 
 	return *cur;
 }

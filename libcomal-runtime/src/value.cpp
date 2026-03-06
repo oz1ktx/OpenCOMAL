@@ -144,6 +144,25 @@ Value Value::operator-(const Value& rhs) const {
 }
 
 Value Value::operator*(const Value& rhs) const {
+    // String repetition: "abc" * 3 → "abcabcabc"
+    if (isString() && rhs.isNumeric()) {
+        int64_t n = rhs.toInt();
+        if (n <= 0) return Value(std::string{});
+        const std::string& s = asString();
+        std::string result;
+        result.reserve(s.size() * n);
+        for (int64_t i = 0; i < n; ++i) result += s;
+        return Value(std::move(result));
+    }
+    if (isNumeric() && rhs.isString()) {
+        int64_t n = toInt();
+        if (n <= 0) return Value(std::string{});
+        const std::string& s = rhs.asString();
+        std::string result;
+        result.reserve(s.size() * n);
+        for (int64_t i = 0; i < n; ++i) result += s;
+        return Value(std::move(result));
+    }
     if (isInt() && rhs.isInt())
         return intOp(asInt(), rhs.asInt(), '*');
     return floatOp(toDouble(), rhs.toDouble(), '*');
@@ -205,20 +224,22 @@ void Value::assignFrom(const Value& other) {
         return;
     }
 
-    // Numeric coercions
+    // If the target is default-constructed int(0), adopt a string or float source type.
+    // This handles first assignment to untyped variables.
+    if (isInt() && asInt() == 0) {
+        if (other.isString() || other.isFloat()) {
+            data_ = other.data_;
+            return;
+        }
+    }
+
+    // Numeric coercions (after adopt-zero, so typed variables coerce correctly)
     if (isFloat() && other.isInt()) {
         data_ = static_cast<double>(other.asInt());
         return;
     }
     if (isInt() && other.isFloat()) {
         data_ = doubleToInt(other.asFloat(), true);
-        return;
-    }
-
-    // If the target is default-constructed (int 0), adopt the source type.
-    // This handles first assignment to untyped variables.
-    if (isInt() && asInt() == 0 && other.isString()) {
-        data_ = other.data_;
         return;
     }
 

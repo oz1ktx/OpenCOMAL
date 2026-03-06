@@ -3,6 +3,7 @@
 
 #include "comal_scope.h"
 #include "comal_error.h"
+#include "comal_ast_modern.h"
 
 namespace comal::runtime {
 
@@ -49,6 +50,17 @@ Symbol& Scope::defineRef(const std::string& name, Value* target) {
             "REF variable '" + name + "' already exists");
     it->second.kind = SymbolKind::RefAlias;
     it->second.ref_target = target;
+    return it->second;
+}
+
+Symbol& Scope::defineName(const std::string& name, const Expression* expr, Scope* caller_scope) {
+    auto [it, inserted] = symbols_.emplace(name, Symbol{});
+    if (!inserted)
+        throw ComalError(ErrorCode::Var,
+            "NAME variable '" + name + "' already exists");
+    it->second.kind = SymbolKind::NameThunk;
+    it->second.name_expr = expr;
+    it->second.name_scope = caller_scope;
     return it->second;
 }
 
@@ -111,6 +123,16 @@ void ScopeStack::pop() {
     if (scopes_.size() <= 1)
         throw ComalError(ErrorCode::Parm, "Cannot pop the global scope");
     scopes_.pop_back();
+}
+
+void ScopeStack::pushRaw(Scope* s) {
+    raw_stack_.push_back(s);
+}
+
+void ScopeStack::popRaw() {
+    if (raw_stack_.empty())
+        throw ComalError(ErrorCode::Parm, "No raw scope to pop");
+    raw_stack_.pop_back();
 }
 
 } // namespace comal::runtime

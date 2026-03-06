@@ -116,6 +116,7 @@ const char* statement_type_name(StatementType cmd) {
         case StatementType::Rmdir:         return "RMDIR";
         case StatementType::Os:            return "OS";
         case StatementType::Retry:         return "RETRY";
+        case StatementType::Trace:         return "TRACE";
         case StatementType::Label:         return "LABEL";
         case StatementType::Local:         return "LOCAL";
         case StatementType::For:           return "FOR";
