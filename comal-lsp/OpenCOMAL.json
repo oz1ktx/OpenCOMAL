@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "comal": {
+      "command": ["/home/peter/Workspace/OpenCOMAL/build/comal-lsp/comal-lsp"],
+      "fileMatch": ["*.lst"],
+      "rootMarkers": [],
+      "highlightingModeRegex": "^COMAL$"
+    }
+  }
+}

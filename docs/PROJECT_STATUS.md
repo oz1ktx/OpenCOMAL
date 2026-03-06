@@ -15,10 +15,10 @@
 | Modern AST - Statements | ✅ Complete | 100% |
 | Parser Integration | ✅ Complete | 100% |
 | Runtime Library | ✅ Complete | 100% |
-| LSP Server | 🔜 Planned | 0% |
+| LSP Server | ✅ Complete | 100% |
 | KDE GUI | 🔜 Planned | 0% |
 
-**Current Phase:** Phase 4 — Runtime Library ✅ Complete (115/119 tests passing + 4 skipped)
+**Current Phase:** Phase 4 — Runtime Library ✅ Complete (115/119 tests passing + 4 skipped) + LSP Server Phase 3 ✅ Complete
 
 ---
 
@@ -282,6 +282,28 @@ to the graphics renderer.
    `evalSid()`. Both with-args and zero-arg cases handled. `execCall()` already
    looked up FuncRef/ProcRef in the scope stack; the evaluator just needed to
    route through `execFuncCall()` instead of throwing NotImpl.
+
+---
+
+## What's Been Accomplished (Continued)
+
+### ✅ LSP Server (Complete)
+**Files:**
+- `comal-lsp/` - Complete LSP server implementation
+- `comal_lsp_server.h/cpp` - Main server with document tracking, diagnostics, completion, definition lookup, hover
+- `comal_lsp_protocol.h/cpp` - LSP protocol message handling
+- `CMakeLists.txt` - Build configuration
+
+**Implemented:**
+- Language Server Protocol v3.17 support
+- Document open/close/change tracking
+- Parse error diagnostics
+- Code completion for keywords, builtins, symbols
+- Go-to-definition for PROC/FUNC symbols
+- Hover information for symbols
+- Symbol table building from parsed AST
+
+**Status:** LSP server has been built and is functional, but has not yet been tested with Kate editor integration.
 
 ---
 
