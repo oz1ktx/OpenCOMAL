@@ -326,6 +326,12 @@ legacy line numbers.
 - Project management
 - Replace legacy ncurses UI
 
+### RPM/DEB Packaging
+- Add CPack configuration to CMakeLists.txt for building `.rpm` and `.deb` packages
+- Package `comal-run` binary plus any shared libraries
+- Include man page, LICENSE, and sample programs
+- Target Fedora/RHEL/openSUSE (RPM) and Debian/Ubuntu/Mint (DEB)
+
 ---
 
 ## Key Design Decisions
