@@ -1,0 +1,35 @@
+0010 // FUNC variable calls - extended tests
+0020 //
+0030 // String FUNC variable
+0040 FUNC greet$(who$)
+0050   RETURN "Hello, "+who$+"!"
+0060 ENDFUNC greet$
+0070 //
+0080 PROC show_greeting(FUNC g$, name$)
+0090   PRINT g$(name$)
+0100 ENDPROC show_greeting
+0110 //
+0120 show_greeting(greet$, "World")
+0130 //
+0140 // Zero-arg FUNC variable
+0150 FUNC get_value
+0160   RETURN 42
+0170 ENDFUNC get_value
+0180 //
+0190 PROC use_func(FUNC f)
+0200   PRINT f
+0210 ENDPROC use_func
+0220 //
+0230 use_func(get_value)
+0240 //
+0250 // FUNC variable with multiple params
+0260 FUNC add(a, b)
+0270   RETURN a+b
+0280 ENDFUNC add
+0290 //
+0300 PROC compute(FUNC op, x, y)
+0310   PRINT op(x, y)
+0320 ENDPROC compute
+0330 //
+0340 compute(add, 3, 7)
+0350 END

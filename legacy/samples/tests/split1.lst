@@ -1,0 +1,29 @@
+       10 // SPLIT$() basic tests
+       20 //
+       30 IF SPLIT$("apple,banana,cherry", ",", 1)<>"apple" THEN STOP "test 1"
+       40 IF SPLIT$("apple,banana,cherry", ",", 2)<>"banana" THEN STOP "test 2"
+       50 IF SPLIT$("apple,banana,cherry", ",", 3)<>"cherry" THEN STOP "test 3"
+       60 //
+       70 // Out of range returns empty string
+       80 IF SPLIT$("apple,banana", ",", 0)<>"" THEN STOP "test 4"
+       90 IF SPLIT$("apple,banana", ",", 3)<>"" THEN STOP "test 5"
+      100 //
+      110 // Single element (no separator found)
+      120 IF SPLIT$("hello", ",", 1)<>"hello" THEN STOP "test 6"
+      130 //
+      140 // Multi-character separator
+      150 IF SPLIT$("a::b::c", "::", 2)<>"b" THEN STOP "test 7"
+      160 IF SPLIT$("a::b::c", "::", 3)<>"c" THEN STOP "test 8"
+      170 //
+      180 // Space separator
+      190 IF SPLIT$("one two three", " ", 2)<>"two" THEN STOP "test 9"
+      200 //
+      210 // Empty fields between separators
+      220 IF SPLIT$("a,,b", ",", 2)<>"" THEN STOP "test 10"
+      230 IF SPLIT$("a,,b", ",", 3)<>"b" THEN STOP "test 11"
+      240 //
+      250 // Use in expression
+      260 a$:=SPLIT$("x-y-z", "-", 2)
+      270 IF a$<>"y" THEN STOP "test 12"
+      280 //
+      290 PRINT "All ok"

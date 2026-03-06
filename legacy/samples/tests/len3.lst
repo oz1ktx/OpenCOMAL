@@ -1,0 +1,9 @@
+0010 // LEN() for numeric arrays
+0020 DIM a(5)
+0030 DIM b(3,4)
+0040 IF LEN(a)<>5 THEN STOP "LEN of numeric array failed"
+0050 IF LEN(b)<>12 THEN STOP "LEN of 2D numeric array failed"
+0060 DIM c(1)
+0070 IF LEN(c)<>1 THEN STOP "LEN of single-element numeric array failed"
+0080 PRINT "All ok"
+0090 END

@@ -1,0 +1,24 @@
+0010 // FUNC variable calls
+0020 //
+0030 // Test passing FUNC as parameter and calling through variable
+0040 //
+0050 PROC apply(FUNC f, x)
+0060   PRINT f(x)
+0070 ENDPROC apply
+0080 //
+0090 FUNC double(n)
+0100   RETURN n*2
+0110 ENDFUNC double
+0120 //
+0130 FUNC square(n)
+0140   RETURN n*n
+0150 ENDFUNC square
+0160 //
+0170 FUNC triple(n)
+0180   RETURN n*3
+0190 ENDFUNC triple
+0200 //
+0210 apply(double, 5)
+0220 apply(square, 4)
+0230 apply(triple, 3)
+0240 END

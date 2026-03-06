@@ -1,0 +1,12 @@
+0010 // DRAW command placeholder test
+0020 // DRAW accepts any comma-separated expression list
+0030 // and is silently ignored until graphics addon is available
+0040 DRAW "background", 240, 240, 255
+0050 DRAW "rect", 10, 20, 100, 50
+0060 DRAW "circle", 200, 200, 80
+0070 DRAW "line", 0, 0, 300, 300
+0080 DRAW "fill", 0, 128, 255, 128
+0090 x:=42
+0100 DRAW "text", x, 100, "Hello"
+0110 PRINT "All ok"
+0120 END
