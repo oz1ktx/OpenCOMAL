@@ -2,6 +2,9 @@
 
 #include <QVBoxLayout>
 #include <QTabWidget>
+#include <QFile>
+#include <QFileInfo>
+#include <QTextStream>
 #include <Qsci/qsciscintilla.h>
 #include <Qsci/qscilexercpp.h>    // placeholder until COMAL lexer exists
 
@@ -64,4 +67,53 @@ QsciScintilla *CodeEditorPanel::createEditor()
     );
 
     return editor;
+}
+
+void CodeEditorPanel::openFile(const QString &filePath)
+{
+    // Check if already open in a tab
+    for (int i = 0; i < tabs_->count(); ++i) {
+        if (tabs_->tabToolTip(i) == filePath) {
+            tabs_->setCurrentIndex(i);
+            return;
+        }
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+
+    QTextStream stream(&file);
+    QString content = stream.readAll();
+
+    // Strip COMAL line numbers (leading digits + optional space)
+    // e.g. "0010 PRINT ..." → "PRINT ..."
+    QString stripped;
+    const auto lines = content.split('\n');
+    for (const auto &line : lines) {
+        auto trimmed = line.trimmed();
+        // Match optional leading digits followed by space
+        int pos = 0;
+        while (pos < trimmed.size() && trimmed[pos].isDigit())
+            pos++;
+        if (pos > 0 && pos < trimmed.size() && trimmed[pos] == ' ')
+            stripped += trimmed.mid(pos + 1) + '\n';
+        else
+            stripped += line + '\n';
+    }
+
+    auto *editor = createEditor();
+    editor->setText(stripped);
+    QFileInfo info(filePath);
+    int idx = tabs_->addTab(editor, info.fileName());
+    tabs_->setTabToolTip(idx, filePath);
+    tabs_->setCurrentIndex(idx);
+}
+
+QString CodeEditorPanel::currentFilePath() const
+{
+    int idx = tabs_->currentIndex();
+    if (idx >= 0)
+        return tabs_->tabToolTip(idx);
+    return {};
 }

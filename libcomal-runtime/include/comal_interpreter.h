@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <fstream>
 #include <random>
 #include <memory>
 #include <functional>
@@ -23,6 +24,7 @@
 #include "comal_file_io.h"
 #include "comal_error.h"
 #include "comal_interrupt.h"
+#include "comal_io.h"
 #include "comal_ast_modern.h"
 
 namespace comal::runtime {
@@ -53,6 +55,9 @@ public:
     /// Load a .lst text file: parse each numbered line into the AST.
     void loadFile(const std::string& path);
 
+    /// Load program from a source string (multi-line).
+    void loadSource(const std::string& source);
+
     /// Parse and insert a single line (as if typed at the editor).
     void addLine(const std::string& text);
 
@@ -63,11 +68,12 @@ public:
 
     // ── I/O interface (replaceable) ─────────────────────────────────────
 
-    /// Current output stream (defaults to stdout).
-    std::ostream* out{&std::cout};
+    /// The pluggable I/O backend.  Defaults to TerminalIO (stdout/stdin).
+    /// The GUI replaces this with a Qt-signal-based implementation.
+    IOInterface& io() { return *io_; }
 
-    /// Current input stream (defaults to stdin).
-    std::istream* in{&std::cin};
+    /// Replace the I/O backend.  Takes ownership.
+    void setIO(std::unique_ptr<IOInterface> io) { io_ = std::move(io); }
 
     /// Write to the currently selected output.
     void print(const std::string& s);
@@ -77,6 +83,12 @@ public:
 
     /// Read a line from the currently selected input.
     std::string readLine(const std::string& prompt = "");
+
+    /// Clear screen (PAGE command).  Delegates to IO backend.
+    void clearScreen();
+
+    /// Position cursor (CURSOR command).  Delegates to IO backend.
+    void setCursor(int row, int col);
 
     // ── State (public for evaluator / executor access) ──────────────────
 
@@ -120,8 +132,13 @@ public:
     long lastErrorLine{0};
 
     /// SELECT OUTPUT/INPUT file number redirection.
-    int64_t selOutput{0};   // 0 = stdout
-    int64_t selInput{0};    // 0 = stdin
+    int64_t selOutput{0};   // 0 = default (IO backend)
+    int64_t selInput{0};    // 0 = default (IO backend)
+
+    /// SELECT OUTPUT/INPUT to a named file (string argument).
+    /// When set, print() / readLine() write/read from these instead.
+    std::unique_ptr<std::ofstream> selOutputFile_;
+    std::unique_ptr<std::ifstream> selInputFile_;
 
     /// Return value stash — set by RETURN expr inside a FUNC.
     Value returnValue;
@@ -150,6 +167,9 @@ public:
 private:
     /// Interrupt controller instance.
     InterruptController interrupt_;
+
+    /// I/O backend (owned).  Defaults to TerminalIO.
+    std::unique_ptr<IOInterface> io_;
 
     /// Storage for parsed lines (owns the ParseTree objects).
     std::vector<std::unique_ptr<ParseTree>> trees_;

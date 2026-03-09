@@ -15,9 +15,16 @@ public:
     explicit DirectCommandPanel(QWidget *parent = nullptr);
 
     void appendOutput(const QString &text);
+    void setInputEnabled(bool enabled);
+
+signals:
+    void lineEntered(const QString &line);
 
 private slots:
     void onCommandEntered();
+    void showOutputContextMenu(const QPoint &pos);
+    void clearOutput();
+    void saveOutput();
 
 private:
     QTextEdit *output_;

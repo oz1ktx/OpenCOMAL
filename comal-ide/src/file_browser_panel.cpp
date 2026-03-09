@@ -25,6 +25,13 @@ FileBrowserPanel::FileBrowserPanel(QWidget *parent)
 
     layout->addWidget(tree_);
 
+    // Double-click on a file emits fileDoubleClicked
+    connect(tree_, &QTreeView::doubleClicked, this, [this](const QModelIndex &index) {
+        if (!model_->isDir(index)) {
+            emit fileDoubleClicked(model_->filePath(index));
+        }
+    });
+
     // Default: show current directory
     setRootPath(QDir::currentPath());
 }

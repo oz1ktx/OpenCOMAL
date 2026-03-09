@@ -401,7 +401,7 @@ Introduces 2 benign reduce/reduce conflicts (resolved correctly by Bison).
 
 | Menu | Items |
 |------|-------|
-| File | New, Open, Save, Save As (with numbered-export option), Recent Files, Close, Exit |
+| File | New, Open, Save, Save As (with numbered-export option), Export Graphics (PNG/SVG), Recent Files, Close, Exit |
 | Edit | Undo, Redo, Cut, Copy, Paste, Find/Replace, Format Source |
 | Program | Run, Stop, Step, Continue, Toggle Breakpoint |
 | View | Toggle each panel, Reset Layout |
@@ -434,12 +434,14 @@ Introduces 2 benign reduce/reduce conflicts (resolved correctly by Bison).
 | Qt6::Widgets | qt6-qtbase, qt6-qtbase-gui | qt6-base-dev (libqt6widgets6) |
 | Qt6::PrintSupport | qt6-qtbase | qt6-base-dev (libqt6printsupport6) |
 | QScintilla | qscintilla-qt6 | libqscintilla2-qt6-15 |
+| Qt6::SvgWidgets | qt6-qtsvg | libqt6svg6 |
 
 Build-time (devel) packages:
 
 | Fedora / RPM | Debian / DEB |
 |--------------|--------------|
 | qt6-qtbase-devel | qt6-base-dev |
+| qt6-qtsvg-devel | qt6-svg-dev |
 | qscintilla-qt6-devel | libqscintilla2-qt6-dev |
 
 **Mock-up status:** Working Qt6 mock-up in `comal-ide/`. Build with

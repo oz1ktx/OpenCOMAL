@@ -16,7 +16,9 @@ namespace comal::runtime {
 
 // ── Constructor / Destructor ────────────────────────────────────────────
 
-Interpreter::Interpreter() {
+Interpreter::Interpreter()
+    : io_(std::make_unique<TerminalIO>())
+{
     std::random_device rd;
     rng.seed(rd());
 }
@@ -70,6 +72,48 @@ void Interpreter::loadFile(const std::string& path) {
     }
 
     // Run structure scan
+    structureScan();
+}
+
+// ── loadSource ──────────────────────────────────────────────────────────
+
+void Interpreter::loadSource(const std::string& source) {
+    std::istringstream stream(source);
+    ComalLine* tail = nullptr;
+    std::string text;
+    int line_count = 0;
+
+    while (std::getline(stream, text)) {
+        line_count++;
+
+        if (text.empty() || text.find_first_not_of(" \t\r\n") == std::string::npos)
+            continue;
+
+        char errbuf[256] = {};
+        int errpos = 0;
+
+        ComalLine* cl = comal_parse_line_modern(text.c_str(),
+                                                 errbuf, sizeof(errbuf), &errpos);
+        if (!cl) {
+            std::string msg = "Parse error at line " +
+                              std::to_string(line_count) + ": " + errbuf;
+            throw ComalError(ErrorCode::Scan, msg);
+        }
+
+        if (!cl->lineData()) {
+            cl->setLineData(new ComalLineData(line_count));
+        } else {
+            cl->lineData()->lineno = line_count;
+        }
+
+        if (!progroot) {
+            progroot = cl;
+        } else if (tail) {
+            tail->setNext(cl);
+        }
+        tail = cl;
+    }
+
     structureScan();
 }
 
@@ -358,9 +402,11 @@ void Interpreter::run() {
 void Interpreter::print(const std::string& s) {
     if (selOutput != 0 && files.isOpen(selOutput)) {
         files.writeValue(selOutput, Value(s));
+    } else if (selOutputFile_) {
+        *selOutputFile_ << s;
+        selOutputFile_->flush();
     } else {
-        *out << s;
-        out->flush();
+        io_->print(s);
     }
 }
 
@@ -376,10 +422,22 @@ std::string Interpreter::readLine(const std::string& prompt) {
         return v.asString();
     }
 
-    std::string line;
-    if (!std::getline(*in, line))
-        return "";  // Return empty on EOF (e.g. batch mode with no stdin)
-    return line;
+    if (selInputFile_) {
+        std::string line;
+        if (!std::getline(*selInputFile_, line))
+            return "";
+        return line;
+    }
+
+    return io_->readLine();
+}
+
+void Interpreter::clearScreen() {
+    io_->clearScreen();
+}
+
+void Interpreter::setCursor(int row, int col) {
+    io_->setCursor(row, col);
 }
 
 } // namespace comal::runtime

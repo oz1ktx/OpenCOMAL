@@ -45,6 +45,8 @@ add_executable(comal-ide
     src/debug_panel.cpp
     src/file_browser_panel.cpp
     src/help_panel.cpp
+    src/qt_io.cpp
+    src/run_worker.cpp
     include/main_window.h
     include/code_editor_panel.h
     include/direct_command_panel.h
@@ -52,6 +54,8 @@ add_executable(comal-ide
     include/debug_panel.h
     include/file_browser_panel.h
     include/help_panel.h
+    include/qt_io.h
+    include/run_worker.h
 )
 
 target_include_directories(comal-ide PRIVATE
@@ -63,4 +67,5 @@ target_link_libraries(comal-ide PRIVATE
     Qt6::Widgets
     Qt6::PrintSupport
     ${QSCINTILLA_LIBRARY}
+    comal-runtime
 )

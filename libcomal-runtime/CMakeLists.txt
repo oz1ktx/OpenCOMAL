@@ -13,6 +13,7 @@ set(RUNTIME_SOURCES
     src/builtins.cpp
     src/file_io.cpp
     src/runtime_error.cpp
+    src/terminal_io.cpp
 )
 
 # ── Library ────────────────────────────────────────────────────────────────

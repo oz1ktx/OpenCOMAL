@@ -4,12 +4,14 @@
 
 class QTabWidget;
 class QDockWidget;
+class QLabel;
 class CodeEditorPanel;
 class DirectCommandPanel;
 class GraphicsPanel;
 class DebugPanel;
 class FileBrowserPanel;
 class HelpPanel;
+class RunWorker;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -23,6 +25,7 @@ private:
     void createStatusBar();
     void createPanels();
     void restoreDefaultLayout();
+    void connectRunWorker();
 
     // Central widget
     CodeEditorPanel *codeEditor_;
@@ -40,6 +43,13 @@ private:
     FileBrowserPanel   *fileBrowser_;
     HelpPanel          *help_;
 
+    // Runtime worker
+    RunWorker *worker_{nullptr};
+
+    // Status bar widgets
+    QLabel *posLabel_;
+    QLabel *stateLabel_;
+
 private slots:
     void onRun();
     void onStop();
@@ -48,4 +58,6 @@ private slots:
     void onContinue();
     void onFormatSource();
     void onResetLayout();
+    void onRunFinished();
+    void onRunError(const QString &message);
 };

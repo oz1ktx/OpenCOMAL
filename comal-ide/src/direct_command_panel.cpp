@@ -4,6 +4,11 @@
 #include <QTextEdit>
 #include <QLineEdit>
 #include <QLabel>
+#include <QMenu>
+#include <QAction>
+#include <QFileDialog>
+#include <QApplication>
+#include <QClipboard>
 
 DirectCommandPanel::DirectCommandPanel(QWidget *parent)
     : QWidget(parent)
@@ -16,6 +21,9 @@ DirectCommandPanel::DirectCommandPanel(QWidget *parent)
     output_->setReadOnly(true);
     output_->setFont(QFont("Monospace", 10));
     output_->setPlaceholderText(tr("Program output appears here..."));
+    output_->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(output_, &QTextEdit::customContextMenuRequested,
+            this,    &DirectCommandPanel::showOutputContextMenu);
     layout->addWidget(output_, /*stretch=*/1);
 
     // Command input line
@@ -43,10 +51,63 @@ void DirectCommandPanel::appendOutput(const QString &text)
 
 void DirectCommandPanel::onCommandEntered()
 {
-    QString cmd = input_->text().trimmed();
+    QString cmd = input_->text();
     if (cmd.isEmpty()) return;
 
     appendOutput("> " + cmd);
-    appendOutput("[stub: command execution not yet connected]");
     input_->clear();
+    emit lineEntered(cmd);
+}
+
+void DirectCommandPanel::setInputEnabled(bool enabled)
+{
+    input_->setEnabled(enabled);
+    if (enabled)
+        input_->setFocus();
+}
+
+void DirectCommandPanel::showOutputContextMenu(const QPoint &pos)
+{
+    QMenu menu(this);
+
+    QAction *copyAct = menu.addAction(tr("&Copy"));
+    copyAct->setShortcut(QKeySequence::Copy);
+    copyAct->setEnabled(output_->textCursor().hasSelection());
+    connect(copyAct, &QAction::triggered, output_, &QTextEdit::copy);
+
+    QAction *selectAllAct = menu.addAction(tr("Select &All"));
+    selectAllAct->setShortcut(QKeySequence::SelectAll);
+    selectAllAct->setEnabled(!output_->toPlainText().isEmpty());
+    connect(selectAllAct, &QAction::triggered, output_, &QTextEdit::selectAll);
+
+    menu.addSeparator();
+
+    QAction *clearAct = menu.addAction(tr("C&lear"));
+    clearAct->setEnabled(!output_->toPlainText().isEmpty());
+    connect(clearAct, &QAction::triggered, this, &DirectCommandPanel::clearOutput);
+
+    menu.addSeparator();
+
+    QAction *saveAct = menu.addAction(tr("&Save Output..."));
+    saveAct->setEnabled(!output_->toPlainText().isEmpty());
+    connect(saveAct, &QAction::triggered, this, &DirectCommandPanel::saveOutput);
+
+    menu.exec(output_->mapToGlobal(pos));
+}
+
+void DirectCommandPanel::clearOutput()
+{
+    output_->clear();
+}
+
+void DirectCommandPanel::saveOutput()
+{
+    QString path = QFileDialog::getSaveFileName(this, tr("Save Output"),
+                                                QString(), tr("Text Files (*.txt);;All Files (*)"));
+    if (path.isEmpty()) return;
+
+    QFile file(path);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        file.write(output_->toPlainText().toUtf8());
+    }
 }

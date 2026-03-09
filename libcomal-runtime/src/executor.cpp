@@ -277,7 +277,7 @@ void execLine(Interpreter& interp, ComalLine* line) {
 
     // ── PAGE (clear screen) ─────────────────────────────────────────────
     case StatementType::Page:
-        interp.print("\033[2J\033[H");  // ANSI clear
+        interp.clearScreen();
         break;
 
     // ── CURSOR row, col ─────────────────────────────────────────────────
@@ -285,8 +285,7 @@ void execLine(Interpreter& interp, ComalLine* line) {
         const auto& te = line->asTwoExp();
         int64_t row = evalInt(interp, te.exp1);
         int64_t col = evalInt(interp, te.exp2);
-        interp.print("\033[" + std::to_string(row) + ";" +
-                     std::to_string(col) + "H");
+        interp.setCursor(static_cast<int>(row), static_cast<int>(col));
         break;
     }
 
@@ -347,22 +346,16 @@ void execLine(Interpreter& interp, ComalLine* line) {
             if (v.isString()) {
                 const std::string& fname = v.asString();
                 if (fname.empty()) {
-                    // Restore stdout
-                    if (interp.out != &std::cout) {
-                        delete interp.out;
-                        interp.out = &std::cout;
-                    }
+                    // Restore default output
+                    interp.selOutputFile_.reset();
                 } else {
                     // Redirect output to file
-                    auto* ofs = new std::ofstream(fname);
+                    auto ofs = std::make_unique<std::ofstream>(fname);
                     if (!ofs->is_open()) {
-                        delete ofs;
                         throw ComalError(ErrorCode::Open,
                             "Cannot open '" + fname + "' for output");
                     }
-                    if (interp.out != &std::cout)
-                        delete interp.out;
-                    interp.out = ofs;
+                    interp.selOutputFile_ = std::move(ofs);
                 }
             } else {
                 interp.selOutput = v.toInt();
@@ -378,22 +371,16 @@ void execLine(Interpreter& interp, ComalLine* line) {
             if (v.isString()) {
                 const std::string& fname = v.asString();
                 if (fname.empty()) {
-                    // Restore stdin
-                    if (interp.in != &std::cin) {
-                        delete interp.in;
-                        interp.in = &std::cin;
-                    }
+                    // Restore default input
+                    interp.selInputFile_.reset();
                 } else {
                     // Redirect input from file
-                    auto* ifs = new std::ifstream(fname);
+                    auto ifs = std::make_unique<std::ifstream>(fname);
                     if (!ifs->is_open()) {
-                        delete ifs;
                         throw ComalError(ErrorCode::Open,
                             "Cannot open '" + fname + "' for input");
                     }
-                    if (interp.in != &std::cin)
-                        delete interp.in;
-                    interp.in = ifs;
+                    interp.selInputFile_ = std::move(ifs);
                 }
             } else {
                 interp.selInput = v.toInt();

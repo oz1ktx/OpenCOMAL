@@ -14,6 +14,9 @@ public:
 
     void setRootPath(const QString &path);
 
+signals:
+    void fileDoubleClicked(const QString &filePath);
+
 private:
     QTreeView        *tree_;
     QFileSystemModel *model_;

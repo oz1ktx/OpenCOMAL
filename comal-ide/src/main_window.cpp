@@ -5,6 +5,8 @@
 #include "debug_panel.h"
 #include "file_browser_panel.h"
 #include "help_panel.h"
+#include "run_worker.h"
+#include "qt_io.h"
 
 #include <QMenuBar>
 #include <QToolBar>
@@ -13,6 +15,7 @@
 #include <QLabel>
 #include <QAction>
 #include <QKeySequence>
+#include <Qsci/qsciscintilla.h>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -116,13 +119,13 @@ void MainWindow::createToolBar()
 void MainWindow::createStatusBar()
 {
     statusBar()->showMessage(tr("Ready"));
-    auto *posLabel = new QLabel(tr("Ln 1, Col 1"));
-    posLabel->setFrameStyle(QFrame::Panel | QFrame::Sunken);
-    statusBar()->addPermanentWidget(posLabel);
+    posLabel_ = new QLabel(tr("Ln 1, Col 1"));
+    posLabel_->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+    statusBar()->addPermanentWidget(posLabel_);
 
-    auto *stateLabel = new QLabel(tr("Ready"));
-    stateLabel->setFrameStyle(QFrame::Panel | QFrame::Sunken);
-    statusBar()->addPermanentWidget(stateLabel);
+    stateLabel_ = new QLabel(tr("Ready"));
+    stateLabel_->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+    statusBar()->addPermanentWidget(stateLabel_);
 }
 
 // ── Panels ──────────────────────────────────────────────────────────
@@ -156,6 +159,9 @@ void MainWindow::createPanels()
     fileBrowserDock_ = new QDockWidget(tr("Files"), this);
     fileBrowserDock_->setObjectName("FilesDock");
     fileBrowserDock_->setWidget(fileBrowser_);
+
+    connect(fileBrowser_, &FileBrowserPanel::fileDoubleClicked,
+            codeEditor_,  &CodeEditorPanel::openFile);
 
     // Help — right
     help_ = new HelpPanel;
@@ -196,13 +202,94 @@ void MainWindow::restoreDefaultLayout()
     helpDock_->hide();
 }
 
-// ── Slot stubs ──────────────────────────────────────────────────────
+// ── Run / Stop ────────────────────────────────────────────────────────
 
-void MainWindow::onRun()         { statusBar()->showMessage(tr("Running...")); }
-void MainWindow::onStop()        { statusBar()->showMessage(tr("Stopped")); }
-void MainWindow::onStepInto()    { statusBar()->showMessage(tr("Step Into")); }
-void MainWindow::onStepOver()    { statusBar()->showMessage(tr("Step Over")); }
-void MainWindow::onContinue()    { statusBar()->showMessage(tr("Continuing...")); }
+void MainWindow::connectRunWorker()
+{
+    auto *io = worker_->io();
+
+    // Output from the runtime → Direct Command panel
+    connect(io, &QtIO::textOutput,
+            directCommand_, &DirectCommandPanel::appendOutput,
+            Qt::QueuedConnection);
+
+    connect(io, &QtIO::screenCleared, directCommand_, [this]() {
+        directCommand_->appendOutput("\n--- PAGE ---\n");
+    }, Qt::QueuedConnection);
+
+    connect(io, &QtIO::cursorMoved, directCommand_, [this](int r, int c) {
+        directCommand_->appendOutput(
+            QString("[CURSOR %1,%2]").arg(r).arg(c));
+    }, Qt::QueuedConnection);
+
+    // Input request: enable the input line in Direct Command panel
+    connect(io, &QtIO::inputRequested, directCommand_, [this]() {
+        directCommand_->setInputEnabled(true);
+    }, Qt::QueuedConnection);
+
+    // Input from the GUI → runtime
+    connect(directCommand_, &DirectCommandPanel::lineEntered,
+            this, [this](const QString &line) {
+        if (worker_ && worker_->isRunning()) {
+            directCommand_->setInputEnabled(false);
+            worker_->io()->provideInput(line);
+        }
+    });
+
+    // Execution finished / error
+    connect(worker_, &RunWorker::finished,
+            this, &MainWindow::onRunFinished, Qt::QueuedConnection);
+    connect(worker_, &RunWorker::errorOccurred,
+            this, &MainWindow::onRunError, Qt::QueuedConnection);
+}
+
+void MainWindow::onRun()
+{
+    if (worker_ && worker_->isRunning()) return;
+
+    auto *editor = codeEditor_->currentEditor();
+    if (!editor) return;
+
+    QString source = editor->text();
+    directCommand_->appendOutput("\n--- RUN ---\n");
+
+    // Create a fresh worker each run
+    delete worker_;
+    worker_ = new RunWorker(this);
+    worker_->setSource(source);
+    connectRunWorker();
+
+    stateLabel_->setText(tr("Running"));
+    worker_->start();
+}
+
+void MainWindow::onStop()
+{
+    if (worker_ && worker_->isRunning()) {
+        worker_->requestStop();
+        // Also unblock readLine if it's waiting for input
+        worker_->io()->provideInput("");
+        stateLabel_->setText(tr("Stopping..."));
+    }
+}
+
+void MainWindow::onRunFinished()
+{
+    directCommand_->appendOutput("\n--- DONE ---\n");
+    stateLabel_->setText(tr("Ready"));
+    directCommand_->setInputEnabled(false);
+}
+
+void MainWindow::onRunError(const QString &message)
+{
+    directCommand_->appendOutput("\nERROR: " + message + "\n");
+    stateLabel_->setText(tr("Error"));
+    directCommand_->setInputEnabled(false);
+}
+
+void MainWindow::onStepInto()    { statusBar()->showMessage(tr("Step Into — not yet implemented")); }
+void MainWindow::onStepOver()    { statusBar()->showMessage(tr("Step Over — not yet implemented")); }
+void MainWindow::onContinue()    { statusBar()->showMessage(tr("Continue — not yet implemented")); }
 void MainWindow::onFormatSource(){ statusBar()->showMessage(tr("Format Source — not yet implemented")); }
 
 void MainWindow::onResetLayout()

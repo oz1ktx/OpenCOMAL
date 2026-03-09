@@ -15,6 +15,8 @@ public:
 
     QsciScintilla *currentEditor() const;
     void newTab(const QString &title = "Untitled");
+    void openFile(const QString &filePath);
+    QString currentFilePath() const;
 
 private:
     QTabWidget    *tabs_;
