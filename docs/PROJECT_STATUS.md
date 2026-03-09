@@ -427,6 +427,25 @@ Introduces 2 benign reduce/reduce conflicts (resolved correctly by Bison).
 
 **TODO:** Create a UI mock-up / wireframe.
 
+**Qt dependencies (for RPM/DEB packaging):**
+
+| CMake module | Runtime RPM packages (Fedora) | Debian/Ubuntu equivalent |
+|--------------|-------------------------------|--------------------------|
+| Qt6::Widgets | qt6-qtbase, qt6-qtbase-gui | qt6-base-dev (libqt6widgets6) |
+| Qt6::PrintSupport | qt6-qtbase | qt6-base-dev (libqt6printsupport6) |
+| QScintilla | qscintilla-qt6 | libqscintilla2-qt6-15 |
+
+Build-time (devel) packages:
+
+| Fedora / RPM | Debian / DEB |
+|--------------|--------------|
+| qt6-qtbase-devel | qt6-base-dev |
+| qscintilla-qt6-devel | libqscintilla2-qt6-dev |
+
+**Mock-up status:** Working Qt6 mock-up in `comal-ide/`. Build with
+`cmake .. && make comal-ide`. All panels, menus, toolbar, and status bar
+are present with placeholder content; logic stubs only.
+
 ### RPM/DEB Packaging
 - Add CPack configuration to CMakeLists.txt for building `.rpm` and `.deb` packages
 - Package `comal-run` binary plus any shared libraries

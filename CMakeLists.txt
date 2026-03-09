@@ -8,7 +8,7 @@ add_subdirectory(libcomal-parser)
 add_subdirectory(libcomal-runtime)
 
 add_subdirectory(comal-lsp)
-# add_subdirectory(comal-ide)
+add_subdirectory(comal-ide)
 
 # ── Integration test: run all COMAL test programs ────────────────────
 add_test(
