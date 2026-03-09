@@ -1,2 +1,0 @@
-/usr/bin/ar qc libcomal-runtime.a "CMakeFiles/comal-runtime.dir/src/value.cpp.o" "CMakeFiles/comal-runtime.dir/src/scope.cpp.o" "CMakeFiles/comal-runtime.dir/src/evaluator.cpp.o" "CMakeFiles/comal-runtime.dir/src/executor.cpp.o" "CMakeFiles/comal-runtime.dir/src/program.cpp.o" "CMakeFiles/comal-runtime.dir/src/builtins.cpp.o" "CMakeFiles/comal-runtime.dir/src/file_io.cpp.o" "CMakeFiles/comal-runtime.dir/src/runtime_error.cpp.o"
-/usr/bin/ranlib libcomal-runtime.a

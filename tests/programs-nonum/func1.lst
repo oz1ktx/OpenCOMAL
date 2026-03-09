@@ -1,0 +1,10 @@
+// FUNC without line numbers
+FUNC double(x)
+  RETURN x*2
+ENDFUNC double
+FUNC greet$(who$)
+  RETURN "Hi "+who$
+ENDFUNC greet$
+PRINT double(21)
+PRINT greet$("COMAL")
+PRINT "done"

@@ -1,0 +1,13 @@
+// CASE/WHEN/OTHERWISE without line numbers
+x:=2
+CASE x OF
+WHEN 1
+  PRINT "one"
+WHEN 2
+  PRINT "two"
+WHEN 3
+  PRINT "three"
+OTHERWISE
+  PRINT "other"
+ENDCASE
+PRINT "done"

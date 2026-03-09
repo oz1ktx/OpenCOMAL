@@ -16,9 +16,9 @@
 | Parser Integration | ✅ Complete | 100% |
 | Runtime Library | ✅ Complete | 100% |
 | LSP Server | ✅ Complete | 100% |
-| KDE GUI | 🔜 Planned | 0% |
+| Qt6 GUI (comal-ide) | 🔜 Planned | 0% |
 
-**Current Phase:** Phase 4 — Runtime Library ✅ Complete (115/119 tests passing + 4 skipped) + LSP Server Phase 3 ✅ Complete
+**Current Phase:** Phase 4 — Runtime Library ✅ Complete (124/132 tests passing + 4 skipped + 4 pre-existing failures) + LSP Server ✅ Complete + Numberless Program Support ✅ Complete
 
 ---
 
@@ -228,11 +228,18 @@ no opencomal/opencomalrun split. Focused on running COMAL programs from files.
 12. **PRINT FILE name extraction:** `ExpIsString` wrapper hid the underlying
     `OpType::Sid`. Fixed: unwrap before checking OpType.
 
-**Test Results (full suite — 119 tests):**
-- **115 PASS** — All statement types, builtins, file I/O, arrays, scoping, etc.
+**Test Results (full suite — 132 tests: 119 numbered + 13 numberless):**
+- **124 PASS** — All statement types, builtins, file I/O, arrays, scoping, etc.
 - **4 SKIP:** rnd()1.lst, rnd()2.lst (infinite loops, need SIGINT),
   signif1.lst (IEEE 754 infinite loop), gentest.lst (interactive/requires keyboard)
-- **0 FAIL**
+- **4 FAIL (pre-existing):** logist1.lst, logist2.lst (DIM OF parser state leak),
+  lst2sq.lst, sq2lst.lst (timeout/KILL — squash format not implemented)
+
+**Test infrastructure:**
+- Tests moved from `legacy/samples/tests/` to `tests/programs/` (119 numbered)
+- 13 numberless test programs in `tests/programs-nonum/` (verify line-number-free parsing)
+- Unified test runner: `tests/run_tests.sh` (CTest-integrated)
+- CTest target: `comal_programs` in root `CMakeLists.txt`
 
 **New tests added:**
 - `len2.lst` — LEN() on string arrays (1D, 2D, single-element)
@@ -241,6 +248,21 @@ no opencomal/opencomalrun split. Focused on running COMAL programs from files.
 - `funcvar1.lst` — FUNC variable calls (passing FUNC as parameter)
 - `funcvar2.lst` — FUNC variable calls: string FUNC$, zero-arg, multi-arg
 - `draw1.lst` — DRAW placeholder (accepts mixed expression lists)
+
+**Numberless test programs (tests/programs-nonum/):**
+- `for1.lst` — FOR loop, reverse FOR, short-form FOR
+- `if1.lst` — IF/ELIF/ELSE, short-form IF
+- `while1.lst` — WHILE loop
+- `repeat1.lst` — REPEAT/UNTIL
+- `proc1.lst` — PROC definition and calls
+- `func1.lst` — FUNC with RETURN
+- `case1.lst` — CASE/WHEN/OTHERWISE
+- `trap1.lst` — TRAP/HANDLER
+- `nested1.lst` — Nested FOR + IF
+- `mixed1.lst` — FUNC + PROC + FOR combined
+- `simple1.lst` — Assignments, DIM, arrays
+- `data1.lst` — DATA/READ
+- `exit1.lst` — EXIT loop
 
 ---
 
@@ -332,14 +354,14 @@ These would be modern extensions beyond the original COMAL spec but could make
 the language relevant for contemporary use cases. Worth investigating once the
 core runtime is stable.
 
-### Parser Support for Line-Number-Free Source Files
-The current Bison grammar only accepts `complex_stat` (FOR, IF, WHILE, REPEAT,
-CASE, PROC, FUNC, and their END markers) when preceded by a line number. Without
-a number, only `simple_stat` is matched. This means source files **must** have
-COMAL line numbers for any non-trivial program. The fix is to add `program_line`
-as a direct alternative in the `comal_line` rule (which subsumes the existing
-`simple_stat` case). This will be needed when the GUI saves programs without
-legacy line numbers.
+### ✅ Parser Support for Line-Number-Free Source Files (Complete)
+Added `| program_line` alternative to the `comal_line` Bison rule, allowing
+FOR, IF, WHILE, REPEAT, CASE, PROC, FUNC, and all other complex statements
+without COMAL line numbers. `loadFile()` assigns sequential file line numbers
+automatically. 13 numberless test programs validate all statement types.
+Introduces 2 benign reduce/reduce conflicts (resolved correctly by Bison).
+**Critical:** `comal_parser_reset()` must NOT be called between lines in
+`loadFile()` — pool-allocated `id_rec*` pointers are borrowed by the modern AST.
 
 ---
 
@@ -353,13 +375,21 @@ legacy line numbers.
 - Go-to-definition
 - Integration with VS Code, Kate, etc.
 
-### KDE GUI Application (comal-ide/)
-- Qt6-based GUI
-- KTextEditor integration for editing
-- Interactive REPL
-- Debugger interface
-- Project management
-- Replace legacy ncurses UI
+### GUI Application (comal-ide/)
+**Toolkit:** Plain Qt6 + QScintilla (not KDE Frameworks).
+- KDE/KTextEditor rejected: too many dependencies (~15 KF6 libs), Linux-only,
+  overlaps with the existing LSP server, overkill for COMAL's ~40 keywords.
+- QScintilla provides syntax highlighting, line numbers, code folding, markers.
+- QDockWidget layout for multi-panel windowing.
+- QGraphicsView/QGraphicsScene for DRAW/turtle graphics canvas.
+
+**Window layout (multi-panel, dockable):**
+- Program code editor(s) — QScintilla, multiple tabs/docks, LSP-connected
+- Direct command panel — REPL for immediate COMAL execution
+- Graphics canvas — DRAW output, turtle graphics, future plotting
+- Debug/watch panel — variable inspector, breakpoints, call stack
+
+**TODO:** Flesh out GUI design choices and create a UI mock-up.
 
 ### RPM/DEB Packaging
 - Add CPack configuration to CMakeLists.txt for building `.rpm` and `.deb` packages
@@ -449,11 +479,15 @@ legacy line numbers.
 - `src/runtime_error.cpp` (13 lines) - Error formatting
 - `tools/comal_run.cpp` (56 lines) - CLI batch runner with SIGINT handling
 
+**Tests (`tests/`):**
+- `tests/run_tests.sh` - Unified test runner (numbered + numberless, CTest-integrated)
+- `tests/programs/` - 119 numbered `.lst` test programs (+ 5 `.prl`, 1 `.prc`)
+- `tests/programs-nonum/` - 13 numberless `.lst` test programs
+
 **Legacy Code:**
 - `legacy/src/` - Original C implementation
 - `legacy/bin/` - Original binaries
-- `legacy/samples/` - Test programs
-- `legacy/samples/tests/` - Test .lst files (~113 programs)
+- `legacy/samples/` - Sample programs (reference)
 
 **Build:**
 - `CMakeLists.txt` - Top-level build (includes libcomal-parser + libcomal-runtime)
@@ -472,7 +506,7 @@ cmake ..
 make -j$(nproc)
 
 # Run a COMAL program (batch mode)
-./libcomal-runtime/comal-run ../legacy/samples/tests/hello.lst
+./libcomal-runtime/comal-run ../tests/programs/hello.lst
 
 # Run parser CLI (legacy mode — silent parse)
 ./libcomal-parser/comal-parse-cli test.cml
@@ -483,13 +517,11 @@ make -j$(nproc)
 # Run modern AST demo (Phase 1+2 tests)
 ./libcomal-parser/comal-ast-demo
 
-# Test all sample programs through runtime (with timeout)
-T=../legacy/samples/tests
-for f in "$T"/*.lst; do
-  n=$(basename "$f")
-  timeout 2 ./libcomal-runtime/comal-run "$f" >/dev/null 2>&1
-  if [ $? -eq 0 ]; then echo "PASS $n"; else echo "FAIL $n"; fi
-done
+# Run all tests (numbered + numberless)
+bash ../tests/run_tests.sh ./libcomal-runtime/comal-run
+
+# Run via CTest
+ctest --output-on-failure
 
 # Build legacy (for reference)
 cd /home/pnand/Workspace/Scratch/OpenCOMAL/legacy

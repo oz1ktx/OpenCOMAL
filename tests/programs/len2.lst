@@ -1,0 +1,14 @@
+       10 // LEN() on string arrays
+       20 //
+       30 DIM a$(5)
+       40 IF LEN(a$)<>5 THEN STOP "LEN of empty array failed"
+       50 FOR i:=1 TO 5 DO a$(i):="item"+STR$(i)
+       60 IF LEN(a$)<>5 THEN STOP "LEN after fill failed"
+       70 //
+       80 DIM b$(3, 4)
+       90 IF LEN(b$)<>12 THEN STOP "LEN of 2D array failed"
+      100 //
+      110 DIM c$(1)
+      120 IF LEN(c$)<>1 THEN STOP "LEN of single-element array failed"
+      130 //
+      140 PRINT "All ok"

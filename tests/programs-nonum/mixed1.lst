@@ -1,0 +1,12 @@
+// Mixed: PROC, FUNC, FOR, IF — all without line numbers
+FUNC factorial(n)
+  IF n<=1 THEN RETURN 1
+  RETURN n*factorial(n-1)
+ENDFUNC factorial
+PROC show(lbl$, v)
+  PRINT lbl$; "="; v
+ENDPROC show
+FOR i:=1 TO 6
+  show("fact("+STR$(i)+")", factorial(i))
+NEXT i
+PRINT "done"

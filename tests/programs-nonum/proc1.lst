@@ -1,0 +1,7 @@
+// PROC without line numbers
+PROC greet(name$)
+  PRINT "Hello, "; name$
+ENDPROC greet
+greet("World")
+greet("COMAL")
+PRINT "done"

@@ -53,6 +53,13 @@ void Interpreter::loadFile(const std::string& path) {
             throw ComalError(ErrorCode::Scan, msg);
         }
 
+        // Assign sequential file line number, stripping any legacy COMAL number
+        if (!cl->lineData()) {
+            cl->setLineData(new ComalLineData(line_count));
+        } else {
+            cl->lineData()->lineno = line_count;
+        }
+
         // Build linked list
         if (!progroot) {
             progroot = cl;

@@ -25,16 +25,19 @@ This project has a **modern C++20** frontend and runtime, plus a **legacy C** co
   - `include/` — Headers: `comal_interpreter.h`, `comal_executor.h`, `comal_evaluator.h`, `comal_value.h`, `comal_scope.h`, `comal_builtins.h`, `comal_file_io.h`, `comal_error.h`, `comal_interrupt.h`
   - `src/` — Implementations: `executor.cpp` (1627 lines, main dispatch), `evaluator.cpp` (478), `program.cpp` (378), `value.cpp` (273), `builtins.cpp` (287), `file_io.cpp` (193), `scope.cpp` (138), `runtime_error.cpp` (13)
   - `tools/comal_run.cpp` — Batch execution CLI with SIGINT interrupt handling
+- `tests/` — Test infrastructure.
+  - `run_tests.sh` — Unified test runner (numbered + numberless tests, CTest-integrated)
+  - `programs/` — 119 numbered `.lst` test programs (+ 5 `.prl`, 1 `.prc`)
+  - `programs-nonum/` — 13 numberless `.lst` test programs (line-number-free syntax)
 - `legacy/` — Original C implementation (reference only).
   - `src/` — C sources with `pdc*` prefix (pdcexec.c, pdcrun.c, etc.)
-  - `samples/tests/` — ~113 `.lst` test programs
   - `bin/` — Legacy binaries (opencomal, opencomalrun)
 - `docs/` — Project documentation.
   - `PROJECT_STATUS.md` — **Comprehensive status** (read this first!)
   - `AST_MODERNIZATION.md` — Phase plan and design decisions
   - `AST_USAGE.md` — Modern AST usage patterns and examples
-- `comal-ide/` — Future IDE (not started)
-- `comal-lsp/` — Future LSP server (not started)
+- `comal-ide/` — Future Qt6 GUI (not started: plain Qt6 + QScintilla, dockable panels)
+- `comal-lsp/` — LSP server (complete: diagnostics, completion, definition, hover)
 
 **Build specifics (modern):**
 - CMake build, C++20, GCC 15
@@ -60,15 +63,20 @@ This project has a **modern C++20** frontend and runtime, plus a **legacy C** co
 - Legacy execution (reference): `legacy/src/pdcexec.c`, `legacy/src/pdcrun.c`
 
 **Testing & validation tips:**
-- Test programs: `legacy/samples/tests/*.lst` (~115 files)
-- Run single test: `./build/libcomal-runtime/comal-run legacy/samples/tests/for1.lst`
-- Run all tests: `cd build && bash run_tests.sh` (115 PASS / 0 FAIL / 4 SKIP)
-- Test runner: `build/run_tests.sh` — skips interactive/infinite-loop tests
-- New tests: len2.lst (LEN on string arrays), split1.lst (SPLIT$ comprehensive), len3.lst (LEN on numeric arrays), funcvar1.lst, funcvar2.lst (FUNC variable calls), draw1.lst (DRAW placeholder)
+- Test programs (numbered): `tests/programs/*.lst` (~119 files)
+- Test programs (numberless): `tests/programs-nonum/*.lst` (13 files)
+- Run single test: `./build/libcomal-runtime/comal-run tests/programs/for1.lst`
+- Run all tests: `bash tests/run_tests.sh` (124 PASS / 4 FAIL / 4 SKIP / 132 TOTAL)
+- Run via CTest: `cd build && ctest --output-on-failure`
+- Test runner: `tests/run_tests.sh` — accepts optional path to `comal-run` binary, skips interactive/infinite-loop tests
+- Pre-existing failures: logist1, logist2 (DIM OF state leak), lst2sq, sq2lst (timeout)
+- Numberless tests verify line-number-free parsing: FOR, IF, WHILE, REPEAT, PROC, FUNC, CASE, TRAP, nested, mixed, simple, DATA, EXIT
 
 **Current project phase:**
 - Phases 1-4 complete (Expression AST, Statement AST, Parser Integration, Runtime Library)
-- 115/119 tests passing (4 skipped: interactive/infinite-loop)
+- LSP Server complete (diagnostics, completion, definition, hover)
+- Numberless program support: parser accepts programs without COMAL line numbers
+- 124/132 tests passing (4 skipped: interactive/infinite-loop, 4 pre-existing failures)
 - See `docs/PROJECT_STATUS.md` for detailed status, bugs found/fixed, and priorities
 
 **Editing notes for contributors/agents:**

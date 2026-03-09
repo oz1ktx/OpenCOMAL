@@ -1,0 +1,12 @@
+// Nested structures without line numbers
+FOR i:=1 TO 3
+  FOR j:=1 TO 3
+    IF i=j THEN
+      PRINT "*";
+    ELSE
+      PRINT ".";
+    ENDIF
+  NEXT j
+  PRINT
+NEXT i
+PRINT "done"

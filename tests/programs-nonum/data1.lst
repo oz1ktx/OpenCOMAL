@@ -1,0 +1,8 @@
+// DATA/READ without line numbers
+READ a, b, c$
+PRINT a; " "; b; " "; c$
+READ x
+PRINT x
+PRINT "done"
+DATA 10, 20, "hello"
+DATA 99

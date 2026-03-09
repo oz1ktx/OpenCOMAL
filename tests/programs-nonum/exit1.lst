@@ -1,0 +1,7 @@
+// EXIT loop without line numbers
+FOR i:=1 TO 100
+  IF i>5 THEN EXIT
+  PRINT i;
+NEXT i
+PRINT
+PRINT "done"

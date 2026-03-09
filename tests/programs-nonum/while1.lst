@@ -1,0 +1,15 @@
+// WHILE loop without line numbers
+i:=1
+WHILE i<=5 DO
+  PRINT i;
+  i:+1
+ENDWHILE
+PRINT
+// Alternate WHILE
+i:=1
+WHILE i<=3 DO
+  PRINT i;
+  i:+1
+ENDWHILE
+PRINT
+PRINT "done"

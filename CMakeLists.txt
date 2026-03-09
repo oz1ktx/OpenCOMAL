@@ -9,3 +9,11 @@ add_subdirectory(libcomal-runtime)
 
 add_subdirectory(comal-lsp)
 # add_subdirectory(comal-ide)
+
+# ── Integration test: run all COMAL test programs ────────────────────
+add_test(
+  NAME comal_programs
+  COMMAND bash ${CMAKE_SOURCE_DIR}/tests/run_tests.sh
+          $<TARGET_FILE:comal-run>
+)
+set_tests_properties(comal_programs PROPERTIES TIMEOUT 300)

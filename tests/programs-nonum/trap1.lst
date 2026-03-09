@@ -1,0 +1,7 @@
+// TRAP/HANDLER without line numbers
+TRAP
+  x:=1/0
+HANDLER
+  PRINT "caught error"
+ENDTRAP
+PRINT "done"

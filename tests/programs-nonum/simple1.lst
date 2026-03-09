@@ -1,0 +1,16 @@
+// Simple statements without line numbers
+a:=42
+b:=3.14
+c$:="hello"
+PRINT a
+PRINT b
+PRINT c$
+DIM arr(5)
+FOR i:=1 TO 5
+  arr(i):=i*10
+NEXT i
+FOR i:=1 TO 5
+  PRINT arr(i);
+NEXT i
+PRINT
+PRINT "done"

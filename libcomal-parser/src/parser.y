@@ -266,6 +266,11 @@ comal_line	:	command
 				$$.ld->rem=$3;
 				$$.lineptr=NULL;
 			}
+		|	program_line
+			{
+				$$=$1;
+				$$.ld=NULL;
+			}
 		|	simple_stat
 			{
 				$$=$1;

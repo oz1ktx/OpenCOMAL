@@ -1,0 +1,12 @@
+// IF/ELIF/ELSE without line numbers
+a:=10
+IF a>20 THEN
+  PRINT "big"
+ELIF a>5 THEN
+  PRINT "medium"
+ELSE
+  PRINT "small"
+ENDIF
+// Short-form IF
+IF 1=1 THEN PRINT "yes"
+PRINT "done"
