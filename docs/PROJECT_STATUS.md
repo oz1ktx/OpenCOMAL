@@ -376,6 +376,7 @@ Introduces 2 benign reduce/reduce conflicts (resolved correctly by Bison).
 - Integration with VS Code, Kate, etc.
 
 ### GUI Application (comal-ide/)
+
 **Toolkit:** Plain Qt6 + QScintilla (not KDE Frameworks).
 - KDE/KTextEditor rejected: too many dependencies (~15 KF6 libs), Linux-only,
   overlaps with the existing LSP server, overkill for COMAL's ~40 keywords.
@@ -383,13 +384,48 @@ Introduces 2 benign reduce/reduce conflicts (resolved correctly by Bison).
 - QDockWidget layout for multi-panel windowing.
 - QGraphicsView/QGraphicsScene for DRAW/turtle graphics canvas.
 
-**Window layout (multi-panel, dockable):**
-- Program code editor(s) — QScintilla, multiple tabs/docks, LSP-connected
-- Direct command panel — REPL for immediate COMAL execution
-- Graphics canvas — DRAW output, turtle graphics, future plotting
-- Debug/watch panel — variable inspector, breakpoints, call stack
+**Window layout (multi-panel, dockable via QDockWidget):**
 
-**TODO:** Flesh out GUI design choices and create a UI mock-up.
+| Panel | Widget | Purpose |
+|-------|--------|---------|
+| Code editor | QScintilla, tabbed | Multi-tab source editing, LSP-connected, breakpoint gutter |
+| Direct command / Output | QTextEdit + input line | REPL for immediate COMAL execution; doubles as text I/O (PRINT/INPUT) for running programs |
+| Graphics canvas | QGraphicsView/QGraphicsScene | DRAW output, turtle graphics, future Processing-style commands |
+| Debug | Tree/table views | Variable inspector, watch expressions, call stack, breakpoints |
+| File browser | QTreeView | Tree view of `.lst`/`.prl`/`.prc` files; navigate USE/EXEC targets |
+| Help / Reference | QTextBrowser or dock | Quick-reference for COMAL keywords (LSP hover provides per-keyword help) |
+
+**Status bar:** Current line/col, run state (Running/Stopped/Ready), current file, parser error count.
+
+**Menus:**
+
+| Menu | Items |
+|------|-------|
+| File | New, Open, Save, Save As (with numbered-export option), Recent Files, Close, Exit |
+| Edit | Undo, Redo, Cut, Copy, Paste, Find/Replace, Format Source |
+| Program | Run, Stop, Step, Continue, Toggle Breakpoint |
+| View | Toggle each panel, Reset Layout |
+| Settings | Font/Colors, Editor preferences, Key bindings |
+| Help | COMAL Quick Reference, About |
+
+**Toolbar buttons:** Run, Stop, Step Into, Step Over, Continue.
+
+**Line number handling:**
+- On open/import: strip line numbers; editor always works with numberless source.
+- On save: save as numberless by default.
+- Save As: optional checkbox to add line numbers (configurable step, e.g. 10).
+- COMAL has no GOTO/GOSUB, so line numbers are purely cosmetic ordering — no
+  semantic impact, no RENUM command needed.
+
+**Format Source (Edit > Format Source, Ctrl+Shift+F):**
+- Canonical keyword casing (uppercase: FOR, PRINT, IF, …)
+- Consistent indentation of control structures (FOR/ENDFOR, IF/ENDIF,
+  WHILE/ENDWHILE, PROC/ENDPROC, REPEAT/UNTIL, CASE/ENDCASE, TRAP/ENDTRAP)
+- Consistent spacing around operators
+- Implemented via LSP `textDocument/formatting` so VS Code / Kate users
+  get the same feature for free.
+
+**TODO:** Create a UI mock-up / wireframe.
 
 ### RPM/DEB Packaging
 - Add CPack configuration to CMakeLists.txt for building `.rpm` and `.deb` packages
