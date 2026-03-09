@@ -30,7 +30,7 @@ signals:
     void finished();
 
     /// Emitted when execution ends with an error.
-    void errorOccurred(const QString &message);
+    void errorOccurred(const QString &message, int lineNumber);
 
 protected:
     void run() override;

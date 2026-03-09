@@ -15,6 +15,7 @@
 #include <QLabel>
 #include <QAction>
 #include <QKeySequence>
+#include <QFileDialog>
 #include <Qsci/qsciscintilla.h>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -36,24 +37,34 @@ void MainWindow::createMenus()
 {
     // File
     auto *fileMenu = menuBar()->addMenu(tr("&File"));
-    fileMenu->addAction(tr("&New"),        this, []{}  , QKeySequence::New);
-    fileMenu->addAction(tr("&Open..."),    this, []{}  , QKeySequence::Open);
-    fileMenu->addAction(tr("&Save"),       this, []{}  , QKeySequence::Save);
-    fileMenu->addAction(tr("Save &As..."), this, []{});
+    fileMenu->addAction(tr("&New"),        this, &MainWindow::onNew,    QKeySequence::New);
+    fileMenu->addAction(tr("&Open..."),    this, &MainWindow::onOpen,   QKeySequence::Open);
+    fileMenu->addAction(tr("&Save"),       this, &MainWindow::onSave,   QKeySequence::Save);
+    fileMenu->addAction(tr("Save &As..."), this, &MainWindow::onSaveAs);
     fileMenu->addSeparator();
     fileMenu->addAction(tr("Recent Files"))->setEnabled(false);
     fileMenu->addSeparator();
-    fileMenu->addAction(tr("&Close"),      this, []{}  , QKeySequence::Close);
+    fileMenu->addAction(tr("&Close"),      this, &MainWindow::onCloseTab, QKeySequence::Close);
     fileMenu->addAction(tr("E&xit"),       this, &QWidget::close, QKeySequence::Quit);
 
     // Edit
     auto *editMenu = menuBar()->addMenu(tr("&Edit"));
-    editMenu->addAction(tr("&Undo"),          this, []{}, QKeySequence::Undo);
-    editMenu->addAction(tr("&Redo"),          this, []{}, QKeySequence::Redo);
+    editMenu->addAction(tr("&Undo"), this, [this]{
+        if (auto *e = codeEditor_->currentEditor()) e->undo();
+    }, QKeySequence::Undo);
+    editMenu->addAction(tr("&Redo"), this, [this]{
+        if (auto *e = codeEditor_->currentEditor()) e->redo();
+    }, QKeySequence::Redo);
     editMenu->addSeparator();
-    editMenu->addAction(tr("Cu&t"),           this, []{}, QKeySequence::Cut);
-    editMenu->addAction(tr("&Copy"),          this, []{}, QKeySequence::Copy);
-    editMenu->addAction(tr("&Paste"),         this, []{}, QKeySequence::Paste);
+    editMenu->addAction(tr("Cu&t"), this, [this]{
+        if (auto *e = codeEditor_->currentEditor()) e->cut();
+    }, QKeySequence::Cut);
+    editMenu->addAction(tr("&Copy"), this, [this]{
+        if (auto *e = codeEditor_->currentEditor()) e->copy();
+    }, QKeySequence::Copy);
+    editMenu->addAction(tr("&Paste"), this, [this]{
+        if (auto *e = codeEditor_->currentEditor()) e->paste();
+    }, QKeySequence::Paste);
     editMenu->addSeparator();
     editMenu->addAction(tr("&Find/Replace..."), this, []{}, QKeySequence::Find);
     editMenu->addSeparator();
@@ -163,6 +174,10 @@ void MainWindow::createPanels()
     connect(fileBrowser_, &FileBrowserPanel::fileDoubleClicked,
             codeEditor_,  &CodeEditorPanel::openFile);
 
+    // Cursor position tracking
+    connect(codeEditor_, &CodeEditorPanel::cursorPositionChanged,
+            this,        &MainWindow::updateCursorPos);
+
     // Help — right
     help_ = new HelpPanel;
     helpDock_ = new QDockWidget(tr("Help"), this);
@@ -251,8 +266,7 @@ void MainWindow::onRun()
     if (!editor) return;
 
     QString source = editor->text();
-    directCommand_->appendOutput("\n--- RUN ---\n");
-
+    directCommand_->appendOutput("\n--- RUN ---\n");    codeEditor_->clearErrorHighlight();
     // Create a fresh worker each run
     delete worker_;
     worker_ = new RunWorker(this);
@@ -280,17 +294,58 @@ void MainWindow::onRunFinished()
     directCommand_->setInputEnabled(false);
 }
 
-void MainWindow::onRunError(const QString &message)
+void MainWindow::onRunError(const QString &message, int lineNumber)
 {
-    directCommand_->appendOutput("\nERROR: " + message + "\n");
+    QString msg = "\nERROR: " + message;
+    if (lineNumber > 0)
+        msg += " (line " + QString::number(lineNumber) + ")";
+    msg += "\n";
+    directCommand_->appendOutput(msg);
     stateLabel_->setText(tr("Error"));
     directCommand_->setInputEnabled(false);
+
+    if (lineNumber > 0)
+        codeEditor_->highlightErrorLine(lineNumber);
+}
+
+void MainWindow::onNew()
+{
+    codeEditor_->newTab("Untitled");
+}
+
+void MainWindow::onOpen()
+{
+    QString path = QFileDialog::getOpenFileName(
+        this, tr("Open File"), QString(),
+        tr("COMAL Files (*.lst *.cml *.prl *.prc);;All Files (*)"));
+    if (!path.isEmpty())
+        codeEditor_->openFile(path);
+}
+
+void MainWindow::onSave()
+{
+    codeEditor_->saveFile();
+}
+
+void MainWindow::onSaveAs()
+{
+    codeEditor_->saveFileAs();
+}
+
+void MainWindow::onCloseTab()
+{
+    codeEditor_->closeCurrentTab();
+}
+
+void MainWindow::updateCursorPos(int line, int col)
+{
+    posLabel_->setText(tr("Ln %1, Col %2").arg(line).arg(col));
 }
 
 void MainWindow::onStepInto()    { statusBar()->showMessage(tr("Step Into — not yet implemented")); }
 void MainWindow::onStepOver()    { statusBar()->showMessage(tr("Step Over — not yet implemented")); }
 void MainWindow::onContinue()    { statusBar()->showMessage(tr("Continue — not yet implemented")); }
-void MainWindow::onFormatSource(){ statusBar()->showMessage(tr("Format Source — not yet implemented")); }
+void MainWindow::onFormatSource(){ codeEditor_->formatSource(); }
 
 void MainWindow::onResetLayout()
 {

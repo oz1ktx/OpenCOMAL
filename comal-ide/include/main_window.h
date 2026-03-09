@@ -51,6 +51,11 @@ private:
     QLabel *stateLabel_;
 
 private slots:
+    void onNew();
+    void onOpen();
+    void onSave();
+    void onSaveAs();
+    void onCloseTab();
     void onRun();
     void onStop();
     void onStepInto();
@@ -59,5 +64,6 @@ private slots:
     void onFormatSource();
     void onResetLayout();
     void onRunFinished();
-    void onRunError(const QString &message);
+    void onRunError(const QString &message, int lineNumber);
+    void updateCursorPos(int line, int col);
 };

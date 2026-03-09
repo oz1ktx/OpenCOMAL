@@ -1,6 +1,6 @@
 # OpenCOMAL Modernization - Project Status
 
-**Last Updated:** 6 March 2026
+**Last Updated:** 9 March 2026
 
 ---
 
@@ -16,9 +16,9 @@
 | Parser Integration | ✅ Complete | 100% |
 | Runtime Library | ✅ Complete | 100% |
 | LSP Server | ✅ Complete | 100% |
-| Qt6 GUI (comal-ide) | 🔜 Planned | 0% |
+| Qt6 GUI (comal-ide) | � In Progress | 60% |
 
-**Current Phase:** Phase 4 — Runtime Library ✅ Complete (124/132 tests passing + 4 skipped + 4 pre-existing failures) + LSP Server ✅ Complete + Numberless Program Support ✅ Complete
+**Current Phase:** Phase 5 — Qt6 GUI IDE (comal-ide) 🔧 In Progress. Phases 1–4 ✅ Complete (124/132 tests passing + 4 skipped + 4 pre-existing failures) + LSP Server ✅ Complete + Numberless Program Support ✅ Complete
 
 ---
 
@@ -363,69 +363,108 @@ Introduces 2 benign reduce/reduce conflicts (resolved correctly by Bison).
 **Critical:** `comal_parser_reset()` must NOT be called between lines in
 `loadFile()` — pool-allocated `id_rec*` pointers are borrowed by the modern AST.
 
+### ✅ Parser Fix: Trailing Comments on Numberless Lines (Complete)
+The `comal_line` grammar rule only allowed trailing `// comment` on numbered
+lines (via `optrem`). Numberless lines like `DATA 6  // comment` would fail
+to parse. Fixed by adding `complex_stat optrem` and `simple_stat optrem`
+alternatives to the `comal_line` rule. A naive `program_line optrem`
+approach caused a reduce/reduce conflict (because `program_line` includes
+epsilon); splitting into explicit complex/simple alternatives resolved it.
+Result: 3 shift/reduce conflicts (pre-existing), 0 reduce/reduce.
+
 ---
 
 ## What's Next (Medium Term)
 
-### LSP Server (comal-lsp/)
-- Language Server Protocol implementation
-- Syntax highlighting via semantic tokens
-- Diagnostics (parse errors, type errors)
-- Code completion
-- Go-to-definition
-- Integration with VS Code, Kate, etc.
+### 🔧 GUI Application — Phase 5 (In Progress)
 
-### GUI Application (comal-ide/)
-
-**Toolkit:** Plain Qt6 + QScintilla (not KDE Frameworks).
+**Toolkit:** Plain Qt6 6.10.2 + QScintilla 2.14.1 (not KDE Frameworks).
 - KDE/KTextEditor rejected: too many dependencies (~15 KF6 libs), Linux-only,
   overlaps with the existing LSP server, overkill for COMAL's ~40 keywords.
 - QScintilla provides syntax highlighting, line numbers, code folding, markers.
 - QDockWidget layout for multi-panel windowing.
 - QGraphicsView/QGraphicsScene for DRAW/turtle graphics canvas.
 
+**Architecture:** Embedded runtime on QThread worker with I/O abstraction.
+- `IOInterface` (`comal_io.h` in runtime) — abstract base for PRINT/INPUT.
+- `TerminalIO` — console backend (default for `comal-run` CLI).
+- `QtIO` (`qt_io.h/cpp`) — signal/slot bridge with `QWaitCondition` for
+  blocking INPUT. Emits `outputReady(QString)` and `inputRequested(QString)`.
+- `RunWorker` (`run_worker.h/cpp`) — QThread subclass that owns an
+  `Interpreter` + `QtIO`, loads source via `loadSource()`, runs program
+  to completion, emits `finished()` or `errorOccurred(msg, lineNumber)`.
+
+**Codebase:** 10 source files + 9 headers = **1618 lines total** in `comal-ide/`.
+
+**Source files:**
+- `main.cpp` (14) — Application entry, QApplication setup
+- `main_window.cpp` (363) — QMainWindow: menus, toolbar, status bar, dock wiring
+- `code_editor_panel.cpp` (528) — Multi-tab QScintilla editor: open/save/close,
+  line-number stripping, error highlighting, cursor tracking, Format Source
+- `direct_command_panel.cpp` (113) — Output panel with INPUT prompt, context menu
+- `run_worker.cpp` (56) — QThread interpreter runner
+- `qt_io.cpp` (41) — QtIO signal/slot I/O bridge
+- `file_browser_panel.cpp` (43) — QTreeView file browser
+- `debug_panel.cpp` (50) — Debug panel placeholder
+- `graphics_panel.cpp` (42) — Graphics canvas placeholder
+- `help_panel.cpp` (49) — Help panel placeholder
+
 **Window layout (multi-panel, dockable via QDockWidget):**
 
-| Panel | Widget | Purpose |
-|-------|--------|---------|
-| Code editor | QScintilla, tabbed | Multi-tab source editing, LSP-connected, breakpoint gutter |
-| Direct command / Output | QTextEdit + input line | REPL for immediate COMAL execution; doubles as text I/O (PRINT/INPUT) for running programs |
-| Graphics canvas | QGraphicsView/QGraphicsScene | DRAW output, turtle graphics, future Processing-style commands |
-| Debug | Tree/table views | Variable inspector, watch expressions, call stack, breakpoints |
-| File browser | QTreeView | Tree view of `.lst`/`.prl`/`.prc` files; navigate USE/EXEC targets |
-| Help / Reference | QTextBrowser or dock | Quick-reference for COMAL keywords (LSP hover provides per-keyword help) |
+| Panel | Widget | Status |
+|-------|--------|--------|
+| Code editor | QScintilla, tabbed | ✅ Working — multi-tab, open/save/close, error markers |
+| Direct command / Output | QTextEdit + input line | ✅ Working — PRINT/INPUT I/O, context menu |
+| File browser | QTreeView | ✅ Working — tree view, double-click opens file |
+| Graphics canvas | QGraphicsView/QGraphicsScene | 🔜 Placeholder |
+| Debug | Tree/table views | 🔜 Placeholder |
+| Help / Reference | QTextBrowser | 🔜 Placeholder |
 
-**Status bar:** Current line/col, run state (Running/Stopped/Ready), current file, parser error count.
+**Status bar:** ✅ Current line/col, run state indicator, current file.
+
+**Implemented features:**
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Multi-tab editor | ✅ Done | Tab close with dirty-file prompt, modified asterisk |
+| File operations | ✅ Done | New, Open, Save, Save As, Close |
+| Edit operations | ✅ Done | Undo, Redo, Cut, Copy, Paste forwarded to QScintilla |
+| Run / Stop | ✅ Done | QThread worker, SIGINT interrupt, error reporting |
+| Line number stripping | ✅ Done | Strips COMAL line numbers on open |
+| Error line highlighting | ✅ Done | Red background marker on error line |
+| Cursor position tracking | ✅ Done | Status bar Ln/Col display |
+| Output context menu | ✅ Done | Copy, Select All, Clear, Save Output |
+| Format Source | ✅ Done | Keyword uppercasing, assignment fixing (=→:=), block indentation |
+| File browser | ✅ Done | Tree view of .lst/.prl/.prc files |
+
+**Format Source (Edit > Format Source, Ctrl+Shift+F):**
+- Uppercases ~70 COMAL keywords (FOR, PRINT, IF, WHILE, etc.)
+- Fixes assignment operators: `a=10` → `a:=10` (line-start assignments and FOR)
+- Preserves strings, comments, and variable names with `$`/`#` suffixes
+- Auto-indents block structures (FOR/ENDFOR, IF/ENDIF, WHILE/ENDWHILE,
+  PROC/ENDPROC, REPEAT/UNTIL, CASE/ENDCASE, TRAP/ENDTRAP)
+- Handles block FOR/WHILE with or without trailing DO keyword
+
+**Not yet implemented:**
+- Syntax highlighting (QScintilla custom lexer)
+- Breakpoint gutter (markers exist, no debug backend)
+- Debug panel (variable inspector, call stack)
+- Graphics canvas (DRAW command rendering)
+- Help panel (COMAL keyword reference)
+- Find/Replace
+- Settings/preferences dialog
+- LSP integration (diagnostics, completion, hover in editor)
 
 **Menus:**
 
 | Menu | Items |
 |------|-------|
-| File | New, Open, Save, Save As (with numbered-export option), Export Graphics (PNG/SVG), Recent Files, Close, Exit |
-| Edit | Undo, Redo, Cut, Copy, Paste, Find/Replace, Format Source |
-| Program | Run, Stop, Step, Continue, Toggle Breakpoint |
+| File | New, Open, Save, Save As, Close, Exit |
+| Edit | Undo, Redo, Cut, Copy, Paste, Format Source |
+| Program | Run, Stop |
 | View | Toggle each panel, Reset Layout |
-| Settings | Font/Colors, Editor preferences, Key bindings |
-| Help | COMAL Quick Reference, About |
-
-**Toolbar buttons:** Run, Stop, Step Into, Step Over, Continue.
-
-**Line number handling:**
-- On open/import: strip line numbers; editor always works with numberless source.
-- On save: save as numberless by default.
-- Save As: optional checkbox to add line numbers (configurable step, e.g. 10).
-- COMAL has no GOTO/GOSUB, so line numbers are purely cosmetic ordering — no
-  semantic impact, no RENUM command needed.
-
-**Format Source (Edit > Format Source, Ctrl+Shift+F):**
-- Canonical keyword casing (uppercase: FOR, PRINT, IF, …)
-- Consistent indentation of control structures (FOR/ENDFOR, IF/ENDIF,
-  WHILE/ENDWHILE, PROC/ENDPROC, REPEAT/UNTIL, CASE/ENDCASE, TRAP/ENDTRAP)
-- Consistent spacing around operators
-- Implemented via LSP `textDocument/formatting` so VS Code / Kate users
-  get the same feature for free.
-
-**TODO:** Create a UI mock-up / wireframe.
+| Settings | (not yet implemented) |
+| Help | (not yet implemented) |
 
 **Qt dependencies (for RPM/DEB packaging):**
 
@@ -443,10 +482,6 @@ Build-time (devel) packages:
 | qt6-qtbase-devel | qt6-base-dev |
 | qt6-qtsvg-devel | qt6-svg-dev |
 | qscintilla-qt6-devel | libqscintilla2-qt6-dev |
-
-**Mock-up status:** Working Qt6 mock-up in `comal-ide/`. Build with
-`cmake .. && make comal-ide`. All panels, menus, toolbar, and status bar
-are present with placeholder content; logic stubs only.
 
 ### RPM/DEB Packaging
 - Add CPack configuration to CMakeLists.txt for building `.rpm` and `.deb` packages
@@ -593,11 +628,14 @@ When returning to this project:
 
 1. **Read first:** This file (`docs/PROJECT_STATUS.md`) for overall status
 2. **Reference:** `docs/AST_USAGE.md` for modern AST patterns
-3. **Current task:** Phase 4 runtime — 110/113 tests passing, 3 timeout (interactive/infinite-loop)
+3. **Current task:** Phase 5 — GUI IDE (`comal-ide/`). Core editing and run/stop working.
+   Next: syntax highlighting, debug panel, graphics canvas, LSP integration.
 4. **Key files to review:**
+   - `comal-ide/src/main_window.cpp` — main window, menus, toolbar, signal wiring
+   - `comal-ide/src/code_editor_panel.cpp` — multi-tab editor, format source
+   - `comal-ide/src/run_worker.cpp` — QThread interpreter execution
    - `libcomal-runtime/src/executor.cpp` — main execution dispatch
    - `libcomal-runtime/src/evaluator.cpp` — expression evaluation
-   - `libcomal-runtime/src/builtins.cpp` — builtin function implementations
 5. **Test with:** `cd build && make -j$(nproc) && ./libcomal-runtime/comal-run <file.lst>`
 6. **Full test suite:** Use Python runner (see Quick Commands) — shell `timeout -s KILL` kills process groups
 

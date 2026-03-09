@@ -36,14 +36,16 @@ This project has a **modern C++20** frontend and runtime, plus a **legacy C** co
   - `PROJECT_STATUS.md` — **Comprehensive status** (read this first!)
   - `AST_MODERNIZATION.md` — Phase plan and design decisions
   - `AST_USAGE.md` — Modern AST usage patterns and examples
-- `comal-ide/` — Future Qt6 GUI (not started: plain Qt6 + QScintilla, dockable panels)
+- `comal-ide/` — Qt6 GUI IDE (in progress: multi-tab editor, run/stop, Format Source, file ops)
+  - `include/` — Headers: `main_window.h`, `code_editor_panel.h`, `direct_command_panel.h`, `qt_io.h`, `run_worker.h`, panel headers
+  - `src/` — Implementations: `main_window.cpp` (363), `code_editor_panel.cpp` (528), `direct_command_panel.cpp` (113), `run_worker.cpp` (56), `qt_io.cpp` (41), panel stubs
 - `comal-lsp/` — LSP server (complete: diagnostics, completion, definition, hover)
 
 **Build specifics (modern):**
 - CMake build, C++20, GCC 15
 - Dependencies: `libncurses-dev`, `libreadline-dev` (for legacy parser that is linked)
 - Generated sources: `parser.tab.cc` (from Bison) and `lex.yy.cc` (from Flex) in `build/libcomal-parser/`
-- Three build targets: `comal-parser` (library), `comal-parse-cli`, `comal-ast-demo`, `comal-run`
+- Three build targets: `comal-parser` (library), `comal-parse-cli`, `comal-ast-demo`, `comal-run`, `comal-ide`
 
 **Project-specific conventions & patterns:**
 - Legacy C files use `pdc*` prefix (e.g., `pdcenv.c`, `pdcstr.c`)
@@ -55,6 +57,9 @@ This project has a **modern C++20** frontend and runtime, plus a **legacy C** co
 - Builtin function codes in `comal_functions.h` (_ABS=4000 through _SPLIT=4039)
 
 **Where to look for common changes:**
+- GUI panels and wiring: `comal-ide/src/main_window.cpp`
+- GUI editor and formatting: `comal-ide/src/code_editor_panel.cpp`
+- GUI runtime worker: `comal-ide/src/run_worker.cpp`
 - Statement execution: `libcomal-runtime/src/executor.cpp`
 - Expression evaluation: `libcomal-runtime/src/evaluator.cpp`
 - Builtin functions: `libcomal-runtime/src/builtins.cpp`
@@ -74,6 +79,7 @@ This project has a **modern C++20** frontend and runtime, plus a **legacy C** co
 
 **Current project phase:**
 - Phases 1-4 complete (Expression AST, Statement AST, Parser Integration, Runtime Library)
+- Phase 5 in progress: Qt6 GUI IDE (comal-ide/) — 1618 lines, core editing/running working
 - LSP Server complete (diagnostics, completion, definition, hover)
 - Numberless program support: parser accepts programs without COMAL line numbers
 - 124/132 tests passing (4 skipped: interactive/infinite-loop, 4 pre-existing failures)

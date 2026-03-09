@@ -48,8 +48,9 @@ void RunWorker::run()
     } catch (const EscapeSignal&) {
         emit finished();
     } catch (const ComalError &e) {
-        emit errorOccurred(QString::fromStdString(e.what()));
+        emit errorOccurred(QString::fromStdString(e.what()),
+                           static_cast<int>(e.line()));
     } catch (const std::exception &e) {
-        emit errorOccurred(QString::fromUtf8(e.what()));
+        emit errorOccurred(QString::fromUtf8(e.what()), 0);
     }
 }

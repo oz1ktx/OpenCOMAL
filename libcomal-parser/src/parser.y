@@ -266,15 +266,25 @@ comal_line	:	command
 				$$.ld->rem=$3;
 				$$.lineptr=NULL;
 			}
-		|	program_line
+		|	complex_stat optrem
 			{
 				$$=$1;
 				$$.ld=NULL;
+				if ($2) {
+					$$.ld=PARS_ALLOC(struct comal_line_data);
+					$$.ld->lineno=0;
+					$$.ld->rem=$2;
+				}
 			}
-		|	simple_stat
+		|	simple_stat optrem
 			{
 				$$=$1;
 				$$.ld=NULL;
+				if ($2) {
+					$$.ld=PARS_ALLOC(struct comal_line_data);
+					$$.ld->lineno=0;
+					$$.ld->rem=$2;
+				}
 			}
 		|	optrem
 			{
