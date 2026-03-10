@@ -37,12 +37,18 @@ CommandRegistry::CommandRegistry() {
     };
 
     for (size_t i = 0; i < specs_.size(); ++i) {
-        index_[specs_[i].name] = i;
+        std::string key = specs_[i].name;
+        std::transform(key.begin(), key.end(), key.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        index_[key] = i;
     }
 }
 
 const CommandSpec* CommandRegistry::find(const std::string& name) const {
-    auto it = index_.find(name);
+    std::string key = name;
+    std::transform(key.begin(), key.end(), key.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    auto it = index_.find(key);
     if (it == index_.end()) return nullptr;
     return &specs_[it->second];
 }
@@ -124,12 +130,14 @@ bool parseLine(const std::string& line, int lineNo,
         return false;
     }
 
-    // Look up command
+    // Look up command (case-insensitive)
     const CommandSpec* spec = registry.find(out.command);
     if (!spec) {
         error = {lineNo, "Unknown command: '" + out.command + "'"};
         return false;
     }
+    // Canonicalize: use the registered name for execution dispatch
+    out.command = spec->name;
 
     // Parse numeric arguments
     for (size_t i = 1; i < tokens.size(); ++i) {

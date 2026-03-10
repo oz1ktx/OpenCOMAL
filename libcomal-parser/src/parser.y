@@ -664,6 +664,21 @@ draw_stat	:	drawSYM exp_list
 			{
 				$$.cmd=drawSYM;
 				$$.lc.exproot=PARS_REVERSE(struct exp_list, $2);
+				/* Auto-quote: if the first expression is a bare
+				   identifier (no subscripts), treat it as a
+				   string constant — e.g. DRAW circle, 100, 200, 50
+				   becomes DRAW "circle", 100, 200, 50 */
+				struct exp_list *first = $$.lc.exproot;
+				if (first && first->exp) {
+					struct expression *inner = first->exp;
+					if (inner->optype == T_EXP_IS_NUM)
+						inner = inner->e.exp;
+					if (inner->optype == T_ID &&
+					    inner->e.expid.exproot == NULL) {
+						first->exp = pars_exp_string_from_name(
+							inner->e.expid.id->name);
+					}
+				}
 			}
 		;
 

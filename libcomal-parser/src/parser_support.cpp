@@ -199,6 +199,11 @@ PUBLIC struct expression *pars_exp_string(struct string *str)
 	return work;
 }
 
+PUBLIC struct expression *pars_exp_string_from_name(const char *name)
+{
+	return pars_exp_string(str_make(PARSE_POOL, (char *)name));
+}
+
 PUBLIC struct expression *pars_exp_id(int op, struct id_rec *id,
 				      struct exp_list *exproot)
 {

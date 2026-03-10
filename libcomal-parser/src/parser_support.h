@@ -36,6 +36,7 @@ extern struct expression *pars_exp_binary(int op, struct expression *exp1,
 extern struct expression *pars_exp_int(long num);
 extern struct expression *pars_exp_float(struct dubbel *d);
 extern struct expression *pars_exp_string(struct string *str);
+extern struct expression *pars_exp_string_from_name(const char *name);
 extern struct expression *pars_exp_id(int op, struct id_rec *id,
 				      struct exp_list *exproot);
 extern struct expression *pars_exp_array(int op, struct id_rec *id, enum optype type);

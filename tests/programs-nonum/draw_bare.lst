@@ -1,0 +1,35 @@
+// Test bare (unquoted) DRAW command names
+// The parser auto-quotes bare identifiers in DRAW
+
+// Bare command with args
+DRAW background, 240, 240, 255
+DRAW stroke, 0, 0, 0
+DRAW fill, 0, 128, 255
+DRAW rect, 10, 20, 100, 50
+DRAW circle, 200, 200, 80
+DRAW line, 0, 0, 300, 300
+
+// Bare command without args
+DRAW noFill
+DRAW noStroke
+
+// Bare with variable args
+x:=100
+y:=200
+r:=30
+DRAW fill, 255, 0, 0
+DRAW circle, x, y, r
+
+// Bare lineWidth
+DRAW lineWidth, 3
+DRAW ellipse, 100, 300, 120, 60
+
+// Quoted form still works
+DRAW "fill", 0, 255, 0
+DRAW "circle", 50, 50, 20
+
+// Clear
+DRAW clear
+
+PRINT "All ok"
+END
