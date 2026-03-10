@@ -7,6 +7,8 @@ add_subdirectory(libcomal-parser)
 
 add_subdirectory(libcomal-runtime)
 
+add_subdirectory(libcomal-graphics)
+
 add_subdirectory(comal-lsp)
 add_subdirectory(comal-ide)
 

@@ -1,0 +1,137 @@
+/// @file scene_model.cpp
+/// Scene model and command executor implementation.
+
+#include "comal_scene_model.h"
+#include "comal_graphics_commands.h"
+
+#include <cmath>
+#include <algorithm>
+
+namespace comal::graphics {
+
+// ── Scene ───────────────────────────────────────────────────────────────
+
+Scene::Scene() {
+    root_.name = "root";
+}
+
+Group* Scene::resolveGroup(const std::vector<std::string>& path) {
+    Group* current = &root_;
+    for (const auto& name : path)
+        current = current->findOrCreateChild(name);
+    return current;
+}
+
+void Scene::clear() {
+    root_.clear();
+}
+
+Shape Scene::makeShape(ShapeData data) const {
+    Shape s;
+    s.data = std::move(data);
+    s.strokeColor = strokeColor;
+    s.hasStroke = hasStroke;
+    s.fillColor = fillColor;
+    s.hasFill = hasFill;
+    s.lineWidth = lineWidth;
+    return s;
+}
+
+// ── Command executor ────────────────────────────────────────────────────
+
+static uint8_t clampByte(double v) {
+    return static_cast<uint8_t>(std::clamp(v, 0.0, 255.0));
+}
+
+std::string executeCommand(Scene& scene, const ParsedCommand& cmd) {
+    Group* target = scene.resolveGroup(cmd.groupPath);
+    const auto& a = cmd.args;
+    const auto& name = cmd.command;
+
+    // ── Canvas ──────────────────────────────────────────────────────────
+    if (name == "background") {
+        uint8_t alpha = (a.size() >= 4) ? clampByte(a[3]) : 255;
+        scene.backgroundColor = Color(clampByte(a[0]), clampByte(a[1]),
+                                       clampByte(a[2]), alpha);
+        return {};
+    }
+    if (name == "clear") {
+        scene.clear();
+        return {};
+    }
+
+    // ── Styles ──────────────────────────────────────────────────────────
+    if (name == "stroke") {
+        uint8_t alpha = (a.size() >= 4) ? clampByte(a[3]) : 255;
+        scene.strokeColor = Color(clampByte(a[0]), clampByte(a[1]),
+                                   clampByte(a[2]), alpha);
+        scene.hasStroke = true;
+        return {};
+    }
+    if (name == "fill") {
+        uint8_t alpha = (a.size() >= 4) ? clampByte(a[3]) : 255;
+        scene.fillColor = Color(clampByte(a[0]), clampByte(a[1]),
+                                 clampByte(a[2]), alpha);
+        scene.hasFill = true;
+        return {};
+    }
+    if (name == "noFill") {
+        scene.hasFill = false;
+        return {};
+    }
+    if (name == "noStroke") {
+        scene.hasStroke = false;
+        return {};
+    }
+    if (name == "lineWidth") {
+        scene.lineWidth = a[0];
+        return {};
+    }
+
+    // ── Shapes ──────────────────────────────────────────────────────────
+    if (name == "line") {
+        target->shapes.push_back(
+            scene.makeShape(LineShape{a[0], a[1], a[2], a[3]}));
+        return {};
+    }
+    if (name == "rect") {
+        target->shapes.push_back(
+            scene.makeShape(RectShape{a[0], a[1], a[2], a[3]}));
+        return {};
+    }
+    if (name == "circle") {
+        target->shapes.push_back(
+            scene.makeShape(CircleShape{a[0], a[1], a[2]}));
+        return {};
+    }
+    if (name == "ellipse") {
+        target->shapes.push_back(
+            scene.makeShape(EllipseShape{a[0], a[1], a[2], a[3]}));
+        return {};
+    }
+
+    // ── Transforms ──────────────────────────────────────────────────────
+    if (name == "translate") {
+        target->x += a[0];
+        target->y += a[1];
+        return {};
+    }
+    if (name == "rotate") {
+        target->rotation += a[0];
+        return {};
+    }
+    if (name == "scale") {
+        if (a.size() >= 2) {
+            target->scaleX *= a[0];
+            target->scaleY *= a[1];
+        } else {
+            target->scaleX *= a[0];
+            target->scaleY *= a[0];
+        }
+        return {};
+    }
+
+    return "Unknown command: '" + name + "'";
+}
+
+} // namespace comal::graphics
