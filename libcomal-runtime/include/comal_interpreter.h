@@ -66,6 +66,9 @@ public:
     /// Run the loaded program from the beginning.
     void run();
 
+    /// Parse and execute a single direct command (e.g. PRINT 2+2).
+    void executeDirect(const std::string& command);
+
     // ── I/O interface (replaceable) ─────────────────────────────────────
 
     /// The pluggable I/O backend.  Defaults to TerminalIO (stdout/stdin).

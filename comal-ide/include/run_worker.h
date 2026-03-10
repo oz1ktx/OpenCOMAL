@@ -19,6 +19,9 @@ public:
     /// Set the source code to execute (call before start()).
     void setSource(const QString &source);
 
+    /// Set a single direct command to execute (call before start()).
+    void setDirectCommand(const QString &command);
+
     /// Access the QtIO backend (for signal/slot wiring).
     QtIO *io() const { return io_; }
 
@@ -39,4 +42,5 @@ private:
     std::unique_ptr<comal::runtime::Interpreter> interp_;
     QtIO    *io_;       // owned by interp_ via setIO()
     QString  source_;
+    QString  directCmd_;
 };

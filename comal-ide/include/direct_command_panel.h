@@ -4,6 +4,7 @@
 
 class QTextEdit;
 class QLineEdit;
+class QLabel;
 
 // Combined output log + command input (REPL).
 // Upper area: read-only output (PRINT, errors).
@@ -16,6 +17,13 @@ public:
 
     void appendOutput(const QString &text);
     void setInputEnabled(bool enabled);
+    bool isInputForProgram() const;
+
+    /// Show the input block marker in the output and set prompt in input line.
+    void showInputMarker(const QString &prompt);
+
+    /// Echo user input into the output area (replacing the block marker).
+    void echoInput(const QString &text);
 
 signals:
     void lineEntered(const QString &line);
@@ -29,4 +37,7 @@ private slots:
 private:
     QTextEdit *output_;
     QLineEdit *input_;
+    QLabel    *promptLabel_;
+    bool inputForProgram_{false};
+    int  markerPos_{-1};    // character position of the block marker
 };

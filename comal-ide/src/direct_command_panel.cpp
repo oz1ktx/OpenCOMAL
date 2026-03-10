@@ -2,6 +2,7 @@
 
 #include <QVBoxLayout>
 #include <QTextEdit>
+#include <QTextCursor>
 #include <QLineEdit>
 #include <QLabel>
 #include <QMenu>
@@ -28,12 +29,12 @@ DirectCommandPanel::DirectCommandPanel(QWidget *parent)
 
     // Command input line
     auto *inputLayout = new QHBoxLayout;
-    auto *prompt = new QLabel(tr(">"), this);
-    prompt->setFont(QFont("Monospace", 10));
+    promptLabel_ = new QLabel(tr(">"), this);
+    promptLabel_->setFont(QFont("Monospace", 10));
     input_ = new QLineEdit(this);
     input_->setFont(QFont("Monospace", 10));
     input_->setPlaceholderText(tr("Enter COMAL command..."));
-    inputLayout->addWidget(prompt);
+    inputLayout->addWidget(promptLabel_);
     inputLayout->addWidget(input_);
     layout->addLayout(inputLayout);
 
@@ -46,7 +47,12 @@ DirectCommandPanel::DirectCommandPanel(QWidget *parent)
 
 void DirectCommandPanel::appendOutput(const QString &text)
 {
-    output_->append(text);
+    // Use insertPlainText to avoid QTextEdit::append() adding a new paragraph
+    QTextCursor cursor = output_->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    cursor.insertText(text, QTextCharFormat());  // explicit default format
+    output_->setTextCursor(cursor);
+    output_->ensureCursorVisible();
 }
 
 void DirectCommandPanel::onCommandEntered()
@@ -54,16 +60,74 @@ void DirectCommandPanel::onCommandEntered()
     QString cmd = input_->text();
     if (cmd.isEmpty()) return;
 
-    appendOutput("> " + cmd);
+    // Don't echo "> cmd" when program is waiting for input —
+    // echoInput() handles that case
+    if (!inputForProgram_)
+        appendOutput("> " + cmd + "\n");
+
     input_->clear();
     emit lineEntered(cmd);
 }
 
 void DirectCommandPanel::setInputEnabled(bool enabled)
 {
-    input_->setEnabled(enabled);
+    inputForProgram_ = enabled;
+    // Input line is always enabled for direct commands;
+    // this flag just tracks whether a running program wants input.
     if (enabled)
         input_->setFocus();
+}
+
+bool DirectCommandPanel::isInputForProgram() const
+{
+    return inputForProgram_;
+}
+
+void DirectCommandPanel::showInputMarker(const QString &prompt)
+{
+    // Show the prompt in the input line label
+    if (!prompt.isEmpty())
+        promptLabel_->setText(prompt);
+    else
+        promptLabel_->setText(tr(">"));
+
+    // Insert a solid block marker (█) in the output at the current position
+    QTextCursor cursor = output_->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    markerPos_ = cursor.position();
+
+    QTextCharFormat markerFmt;
+    markerFmt.setForeground(QColor(0, 120, 215));  // blue marker
+    cursor.insertText(QString::fromUtf8("\u2588"), markerFmt);
+
+    output_->setTextCursor(cursor);
+    output_->ensureCursorVisible();
+}
+
+void DirectCommandPanel::echoInput(const QString &text)
+{
+    // Replace the block marker with the actual input text
+    if (markerPos_ >= 0) {
+        QTextCursor cursor = output_->textCursor();
+        cursor.setPosition(markerPos_);
+        cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor, 1);
+        cursor.removeSelectedText();
+
+        QTextCharFormat inputFmt;
+        inputFmt.setForeground(QColor(0, 120, 215));  // blue for user input
+        cursor.insertText(text + "\n", inputFmt);
+
+        // Reset to default format so subsequent output isn't blue
+        cursor.setCharFormat(QTextCharFormat());
+        output_->setTextCursor(cursor);
+
+        markerPos_ = -1;
+    }
+
+    // Reset prompt label
+    promptLabel_->setText(tr(">"));
+
+    output_->ensureCursorVisible();
 }
 
 void DirectCommandPanel::showOutputContextMenu(const QPoint &pos)

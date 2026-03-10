@@ -43,11 +43,13 @@ signals:
     void cursorMoved(int row, int col);
 
     /// Emitted when the runtime needs a line of input.
-    void inputRequested();
+    /// @p prompt is the text printed since the last newline (the INPUT prompt).
+    void inputRequested(const QString &prompt);
 
 private:
     QMutex          inputMutex_;
     QWaitCondition  inputReady_;
     QString         inputLine_;
     bool            inputAvailable_{false};
+    QString         pendingPrompt_;   // text since last newline
 };

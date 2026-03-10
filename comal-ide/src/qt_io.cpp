@@ -7,12 +7,21 @@ QtIO::QtIO(QObject *parent)
 
 void QtIO::print(const std::string &text)
 {
-    emit textOutput(QString::fromStdString(text));
+    QString qtext = QString::fromStdString(text);
+    emit textOutput(qtext);
+
+    // Track text since last newline for the input prompt hint
+    int lastNl = qtext.lastIndexOf('\n');
+    if (lastNl >= 0)
+        pendingPrompt_ = qtext.mid(lastNl + 1);
+    else
+        pendingPrompt_ += qtext;
 }
 
 std::string QtIO::readLine()
 {
-    emit inputRequested();
+    emit inputRequested(pendingPrompt_);
+    pendingPrompt_.clear();
 
     QMutexLocker lock(&inputMutex_);
     while (!inputAvailable_)

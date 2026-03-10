@@ -65,5 +65,6 @@ private slots:
     void onResetLayout();
     void onRunFinished();
     void onRunError(const QString &message, int lineNumber);
+    void onDirectCommand(const QString &command);
     void updateCursorPos(int line, int col);
 };

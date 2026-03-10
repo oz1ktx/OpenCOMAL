@@ -397,6 +397,22 @@ void Interpreter::run() {
     files.closeAll();
 }
 
+// ── executeDirect ───────────────────────────────────────────────────────
+
+void Interpreter::executeDirect(const std::string& command) {
+    char errbuf[256] = {};
+    int errpos = 0;
+
+    ComalLine* cl = comal_parse_line_modern(command.c_str(),
+                                             errbuf, sizeof(errbuf), &errpos);
+    if (!cl) {
+        throw ComalError(ErrorCode::Scan,
+            std::string("Parse error: ") + errbuf);
+    }
+
+    execLine(*this, cl);
+}
+
 // ── I/O ─────────────────────────────────────────────────────────────────
 
 void Interpreter::print(const std::string& s) {

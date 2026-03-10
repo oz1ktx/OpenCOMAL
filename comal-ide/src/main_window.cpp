@@ -183,6 +183,10 @@ void MainWindow::createPanels()
     helpDock_ = new QDockWidget(tr("Help"), this);
     helpDock_->setObjectName("HelpDock");
     helpDock_->setWidget(help_);
+
+    // Direct command execution (when no program is running)
+    connect(directCommand_, &DirectCommandPanel::lineEntered,
+            this, &MainWindow::onDirectCommand);
 }
 
 // ── Default layout ──────────────────────────────────────────────────
@@ -237,19 +241,11 @@ void MainWindow::connectRunWorker()
             QString("[CURSOR %1,%2]").arg(r).arg(c));
     }, Qt::QueuedConnection);
 
-    // Input request: enable the input line in Direct Command panel
-    connect(io, &QtIO::inputRequested, directCommand_, [this]() {
+    // Input request: show marker in output and enable the input line
+    connect(io, &QtIO::inputRequested, directCommand_, [this](const QString &prompt) {
+        directCommand_->showInputMarker(prompt);
         directCommand_->setInputEnabled(true);
     }, Qt::QueuedConnection);
-
-    // Input from the GUI → runtime
-    connect(directCommand_, &DirectCommandPanel::lineEntered,
-            this, [this](const QString &line) {
-        if (worker_ && worker_->isRunning()) {
-            directCommand_->setInputEnabled(false);
-            worker_->io()->provideInput(line);
-        }
-    });
 
     // Execution finished / error
     connect(worker_, &RunWorker::finished,
@@ -306,6 +302,27 @@ void MainWindow::onRunError(const QString &message, int lineNumber)
 
     if (lineNumber > 0)
         codeEditor_->highlightErrorLine(lineNumber);
+}
+
+void MainWindow::onDirectCommand(const QString &command)
+{
+    // If a program is running and waiting for input, feed it
+    if (worker_ && worker_->isRunning()) {
+        if (directCommand_->isInputForProgram()) {
+            directCommand_->echoInput(command);
+            directCommand_->setInputEnabled(false);
+            worker_->io()->provideInput(command);
+        }
+        return;
+    }
+
+    // Otherwise, execute as a direct COMAL command
+    delete worker_;
+    worker_ = new RunWorker(this);
+    worker_->setDirectCommand(command);
+    connectRunWorker();
+    stateLabel_->setText(tr("Running"));
+    worker_->start();
 }
 
 void MainWindow::onNew()

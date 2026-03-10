@@ -23,6 +23,13 @@ RunWorker::~RunWorker()
 void RunWorker::setSource(const QString &source)
 {
     source_ = source;
+    directCmd_.clear();
+}
+
+void RunWorker::setDirectCommand(const QString &command)
+{
+    directCmd_ = command;
+    source_.clear();
 }
 
 void RunWorker::requestStop()
@@ -33,13 +40,15 @@ void RunWorker::requestStop()
 void RunWorker::run()
 {
     try {
-        // Reset state for a fresh run
-        interp_->resetRunState();
-
-        // Load program from source text
-        interp_->loadSource(source_.toStdString());
-
-        interp_->run();
+        if (!directCmd_.isEmpty()) {
+            // Direct command mode: parse and execute a single line
+            interp_->executeDirect(directCmd_.toStdString());
+        } else {
+            // Full program mode
+            interp_->resetRunState();
+            interp_->loadSource(source_.toStdString());
+            interp_->run();
+        }
         emit finished();
     } catch (const StopSignal&) {
         emit finished();

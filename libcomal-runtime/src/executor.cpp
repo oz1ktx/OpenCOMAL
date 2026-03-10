@@ -574,17 +574,17 @@ static void execPrint(Interpreter& interp, ComalLine* line) {
     }
 
     for (auto* node = pr.printroot; node; node = node->next()) {
-        if (node->exp()) {
-            Value v = evaluate(interp, node->exp());
-            interp.print(v.printStr());
-        }
-
-        // Separators: comma = tab, semicolon = nothing
+        // Separator precedes this item (stored on node from parser grammar)
         int sep = node->separator();
         if (sep == commaSYM) {
             interp.print("\t");
         }
-        // semicolonSYM = no space
+        // semicolonSYM = concatenate (no space)
+
+        if (node->exp()) {
+            Value v = evaluate(interp, node->exp());
+            interp.print(v.printStr());
+        }
     }
 
     // Trailing separator: if none, print newline
