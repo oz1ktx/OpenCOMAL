@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include <memory>
 
 class QTabWidget;
 class QDockWidget;
@@ -13,11 +14,14 @@ class FileBrowserPanel;
 class HelpPanel;
 class RunWorker;
 
+namespace comal::graphics { class Scene; }
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
+    ~MainWindow();
 
 private:
     void createMenus();
@@ -45,6 +49,9 @@ private:
 
     // Runtime worker
     RunWorker *worker_{nullptr};
+
+    // Persistent graphics scene (shared across direct commands)
+    std::unique_ptr<comal::graphics::Scene> persistentScene_;
 
     // Status bar widgets
     QLabel *posLabel_;

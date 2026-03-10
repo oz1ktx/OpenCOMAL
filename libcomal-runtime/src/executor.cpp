@@ -10,6 +10,8 @@
 #include "comal_functions.h"
 #include "comal_parser_api.h"    // statement_type_name()
 #include "parser.tab.h"          // token constants
+#include "comal_graphics_commands.h"
+#include "comal_scene_model.h"
 
 #include <iostream>
 #include <fstream>
@@ -40,6 +42,7 @@ static void execTrap(Interpreter& interp, ComalLine* line);
 static void execImport(Interpreter& interp, ComalLine* line);
 static void execCall(Interpreter& interp, const std::string& name,
                      const ExpList* args, bool isFunc);
+static void execDraw(Interpreter& interp, ComalLine* line);
 static void execRestore(Interpreter& interp, ComalLine* line);
 
 // Lvalue assignment helpers
@@ -419,7 +422,7 @@ void execLine(Interpreter& interp, ComalLine* line) {
     case StatementType::Quit:
     case StatementType::Run:
     case StatementType::Draw:
-        // Graphics placeholder — silently ignored until graphics addon is available
+        execDraw(interp, line);
         break;
 
     case StatementType::Dir:
@@ -1604,6 +1607,48 @@ static void execCall(Interpreter& interp, const std::string& name,
 
     // Pop scope
     interp.scopes.pop();
+}
+
+// ── DRAW (graphics commands) ────────────────────────────────────────────
+
+static void execDraw(Interpreter& interp, ComalLine* line) {
+    // DRAW supports two forms:
+    //   DRAW "circle 100 200 50"              — full command as single string
+    //   DRAW "circle", 100, 200, 50           — command name + separate args
+    //   DRAW "Spaceship.rect", x, y, w, h     — grouped, with variables
+    //
+    // In the multi-arg form, all expressions are evaluated and joined
+    // into a single command string for parsing.
+    auto* elist = std::get_if<ExpList*>(&line->contents());
+    if (!elist || !*elist) return;
+
+    auto& scene = interp.graphicsScene();
+    const auto& registry = interp.graphicsRegistry();
+
+    // Build command string by joining all expression values
+    std::string cmdStr;
+    for (auto* node = *elist; node; node = node->next()) {
+        Value v = evaluate(interp, node->exp());
+        if (!cmdStr.empty()) cmdStr += ' ';
+        cmdStr += v.printStr();
+    }
+
+    comal::graphics::ParsedCommand cmd;
+    comal::graphics::ParseError err;
+    if (!comal::graphics::parseLine(cmdStr, static_cast<int>(line->lineNumber()),
+                                    registry, cmd, err)) {
+        throw ComalError(ErrorCode::Parm, "DRAW: " + err.message);
+    }
+
+    if (cmd.command.empty())
+        return;  // blank or comment — skip
+
+    std::string execErr = comal::graphics::executeCommand(scene, cmd);
+    if (!execErr.empty()) {
+        throw ComalError(ErrorCode::Parm, "DRAW: " + execErr);
+    }
+
+    interp.notifySceneChanged();
 }
 
 // ── FUNC call from expression ───────────────────────────────────────────

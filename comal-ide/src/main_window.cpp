@@ -7,6 +7,7 @@
 #include "help_panel.h"
 #include "run_worker.h"
 #include "qt_io.h"
+#include "comal_scene_model.h"
 
 #include <QMenuBar>
 #include <QToolBar>
@@ -18,14 +19,18 @@
 #include <QFileDialog>
 #include <Qsci/qsciscintilla.h>
 
+MainWindow::~MainWindow() = default;
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
+    , persistentScene_(std::make_unique<comal::graphics::Scene>())
 {
     setWindowTitle("OpenCOMAL IDE");
     resize(1280, 800);
 
     createPanels();
     createMenus();
+
     createToolBar();
     createStatusBar();
     restoreDefaultLayout();
@@ -187,6 +192,12 @@ void MainWindow::createPanels()
     // Direct command execution (when no program is running)
     connect(directCommand_, &DirectCommandPanel::lineEntered,
             this, &MainWindow::onDirectCommand);
+
+    // GraphicsPanel clear request → clear the persistent scene too
+    connect(graphics_, &GraphicsPanel::clearRequested, this, [this]() {
+        persistentScene_->clear();
+        graphics_->clearCanvas();
+    });
 }
 
 // ── Default layout ──────────────────────────────────────────────────
@@ -252,6 +263,11 @@ void MainWindow::connectRunWorker()
             this, &MainWindow::onRunFinished, Qt::QueuedConnection);
     connect(worker_, &RunWorker::errorOccurred,
             this, &MainWindow::onRunError, Qt::QueuedConnection);
+
+    // Graphics scene changed — re-render the graphics panel
+    connect(worker_, &RunWorker::sceneChanged, this, [this]() {
+        graphics_->renderScene(worker_->graphicsScene());
+    }, Qt::QueuedConnection);
 }
 
 void MainWindow::onRun()
@@ -263,9 +279,13 @@ void MainWindow::onRun()
 
     QString source = editor->text();
     directCommand_->appendOutput("\n--- RUN ---\n");    codeEditor_->clearErrorHighlight();
+    // Clear scene for full program runs
+    persistentScene_->clear();
+    graphics_->clearCanvas();
     // Create a fresh worker each run
     delete worker_;
     worker_ = new RunWorker(this);
+    worker_->setGraphicsScene(persistentScene_.get());
     worker_->setSource(source);
     connectRunWorker();
 
@@ -319,6 +339,7 @@ void MainWindow::onDirectCommand(const QString &command)
     // Otherwise, execute as a direct COMAL command
     delete worker_;
     worker_ = new RunWorker(this);
+    worker_->setGraphicsScene(persistentScene_.get());
     worker_->setDirectCommand(command);
     connectRunWorker();
     stateLabel_->setText(tr("Running"));

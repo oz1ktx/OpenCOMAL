@@ -13,7 +13,7 @@ set(CMAKE_AUTOMOC ON)
 # QScintilla has no CMake config; we link by library name.
 # ─────────────────────────────────────────────────────────────────────
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets PrintSupport)
+find_package(Qt6 REQUIRED COMPONENTS Widgets PrintSupport Svg)
 
 # ── QScintilla (headers + library) ──────────────────────────────────
 find_path(QSCINTILLA_INCLUDE_DIR
@@ -66,6 +66,8 @@ target_include_directories(comal-ide PRIVATE
 target_link_libraries(comal-ide PRIVATE
     Qt6::Widgets
     Qt6::PrintSupport
+    Qt6::Svg
     ${QSCINTILLA_LIBRARY}
     comal-runtime
+    comal-graphics
 )

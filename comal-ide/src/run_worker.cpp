@@ -2,6 +2,7 @@
 #include "qt_io.h"
 #include "comal_interpreter.h"
 #include "comal_error.h"
+#include "comal_scene_model.h"
 
 using namespace comal::runtime;
 
@@ -12,6 +13,11 @@ RunWorker::RunWorker(QObject *parent)
 {
     // Hand the QtIO to the interpreter (transfers ownership)
     interp_->setIO(std::unique_ptr<IOInterface>(io_));
+
+    // Scene-change callback: emit signal (queued to GUI thread)
+    interp_->setSceneChangedCallback([this]() {
+        emit sceneChanged();
+    });
 }
 
 RunWorker::~RunWorker()
@@ -32,9 +38,19 @@ void RunWorker::setDirectCommand(const QString &command)
     source_.clear();
 }
 
+void RunWorker::setGraphicsScene(comal::graphics::Scene* scene)
+{
+    interp_->setGraphicsScene(scene);
+}
+
 void RunWorker::requestStop()
 {
     interp_->interrupt().request();
+}
+
+const comal::graphics::Scene& RunWorker::graphicsScene() const
+{
+    return interp_->graphicsScene();
 }
 
 void RunWorker::run()

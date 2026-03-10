@@ -5,6 +5,7 @@
 #include <memory>
 
 namespace comal::runtime { class Interpreter; }
+namespace comal::graphics { class Scene; }
 class QtIO;
 
 /// Worker thread that runs the COMAL interpreter.
@@ -22,8 +23,14 @@ public:
     /// Set a single direct command to execute (call before start()).
     void setDirectCommand(const QString &command);
 
+    /// Use an external (persistent) graphics scene.
+    void setGraphicsScene(comal::graphics::Scene* scene);
+
     /// Access the QtIO backend (for signal/slot wiring).
     QtIO *io() const { return io_; }
+
+    /// Access the interpreter's graphics scene (for rendering after signals).
+    const comal::graphics::Scene& graphicsScene() const;
 
     /// Request the interpreter to stop (thread-safe).
     void requestStop();
@@ -34,6 +41,9 @@ signals:
 
     /// Emitted when execution ends with an error.
     void errorOccurred(const QString &message, int lineNumber);
+
+    /// Emitted when the graphics scene has changed (DRAW executed).
+    void sceneChanged();
 
 protected:
     void run() override;

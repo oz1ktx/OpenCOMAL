@@ -43,7 +43,7 @@ run_dir() {
 
     total=$((total+1))
     count=$((count+1))
-    timeout -s KILL 3 "$COMAL_RUN" "$f" >/dev/null 2>&1
+    timeout -s KILL 3 "$COMAL_RUN" "$f" </dev/null >/dev/null 2>&1
     local rc=$?
     if [[ $rc -eq 0 ]]; then
       pass=$((pass+1))

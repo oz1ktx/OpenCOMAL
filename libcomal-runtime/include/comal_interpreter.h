@@ -26,6 +26,8 @@
 #include "comal_interrupt.h"
 #include "comal_io.h"
 #include "comal_ast_modern.h"
+#include "comal_scene_model.h"
+#include "comal_graphics_commands.h"
 
 namespace comal::runtime {
 
@@ -77,6 +79,28 @@ public:
 
     /// Replace the I/O backend.  Takes ownership.
     void setIO(std::unique_ptr<IOInterface> io) { io_ = std::move(io); }
+
+    // ── Graphics scene (for DRAW commands) ───────────────────────────────
+
+    /// The graphics scene model.  DRAW commands modify this.
+    comal::graphics::Scene& graphicsScene() { return *gfxScene_; }
+    const comal::graphics::Scene& graphicsScene() const { return *gfxScene_; }
+
+    /// Use an external scene (e.g. persistent across direct commands).
+    /// The caller retains ownership.  Pass nullptr to revert to internal.
+    void setGraphicsScene(comal::graphics::Scene* s) {
+        gfxScene_ = s ? s : &defaultScene_;
+    }
+
+    /// The graphics command registry.
+    const comal::graphics::CommandRegistry& graphicsRegistry() const { return gfxRegistry_; }
+
+    /// Set a callback to be invoked after each DRAW command executes.
+    /// The GUI uses this to trigger re-rendering of the graphics panel.
+    void setSceneChangedCallback(std::function<void()> cb) { sceneChangedCb_ = std::move(cb); }
+
+    /// Notify that the scene has changed (called by executor after DRAW).
+    void notifySceneChanged() { if (sceneChangedCb_) sceneChangedCb_(); }
 
     /// Write to the currently selected output.
     void print(const std::string& s);
@@ -176,6 +200,12 @@ private:
 
     /// Storage for parsed lines (owns the ParseTree objects).
     std::vector<std::unique_ptr<ParseTree>> trees_;
+
+    /// Graphics scene model and command registry.
+    comal::graphics::Scene defaultScene_;       // internal default (CLI use)
+    comal::graphics::Scene* gfxScene_{&defaultScene_};  // active scene
+    comal::graphics::CommandRegistry gfxRegistry_;
+    std::function<void()> sceneChangedCb_;
 
     /// Build the global procedure table from the program.
     void buildProcTable();

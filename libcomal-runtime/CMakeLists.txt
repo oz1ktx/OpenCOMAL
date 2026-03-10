@@ -31,6 +31,7 @@ target_include_directories(comal-runtime
 
 target_link_libraries(comal-runtime
     PUBLIC comal-parser          # modern AST types + parser API
+    PUBLIC comal-graphics         # graphics scene model + command parser
 )
 
 # ── CLI runner ─────────────────────────────────────────────────────────────
