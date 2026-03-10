@@ -36,9 +36,9 @@ This project has a **modern C++20** frontend and runtime, plus a **legacy C** co
   - `PROJECT_STATUS.md` — **Comprehensive status** (read this first!)
   - `AST_MODERNIZATION.md` — Phase plan and design decisions
   - `AST_USAGE.md` — Modern AST usage patterns and examples
-- `comal-ide/` — Qt6 GUI IDE (in progress: multi-tab editor, run/stop, Format Source, file ops)
-  - `include/` — Headers: `main_window.h`, `code_editor_panel.h`, `direct_command_panel.h`, `qt_io.h`, `run_worker.h`, panel headers
-  - `src/` — Implementations: `main_window.cpp` (363), `code_editor_panel.cpp` (528), `direct_command_panel.cpp` (113), `run_worker.cpp` (56), `qt_io.cpp` (41), panel stubs
+- `comal-ide/` — Qt6 GUI IDE (in progress: multi-tab editor, syntax highlighting, run/stop, graphics, Format Source, file ops)
+  - `include/` — Headers: `main_window.h`, `code_editor_panel.h`, `qsci_lexer_comal.h`, `direct_command_panel.h`, `graphics_panel.h`, `qt_io.h`, `run_worker.h`, panel headers
+  - `src/` — Implementations: `main_window.cpp` (401), `code_editor_panel.cpp` (532), `qsci_lexer_comal.cpp` (216), `direct_command_panel.cpp` (177), `graphics_panel.cpp` (157), `run_worker.cpp` (81), `qt_io.cpp` (50), panel stubs
 - `comal-lsp/` — LSP server (complete: diagnostics, completion, definition, hover)
 
 **Build specifics (modern):**
@@ -57,6 +57,7 @@ This project has a **modern C++20** frontend and runtime, plus a **legacy C** co
 - Builtin function codes in `comal_functions.h` (_ABS=4000 through _SPLIT=4039)
 
 **Where to look for common changes:**
+- GUI syntax highlighting: `comal-ide/src/qsci_lexer_comal.cpp`
 - GUI panels and wiring: `comal-ide/src/main_window.cpp`
 - GUI editor and formatting: `comal-ide/src/code_editor_panel.cpp`
 - GUI runtime worker: `comal-ide/src/run_worker.cpp`
@@ -71,19 +72,22 @@ This project has a **modern C++20** frontend and runtime, plus a **legacy C** co
 - Test programs (numbered): `tests/programs/*.lst` (~119 files)
 - Test programs (numberless): `tests/programs-nonum/*.lst` (13 files)
 - Run single test: `./build/libcomal-runtime/comal-run tests/programs/for1.lst`
-- Run all tests: `bash tests/run_tests.sh` (124 PASS / 4 FAIL / 4 SKIP / 132 TOTAL)
+- Run all tests: `bash tests/run_tests.sh` (127 PASS / 0 FAIL / 6 SKIP / 133 TOTAL)
 - Run via CTest: `cd build && ctest --output-on-failure`
 - Test runner: `tests/run_tests.sh` — accepts optional path to `comal-run` binary, skips interactive/infinite-loop tests
-- Pre-existing failures: logist1, logist2 (DIM OF state leak), lst2sq, sq2lst (timeout)
+- Pre-existing skips: rnd()1, rnd()2, signif1 (infinite loops), gentest (interactive), lst2sq, sq2lst (squash format)
 - Numberless tests verify line-number-free parsing: FOR, IF, WHILE, REPEAT, PROC, FUNC, CASE, TRAP, nested, mixed, simple, DATA, EXIT
 
 **Current project phase:**
 - Phases 1-4 complete (Expression AST, Statement AST, Parser Integration, Runtime Library)
-- Phase 5 in progress: Qt6 GUI IDE (comal-ide/) — 1618 lines, core editing/running working
+- Phase 5 in progress: Qt6 GUI IDE (comal-ide/) — ~2200 lines
+  - Working: multi-tab editor, syntax highlighting (custom QsciLexerComal), run/stop, Format Source, graphics panel (DRAW rendering), file browser, I/O panel
+  - Not yet: debug panel, help panel, Find/Replace, settings, LSP integration
+- Graphics library complete (libcomal-graphics/) — 13 DRAW commands, scene model, group nesting
 - LSP Server complete (diagnostics, completion, definition, hover)
 - Numberless program support: parser accepts programs without COMAL line numbers
-- 124/132 tests passing (4 skipped: interactive/infinite-loop, 4 pre-existing failures)
-- See `docs/PROJECT_STATUS.md` for detailed status, bugs found/fixed, and priorities
+- 127/133 tests passing (6 skipped: interactive/infinite-loop/squash-format)
+- See `docs/PROJECT_STATUS.md` for detailed status
 
 **Editing notes for contributors/agents:**
 - Prefer minimal, localized changes

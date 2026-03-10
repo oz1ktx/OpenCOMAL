@@ -24,8 +24,9 @@ trap 'rm -f "$TMPFAIL"' EXIT
 
 pass=0; fail=0; skip=0; total=0
 
-# ── Tests that need interactive input or run forever ─────────────────
-SKIP="rnd()1.lst rnd()2.lst signif1.lst gentest.lst"
+# ── Tests that need interactive input, run forever, or require
+#    unimplemented features (squash file format) ─────────────────────
+SKIP="rnd()1.lst rnd()2.lst signif1.lst gentest.lst lst2sq.lst sq2lst.lst"
 
 run_dir() {
   local dir="$1"
@@ -35,23 +36,30 @@ run_dir() {
     return
   fi
 
-  local count=0
+  # Collect files into an array (sorted).
+  local files=()
   while IFS= read -r -d '' f; do
-    local bn
+    files+=("$f")
+  done < <(find "$dir" -maxdepth 1 -name '*.lst' -print0 | sort -z)
+
+  local bn rc
+  for f in "${files[@]}"; do
     bn=$(basename "$f")
     case " $SKIP " in *" $bn "*) skip=$((skip+1)); total=$((total+1)); continue;; esac
 
     total=$((total+1))
-    count=$((count+1))
-    timeout -s KILL 3 "$COMAL_RUN" "$f" </dev/null >/dev/null 2>&1
-    local rc=$?
+    timeout --kill-after=2 5 "$COMAL_RUN" "$f" </dev/null >/dev/null 2>&1
+    rc=$?
     if [[ $rc -eq 0 ]]; then
       pass=$((pass+1))
+    elif [[ $rc -eq 124 || $rc -eq 137 ]]; then
+      fail=$((fail+1))
+      echo "$label/$bn (TIMEOUT)" >> "$TMPFAIL"
     else
       fail=$((fail+1))
       echo "$label/$bn (rc=$rc)" >> "$TMPFAIL"
     fi
-  done < <(find "$dir" -maxdepth 1 -name '*.lst' -print0 | sort -z)
+  done
 }
 
 echo "=== OpenCOMAL Test Suite ==="

@@ -16,6 +16,7 @@
 #include "lexer_support.h"
 #include "comal_string_utils.h"
 #include "parser_support.h"
+#include "comal_id.h"
 
 #include <stdarg.h>
 
@@ -311,6 +312,7 @@ PUBLIC int pars_handle_error()
 
 	if (i) {
 		my_printf(MSG_ERROR, 1, pars_errtxt);
+		id_reset();
 		mem_freepool(PARSE_POOL);
 		pars_error_happened = 0;
 	}
@@ -323,6 +325,7 @@ PUBLIC int pars_handle_error_silent()
 	int i = pars_error_happened;
 
 	if (i) {
+		id_reset();
 		mem_freepool(PARSE_POOL);
 		pars_error_happened = 0;
 	}

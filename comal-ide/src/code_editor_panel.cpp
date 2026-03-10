@@ -10,7 +10,7 @@
 #include <QSet>
 #include <QRegularExpression>
 #include <Qsci/qsciscintilla.h>
-#include <Qsci/qscilexercpp.h>    // placeholder until COMAL lexer exists
+#include "qsci_lexer_comal.h"
 
 CodeEditorPanel::CodeEditorPanel(QWidget *parent)
     : QWidget(parent)
@@ -67,6 +67,10 @@ QsciScintilla *CodeEditorPanel::createEditor()
     editor->setIndentationsUseTabs(false);
     editor->setBraceMatching(QsciScintilla::StrictBraceMatch);
     editor->setCaretLineVisible(true);
+
+    // Syntax highlighting
+    auto *lexer = new QsciLexerComal(editor);
+    editor->setLexer(lexer);
 
     connectEditorSignals(editor);
     return editor;
@@ -287,7 +291,7 @@ static const QSet<QString> &comalKeywords()
     static const QSet<QString> kw {
         "AND", "APPEND", "CALLVEC", "CASE", "CLOSE", "CLOSED",
         "CURSOR", "DATA", "DEL", "DELETE", "DIM", "DIV", "DO",
-        "DOWNTO", "ELIF", "ELSE", "END", "ENDCASE", "ENDFOR",
+        "DRAW", "DOWNTO", "ELIF", "ELSE", "END", "ENDCASE", "ENDFOR",
         "ENDFUNC", "ENDIF", "ENDLOOP", "ENDPROC", "ENDTRAP",
         "ENDWHILE", "EXEC", "EXIT", "FALSE", "FILE", "FOR",
         "FUNC", "HANDLER", "IF", "IMPORT", "IN", "INPUT", "LOOP",
