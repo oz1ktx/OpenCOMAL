@@ -1,0 +1,1 @@
+/usr/lib64/ccache/c++ -Wl,--dependency-file=CMakeFiles/test_lsp_protocol.dir/link.d CMakeFiles/test_lsp_protocol.dir/tests/test_lsp_protocol.cpp.o CMakeFiles/test_lsp_protocol.dir/src/lsp_protocol.cpp.o -o test_lsp_protocol  libcomal_lsp.a ../libcomal-runtime/libcomal-runtime.a ../libcomal-parser/libcomal-parser.a ../libcomal-graphics/libcomal-graphics.a

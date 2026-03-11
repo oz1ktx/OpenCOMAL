@@ -1,0 +1,1 @@
+/usr/lib64/ccache/c++ -Wl,--dependency-file=CMakeFiles/comal-lsp.dir/link.d "CMakeFiles/comal-lsp.dir/tools/comal_lsp.cpp.o" -o comal-lsp  libcomal_lsp.a ../libcomal-runtime/libcomal-runtime.a ../libcomal-parser/libcomal-parser.a ../libcomal-graphics/libcomal-graphics.a

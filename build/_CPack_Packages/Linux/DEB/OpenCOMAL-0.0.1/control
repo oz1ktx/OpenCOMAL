@@ -1,0 +1,10 @@
+Architecture: amd64
+Depends: qt6-base, qt6-svg, libqscintilla2-qt6, libncurses6, readline
+Description: COMAL interpreter and tools
+Maintainer: maintainer@example.com
+Package: opencomal
+Priority: optional
+Section: devel
+Version: 0.0.1
+Installed-Size: 3935
+

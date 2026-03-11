@@ -1,0 +1,2 @@
+/usr/bin/ar qc libcomal_lsp.a CMakeFiles/comal_lsp.dir/src/lsp_server.cpp.o CMakeFiles/comal_lsp.dir/src/lsp_protocol.cpp.o
+/usr/bin/ranlib libcomal_lsp.a

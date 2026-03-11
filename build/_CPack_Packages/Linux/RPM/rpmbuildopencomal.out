@@ -1,0 +1,16 @@
+setting SOURCE_DATE_EPOCH=1278201600
+Udfører(%mkbuilddir): /bin/sh -e /var/tmp/rpm-tmp.yP0rIR
+Udfører(%prep): /bin/sh -e /var/tmp/rpm-tmp.pZmXeC
+Udfører(%install): /bin/sh -e /var/tmp/rpm-tmp.EneejY
+Scanned 3 directories and 5 files,
+               processed 0 inodes,
+               0 modified (0 replaced + 0 rewritten),
+               0 unsupported format, 0 errors
+Processing files: opencomal-0.0.1-1.x86_64
+Provides: opencomal = 0.0.1-1 opencomal(x86-64) = 0.0.1-1
+Requires(rpmlib): rpmlib(CompressedFileNames) <= 3.0.4-1 rpmlib(FileDigests) <= 4.6.0-1 rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+Requires: libGLX.so.0()(64bit) libOpenGL.so.0()(64bit) libQt6Core.so.6()(64bit) libQt6Core.so.6(Qt_6)(64bit) libQt6Core.so.6(Qt_6.10)(64bit) libQt6Gui.so.6()(64bit) libQt6Gui.so.6(Qt_6)(64bit) libQt6PrintSupport.so.6()(64bit) libQt6Svg.so.6()(64bit) libQt6Svg.so.6(Qt_6)(64bit) libQt6Widgets.so.6()(64bit) libQt6Widgets.so.6(Qt_6)(64bit) libc.so.6()(64bit) libc.so.6(GLIBC_2.14)(64bit) libc.so.6(GLIBC_2.2.5)(64bit) libc.so.6(GLIBC_2.34)(64bit) libc.so.6(GLIBC_2.38)(64bit) libgcc_s.so.1()(64bit) libgcc_s.so.1(GCC_3.0)(64bit) libm.so.6()(64bit) libm.so.6(GLIBC_2.2.5)(64bit) libm.so.6(GLIBC_2.29)(64bit) libqscintilla2_qt6.so.15()(64bit) libstdc++.so.6()(64bit) libstdc++.so.6(CXXABI_1.3)(64bit) libstdc++.so.6(CXXABI_1.3.5)(64bit) libstdc++.so.6(CXXABI_1.3.8)(64bit) libstdc++.so.6(CXXABI_1.3.9)(64bit) libstdc++.so.6(GLIBCXX_3.4)(64bit) libstdc++.so.6(GLIBCXX_3.4.14)(64bit) libstdc++.so.6(GLIBCXX_3.4.18)(64bit) libstdc++.so.6(GLIBCXX_3.4.20)(64bit) libstdc++.so.6(GLIBCXX_3.4.21)(64bit) libstdc++.so.6(GLIBCXX_3.4.26)(64bit) libstdc++.so.6(GLIBCXX_3.4.29)(64bit) libstdc++.so.6(GLIBCXX_3.4.30)(64bit) libstdc++.so.6(GLIBCXX_3.4.32)(64bit) libstdc++.so.6(GLIBCXX_3.4.9)(64bit) rtld(GNU_HASH)
+Checking for unpackaged file(s): /usr/lib/rpm/check-files /home/peter/Workspace/OpenCOMAL/build/_CPack_Packages/Linux/RPM/OpenCOMAL-0.0.1
+Skrev: /home/peter/Workspace/OpenCOMAL/build/_CPack_Packages/Linux/RPM/RPMS/OpenCOMAL-0.0.1.rpm
+Udfører(%clean): /bin/sh -e /var/tmp/rpm-tmp.30VvfH
+Udfører(rmbuild): /bin/sh -e /var/tmp/rpm-tmp.Qlu1Y7

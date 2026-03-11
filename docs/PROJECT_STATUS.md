@@ -193,6 +193,18 @@ separate threads communicating via typed message channels.
 CPack configuration for `.rpm` and `.deb` packages. Package `comal-run`,
 `comal-ide`, shared libraries, sample programs.
 
+**Building packages (DEB and RPM)**
+
+From the repository root, create a build dir and run CPack via CMake:
+
+```bash
+cmake -S . -B build -DCPACK_GENERATOR="DEB;RPM"
+cmake --build build --target package
+```
+
+Generated packages will appear in the `build/` directory (e.g. `OpenCOMAL-0.0.1.deb`, `OpenCOMAL-0.0.1.rpm`).
+Adjust `CPACK_PACKAGE_VERSION` and maintainer fields in `CMakeLists.txt` as needed.
+
 ---
 
 ## Key Design Decisions

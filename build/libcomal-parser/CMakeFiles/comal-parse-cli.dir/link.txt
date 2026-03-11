@@ -1,0 +1,1 @@
+/usr/lib64/ccache/c++ -Wl,--dependency-file=CMakeFiles/comal-parse-cli.dir/link.d "CMakeFiles/comal-parse-cli.dir/tools/parse_cli.cpp.o" -o comal-parse-cli  libcomal-parser.a

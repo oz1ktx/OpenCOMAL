@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "comal": {
+      "command": ["./build/comal-lsp/comal-lsp"],
+      "url": "https://microsoft.github.io/language-server-protocol/",
+      "highlightingModeRegex": "^COMAL$"
+    }
+  }
+}
