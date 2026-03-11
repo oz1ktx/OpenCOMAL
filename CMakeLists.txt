@@ -34,6 +34,14 @@ install(TARGETS comal-parse-cli comal-ast-demo
   RUNTIME DESTINATION bin
 )
 
+# Desktop integration: install .desktop and icon so packages create start-menu entries
+install(FILES ${CMAKE_SOURCE_DIR}/packaging/desktop/comal-ide.desktop
+  DESTINATION share/applications
+)
+install(FILES ${CMAKE_SOURCE_DIR}/packaging/icons/comal-ide.svg
+  DESTINATION share/icons/hicolor/scalable/apps
+)
+
 # CPack packaging configuration: DEB and RPM
 include(InstallRequiredSystemLibraries)
 set(CPACK_PACKAGE_NAME "OpenCOMAL")

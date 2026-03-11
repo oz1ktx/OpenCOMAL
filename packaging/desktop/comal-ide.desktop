@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=OpenCOMAL IDE
+Comment=OpenCOMAL Integrated Development Environment
+Exec=comal-ide %F
+Icon=comal-ide
+Terminal=false
+Type=Application
+Categories=Development;IDE;
