@@ -110,6 +110,22 @@ Language Server Protocol v3.17 implementation.
 - Unified test runner: `tests/run_tests.sh` (CTest-integrated)
 - **Results**: 127 pass, 6 skip, 0 failures
 
+### Packaging
+CPack configuration for `.rpm` and `.deb` packages. Package `comal-run`,
+`comal-ide`, shared libraries, sample programs.
+
+**Building packages (DEB and RPM)**
+
+From the repository root, create a build dir and run CPack via CMake:
+
+```bash
+cmake -S . -B build -DCPACK_GENERATOR="DEB;RPM"
+cmake --build build --target package
+```
+
+Generated packages will appear in the `build/` directory (e.g. `OpenCOMAL-0.0.1.deb`, `OpenCOMAL-0.0.1.rpm`).
+Adjust `CPACK_PACKAGE_VERSION` and maintainer fields in `CMakeLists.txt` as needed.
+
 ---
 
 ## In Progress: Qt6 GUI IDE (`comal-ide/`) — ~2200 lines
@@ -189,23 +205,9 @@ from stdin/pipes, enabling COMAL programs in Unix pipelines
 `INPUT QUEUE` for inter-thread message passing — COMAL PROCs running in
 separate threads communicating via typed message channels.
 
-### Packaging
-CPack configuration for `.rpm` and `.deb` packages. Package `comal-run`,
-`comal-ide`, shared libraries, sample programs.
 
-**Building packages (DEB and RPM)**
-
-From the repository root, create a build dir and run CPack via CMake:
-
-```bash
-cmake -S . -B build -DCPACK_GENERATOR="DEB;RPM"
-cmake --build build --target package
-```
-
-Generated packages will appear in the `build/` directory (e.g. `OpenCOMAL-0.0.1.deb`, `OpenCOMAL-0.0.1.rpm`).
-Adjust `CPACK_PACKAGE_VERSION` and maintainer fields in `CMakeLists.txt` as needed.
-
----
+### Code cleanups
+The list of all COMAL keywords or COMAL keywords plus built-in functions, is repeated several places in the code. For maintainability it should be centralised, and ideally auto-generated from the lexer/parser.
 
 ## Key Design Decisions
 
