@@ -40,6 +40,8 @@ struct CommandSpec {
     int minArgs;
     int maxArgs;
     CommandKind kind;
+    std::string description;       // One-line description (for hover)
+    std::string argDescription;    // Argument synopsis (e.g. "x1 y1 x2 y2")
 };
 
 // ── Parse errors ────────────────────────────────────────────────────────

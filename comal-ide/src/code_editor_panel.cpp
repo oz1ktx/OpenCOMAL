@@ -9,8 +9,10 @@
 #include <QMessageBox>
 #include <QSet>
 #include <QRegularExpression>
+
 #include <Qsci/qsciscintilla.h>
 #include "qsci_lexer_comal.h"
+#include <QToolTip>
 
 CodeEditorPanel::CodeEditorPanel(QWidget *parent)
     : QWidget(parent)
@@ -62,6 +64,20 @@ QsciScintilla *CodeEditorPanel::createEditor()
 
     // Basic editor settings
     editor->setAutoIndent(true);
+    // Connect signals for LSP integration
+    connect(editor, &QsciScintilla::textChanged, this, [this, editor]{
+        if (!lspClient_) return;
+        QString text = editor->text();
+        QString filePath = currentFilePath();
+        lspClient_->sendDidChange(filePath, text);
+    });
+    connect(editor, &QsciScintilla::cursorPositionChanged, this, [this, editor](int line, int col){
+        emit cursorPositionChanged(line, col);
+        if (!lspClient_) return;
+        QString filePath = currentFilePath();
+        lspClient_->requestHover(filePath, line, col);
+        lspClient_->requestCompletion(filePath, line, col);
+    });
     editor->setIndentationWidth(2);
     editor->setTabWidth(2);
     editor->setIndentationsUseTabs(false);
@@ -74,6 +90,44 @@ QsciScintilla *CodeEditorPanel::createEditor()
 
     connectEditorSignals(editor);
     return editor;
+}
+
+void CodeEditorPanel::setLspClient(ComalLspClient *client) {
+    lspClient_ = client;
+    // Send didOpen for current tab
+    if (auto *editor = currentEditor()) {
+        QString text = editor->text();
+        QString filePath = currentFilePath();
+        lspClient_->sendDidOpen(filePath, text);
+    }
+
+    // Connect LSP client signals
+    connect(lspClient_, &ComalLspClient::hoverReceived, this, [this](const QString &filePath, const QJsonObject &hover) {
+        // Show hover tooltip if editor matches filePath
+        if (filePath == currentFilePath() && currentEditor()) {
+            QString contents = hover.value("contents").toString();
+            if (!contents.isEmpty()) {
+                // QsciScintilla does not provide pointFromPosition; show tooltip at viewport center
+                QWidget *viewport = currentEditor()->viewport();
+                QPoint center = viewport->rect().center();
+                QToolTip::showText(viewport->mapToGlobal(center), contents, currentEditor());
+            }
+        }
+    });
+    connect(lspClient_, &ComalLspClient::diagnosticsReceived, this, [this](const QString &filePath, const QJsonObject &diagnostics) {
+        // TODO: Display diagnostics in editor (underline errors, show markers)
+        // For now, print to console
+        qDebug() << "Diagnostics for" << filePath << diagnostics;
+    });
+    // Completion and definition can be handled similarly
+    connect(lspClient_, &ComalLspClient::completionReceived, this, [this](const QString &filePath, const QJsonObject &completion) {
+        // TODO: Show completion popup
+        qDebug() << "Completion for" << filePath << completion;
+    });
+    connect(lspClient_, &ComalLspClient::definitionReceived, this, [this](const QString &filePath, const QJsonObject &definition) {
+        // TODO: Jump to definition
+        qDebug() << "Definition for" << filePath << definition;
+    });
 }
 
 void CodeEditorPanel::connectEditorSignals(QsciScintilla *editor)
@@ -134,12 +188,14 @@ void CodeEditorPanel::openFile(const QString &filePath)
     const auto lines = content.split('\n');
     for (const auto &line : lines) {
         auto trimmed = line.trimmed();
-        // Match optional leading digits followed by space
+        // Match optional leading digits followed by space (or end of line)
         int pos = 0;
         while (pos < trimmed.size() && trimmed[pos].isDigit())
             pos++;
         if (pos > 0 && pos < trimmed.size() && trimmed[pos] == ' ')
             stripped += trimmed.mid(pos + 1) + '\n';
+        else if (pos > 0 && pos == trimmed.size())
+            stripped += '\n';  // blank numbered line (e.g. "  80 ")
         else
             stripped += line + '\n';
     }

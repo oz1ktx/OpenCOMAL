@@ -1,1 +1,0 @@
-/usr/lib64/ccache/c++ -Wl,--dependency-file=CMakeFiles/test_graphics_commands.dir/link.d CMakeFiles/test_graphics_commands.dir/tests/test_commands.cpp.o -o test_graphics_commands  libcomal-graphics.a

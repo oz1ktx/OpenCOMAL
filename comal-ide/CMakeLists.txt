@@ -40,6 +40,7 @@ add_executable(comal-ide
     src/main.cpp
     src/main_window.cpp
     src/code_editor_panel.cpp
+    src/comal_lsp_client.cpp
     src/direct_command_panel.cpp
     src/graphics_panel.cpp
     src/debug_panel.cpp
@@ -50,6 +51,7 @@ add_executable(comal-ide
     src/qsci_lexer_comal.cpp
     include/main_window.h
     include/code_editor_panel.h
+    include/comal_lsp_client.h
     include/direct_command_panel.h
     include/graphics_panel.h
     include/debug_panel.h

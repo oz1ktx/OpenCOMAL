@@ -1,9 +1,11 @@
 #include "comal_lsp_server.h"
 #include "comal_lsp_protocol.h"
+#include "comal_graphics_commands.h"
 
 #include <iostream>
 #include <sstream>
 #include <algorithm>
+#include <cctype>
 
 namespace comal::lsp {
 
@@ -61,6 +63,8 @@ void LspServer::handleMessage(const std::string& rawMessage) {
             handleDefinition(request);
         } else if (request.method == "textDocument/hover") {
             handleHover(request);
+        } else if (request.method == "textDocument/documentSymbol") {
+            handleDocumentSymbol(request);
         } else {
             // Unknown method
             if (request.id) {
@@ -84,10 +88,12 @@ void LspServer::handleInitialize(const LspRequest& request) {
         "capabilities": {
             "textDocumentSync": 1,
             "completionProvider": {
-                "resolveProvider": false
+                "resolveProvider": false,
+                "triggerCharacters": [" "]
             },
             "definitionProvider": true,
             "hoverProvider": true,
+            "documentSymbolProvider": true,
             "diagnosticProvider": {
                 "interFileDependencies": false,
                 "workspaceDiagnostics": false
@@ -95,7 +101,7 @@ void LspServer::handleInitialize(const LspRequest& request) {
         },
         "serverInfo": {
             "name": "OpenCOMAL Language Server",
-            "version": "0.1.0"
+            "version": "0.2.0"
         }
     })";
 
@@ -149,6 +155,132 @@ void LspServer::handleDidClose(const LspRequest& request) {
     }
 }
 
+// Helper: extract the word under the cursor from a document.
+static std::string extractWordAtCursor(const std::string& content, int line, int character) {
+    std::istringstream iss(content);
+    std::string currentLine;
+    int currentLineNum = 0;
+
+    while (std::getline(iss, currentLine)) {
+        if (!currentLine.empty() && currentLine.back() == '\r')
+            currentLine.pop_back();
+
+        if (currentLineNum == line) {
+            if (character > static_cast<int>(currentLine.length()))
+                return {};
+
+            std::string before = currentLine.substr(0, character);
+            std::string after  = currentLine.substr(character);
+
+            size_t ws = before.find_last_of(" \t()[]{},;=+-*/");
+            size_t we = after.find_first_of(" \t()[]{},;=+-*/");
+
+            std::string word = before.substr(ws == std::string::npos ? 0 : ws + 1);
+            word += (we == std::string::npos) ? after : after.substr(0, we);
+            return word;
+        }
+        currentLineNum++;
+    }
+    return {};
+}
+
+// Helper: check whether cursor is inside a DRAW statement and return the DRAW sub-token.
+static std::string extractDrawSubcommand(const std::string& content, int line, int character) {
+    std::istringstream iss(content);
+    std::string currentLine;
+    int currentLineNum = 0;
+
+    while (std::getline(iss, currentLine)) {
+        if (!currentLine.empty() && currentLine.back() == '\r')
+            currentLine.pop_back();
+
+        if (currentLineNum == line) {
+            std::string trimmed = currentLine;
+            size_t p = 0;
+            while (p < trimmed.size() && (std::isdigit(static_cast<unsigned char>(trimmed[p])) || trimmed[p] == ' '))
+                ++p;
+            trimmed = trimmed.substr(p);
+
+            std::string upper = trimmed;
+            std::transform(upper.begin(), upper.end(), upper.begin(),
+                           [](unsigned char c) { return std::toupper(c); });
+            if (upper.substr(0, 5) != "DRAW " && upper.substr(0, 5) != "DRAW\t")
+                return {};
+
+            return extractWordAtCursor(content, line, character);
+        }
+        currentLineNum++;
+    }
+    return {};
+}
+
+// Keyword documentation table.
+static const std::unordered_map<std::string, std::string>& keywordDocs() {
+    static const std::unordered_map<std::string, std::string> docs = {
+        {"PRINT",    "Print values to the output device."},
+        {"INPUT",    "Read a value from the user."},
+        {"IF",       "Conditional execution. Use with THEN, ELSE, ENDIF."},
+        {"THEN",     "Introduces the true-branch of IF."},
+        {"ELSE",     "Introduces the false-branch of IF."},
+        {"ELIF",     "Else-if branch (IF ... ELIF ... ENDIF)."},
+        {"END",      "Terminates a program, or closes a block (END IF, END FOR, END PROC, ...)."},
+        {"ENDIF",    "Closes a multi-line IF block."},
+        {"FOR",      "Counted loop: FOR var := start TO stop [STEP inc]."},
+        {"TO",       "Upper bound in a FOR loop."},
+        {"STEP",     "Increment value in a FOR loop."},
+        {"NEXT",     "End of a FOR loop body (or ENDFOR)."},
+        {"ENDFOR",   "End of a FOR loop body."},
+        {"WHILE",    "Loop while a condition is true."},
+        {"ENDWHILE", "End of a WHILE loop body."},
+        {"REPEAT",   "Loop body that repeats UNTIL a condition is true."},
+        {"UNTIL",    "Condition that terminates a REPEAT loop."},
+        {"PROC",     "Define a procedure: PROC name[(params)] ... ENDPROC."},
+        {"ENDPROC",  "End of a PROC definition."},
+        {"FUNC",     "Define a function: FUNC name[(params)] ... ENDFUNC."},
+        {"ENDFUNC",  "End of a FUNC definition."},
+        {"RETURN",   "Return a value from a FUNC."},
+        {"LOCAL",    "Declare local variables in a PROC or FUNC."},
+        {"CLOSED",   "Mark a PROC/FUNC as closed-scope (no access to outer variables)."},
+        {"IMPORT",   "Import names into a CLOSED procedure."},
+        {"EXPORT",   "Export names from a CLOSED procedure."},
+        {"LET",      "Assignment (optional keyword, e.g. LET x := 5)."},
+        {"DIM",      "Dimension (allocate) an array."},
+        {"READ",     "Read the next value from a DATA list."},
+        {"DATA",     "Define inline data for READ statements."},
+        {"RESTORE",  "Reset the DATA pointer."},
+        {"STOP",     "Halt program execution."},
+        {"TRAP",     "Set up an error/escape handler: TRAP ESC/ERR."},
+        {"ESCAPE",   "Equivalent to pressing the escape key."},
+        {"HANDLER",  "Error/escape handler block."},
+        {"ENDTRAP",  "End of a TRAP block."},
+        {"CASE",     "Multi-way branch: CASE expr OF ... ENDCASE."},
+        {"WHEN",     "Branch inside a CASE block."},
+        {"OTHERWISE","Default branch inside a CASE block."},
+        {"ENDCASE",  "End of a CASE block."},
+        {"EXEC",     "Execute a procedure call."},
+        {"ZONE",     "Set the print zone width."},
+        {"PAGE",     "Clear the screen."},
+        {"CURSOR",   "Position the cursor: CURSOR row, col."},
+        {"OF",       "Part of CASE ... OF."},
+        {"SELECT",   "Select output device."},
+        {"DRAW",     "Execute a graphics command: DRAW subcommand args."},
+        {"USING",    "Formatted output: PRINT USING format$ ; values."},
+        {"EXIT",     "Exit a loop early."},
+        {"LOOP",     "Infinite loop (LOOP ... ENDLOOP / EXIT WHEN)."},
+        {"ENDLOOP",  "End of a LOOP block."},
+        {"NULL",     "No-operation statement."},
+        {"RUN",      "Run the current program."},
+        {"LIST",     "List the program source."},
+        {"NEW",      "Clear the program from memory."},
+        {"OLD",      "Recall the last program."},
+        {"SAVE",     "Save the program to a file."},
+        {"DELETE",   "Delete program lines."},
+        {"RENUMBER", "Renumber program lines."},
+        {"AUTO",     "Auto-number mode."},
+    };
+    return docs;
+}
+
 void LspServer::handleDefinition(const LspRequest& request) {
     LspResponse response;
     response.id = request.id;
@@ -161,7 +293,6 @@ void LspServer::handleDefinition(const LspRequest& request) {
         return;
     }
     
-    // Get the document content
     auto docIt = documents_.find(uri);
     if (docIt == documents_.end()) {
         response.result = "null";
@@ -169,50 +300,8 @@ void LspServer::handleDefinition(const LspRequest& request) {
         return;
     }
     
-    const std::string& content = docIt->second;
-    
-    // Find the word at the cursor position
-    std::istringstream iss(content);
-    std::string currentLine;
-    int currentLineNum = 0;
-    std::string symbolName;
-    
-    while (std::getline(iss, currentLine)) {
-        if (!currentLine.empty() && currentLine.back() == '\r') {
-            currentLine.pop_back();
-        }
-        
-        if (currentLineNum == line) {
-            // Extract the word at the cursor position
-            if (character <= static_cast<int>(currentLine.length())) {
-                std::string beforeCursor = currentLine.substr(0, character);
-                std::string afterCursor = currentLine.substr(character);
-                
-                // Find word boundaries
-                size_t wordStart = beforeCursor.find_last_of(" \t()[]{},;=+-*/");
-                size_t wordEnd = afterCursor.find_first_of(" \t()[]{},;=+-*/");
-                
-                if (wordStart == std::string::npos) {
-                    wordStart = 0;
-                } else {
-                    wordStart += 1;
-                }
-                
-                std::string word = beforeCursor.substr(wordStart);
-                if (wordEnd != std::string::npos) {
-                    word += afterCursor.substr(0, wordEnd);
-                } else {
-                    word += afterCursor;
-                }
-                
-                symbolName = word;
-            }
-            break;
-        }
-        currentLineNum++;
-    }
-    
-    // Find the symbol definition
+    std::string symbolName = extractWordAtCursor(docIt->second, line, character);
+
     SymbolInfo* definition = findSymbolDefinition(uri, symbolName);
     if (definition) {
         std::ostringstream oss;
@@ -239,7 +328,6 @@ void LspServer::handleHover(const LspRequest& request) {
         return;
     }
     
-    // Get the document content
     auto docIt = documents_.find(uri);
     if (docIt == documents_.end()) {
         response.result = "null";
@@ -248,81 +336,64 @@ void LspServer::handleHover(const LspRequest& request) {
     }
     
     const std::string& content = docIt->second;
-    
-    // Find the word at the cursor position (reuse logic from definition)
-    std::istringstream iss(content);
-    std::string currentLine;
-    int currentLineNum = 0;
-    std::string symbolName;
-    
-    while (std::getline(iss, currentLine)) {
-        if (!currentLine.empty() && currentLine.back() == '\r') {
-            currentLine.pop_back();
-        }
-        
-        if (currentLineNum == line) {
-            if (character <= static_cast<int>(currentLine.length())) {
-                std::string beforeCursor = currentLine.substr(0, character);
-                std::string afterCursor = currentLine.substr(character);
-                
-                size_t wordStart = beforeCursor.find_last_of(" \t()[]{},;=+-*/");
-                size_t wordEnd = afterCursor.find_first_of(" \t()[]{},;=+-*/");
-                
-                if (wordStart == std::string::npos) {
-                    wordStart = 0;
-                } else {
-                    wordStart += 1;
-                }
-                
-                std::string word = beforeCursor.substr(wordStart);
-                if (wordEnd != std::string::npos) {
-                    word += afterCursor.substr(0, wordEnd);
-                } else {
-                    word += afterCursor;
-                }
-                
-                symbolName = word;
-            }
-            break;
-        }
-        currentLineNum++;
+    std::string symbolName = extractWordAtCursor(content, line, character);
+    if (symbolName.empty()) {
+        response.result = "null";
+        sendResponse(response);
+        return;
     }
-    
-    // Find symbol information
-    SymbolInfo* symbol = findSymbolDefinition(uri, symbolName);
-    if (symbol) {
+
+    auto makeHover = [&](const std::string& markdown) {
         std::ostringstream oss;
-        oss << R"({"contents":{"kind":"markdown","value":")" << symbol->signature << R"("},"range":{"start":{"line":)" << line 
-            << R"(,"character":)" << (character - static_cast<int>(symbolName.length())) << R"(},"end":{"line":)" << line 
+        oss << R"({"contents":{"kind":"markdown","value":")" << markdown
+            << R"("},"range":{"start":{"line":)" << line
+            << R"(,"character":)" << (character - static_cast<int>(symbolName.length()))
+            << R"(},"end":{"line":)" << line
             << R"(,"character":)" << character << R"(}}})";
         response.result = oss.str();
-    } else {
-        // Check if it's a keyword
-        std::vector<std::string> keywords = {
-            "PRINT", "INPUT", "IF", "THEN", "ELSE", "END", "FOR", "TO", "STEP", "NEXT",
-            "WHILE", "REPEAT", "UNTIL", "PROC", "FUNC", "RETURN", "LOCAL", "CLOSED"
-        };
-        
-        bool isKeyword = false;
-        for (const auto& keyword : keywords) {
-            if (keyword == symbolName) {
-                isKeyword = true;
-                break;
-            }
-        }
-        
-        if (isKeyword) {
-            std::ostringstream oss;
-            oss << R"({"contents":{"kind":"markdown","value":"**)" << symbolName << R"(**\n\nCOMAL keyword")";
-            oss << R"("},"range":{"start":{"line":)" << line 
-                << R"(,"character":)" << (character - static_cast<int>(symbolName.length())) << R"(},"end":{"line":)" << line 
-                << R"(,"character":)" << character << R"(}}})";
-            response.result = oss.str();
-        } else {
-            response.result = "null";
+    };
+
+    // 1) Check if it's a DRAW sub-command (cursor on a word inside a DRAW line)
+    std::string drawSub = extractDrawSubcommand(content, line, character);
+    if (!drawSub.empty()) {
+        // Look up in graphics registry (case-insensitive)
+        const auto* spec = graphics_registry_.find(drawSub);
+        if (spec) {
+            std::string md = "**DRAW " + spec->name + "**";
+            if (!spec->argDescription.empty())
+                md += " " + spec->argDescription;
+            md += "\\n\\n" + spec->description;
+            if (spec->minArgs == spec->maxArgs)
+                md += "\\n\\nArguments: " + std::to_string(spec->minArgs);
+            else
+                md += "\\n\\nArguments: " + std::to_string(spec->minArgs) + "-" + std::to_string(spec->maxArgs);
+            makeHover(md);
+            sendResponse(response);
+            return;
         }
     }
+
+    // 2) User-defined PROC/FUNC symbol
+    SymbolInfo* symbol = findSymbolDefinition(uri, symbolName);
+    if (symbol) {
+        makeHover(symbol->signature);
+        sendResponse(response);
+        return;
+    }
     
+    // 3) COMAL keyword
+    std::string upper = symbolName;
+    std::transform(upper.begin(), upper.end(), upper.begin(),
+                   [](unsigned char c) { return std::toupper(c); });
+    auto& docs = keywordDocs();
+    auto it = docs.find(upper);
+    if (it != docs.end()) {
+        makeHover("**" + upper + "**\\n\\n" + it->second);
+        sendResponse(response);
+        return;
+    }
+    
+    response.result = "null";
     sendResponse(response);
 }
 
@@ -485,41 +556,188 @@ bool LspServer::parseDocumentCloseParams(const std::string& params, std::string&
 std::vector<Diagnostic> LspServer::parseDocument(const std::string& text) {
     std::vector<Diagnostic> diagnostics;
     
-    // Basic syntax checking - look for common COMAL syntax errors
     std::istringstream iss(text);
     std::string line;
     int lineNumber = 0;
     
+    // Stack-based block matching
+    struct Block { std::string keyword; int line; };
+    std::vector<Block> blockStack;
+    
     while (std::getline(iss, line)) {
-        // Remove carriage return if present
-        if (!line.empty() && line.back() == '\r') {
+        if (!line.empty() && line.back() == '\r')
             line.pop_back();
-        }
         
         // Check for unmatched quotes
         int quoteCount = 0;
-        for (char c : line) {
-            if (c == '"') quoteCount++;
+        bool inString = false;
+        for (size_t i = 0; i < line.size(); ++i) {
+            if (line[i] == '"') {
+                quoteCount++;
+                inString = !inString;
+            }
         }
         if (quoteCount % 2 != 0) {
             diagnostics.push_back({
                 {lineNumber, 0, lineNumber, static_cast<int>(line.length())},
                 "Unmatched quote in string literal",
-                std::nullopt,
-                "comal",
-                1  // Error
+                std::nullopt, "comal", 1
             });
         }
-        
-        // Check for missing END statements (very basic)
-        if (line.find("FOR ") != std::string::npos || 
-            line.find("WHILE ") != std::string::npos ||
-            line.find("IF ") != std::string::npos) {
-            // This is a very basic check - in a real implementation we'd need proper AST analysis
-            // For now, just flag potential issues
+
+        // Extract the statement keyword from the line
+        // Strip leading line number and whitespace
+        std::string trimmed = line;
+        size_t p = 0;
+        while (p < trimmed.size() && (std::isdigit(static_cast<unsigned char>(trimmed[p])) || trimmed[p] == ' '))
+            ++p;
+        trimmed = trimmed.substr(p);
+        // Strip trailing whitespace
+        while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())))
+            trimmed.pop_back();
+
+        if (trimmed.empty()) { lineNumber++; continue; }
+
+        // Uppercase for matching
+        std::string upper = trimmed;
+        std::transform(upper.begin(), upper.end(), upper.begin(),
+                       [](unsigned char c) { return std::toupper(c); });
+
+        // Extract first word
+        size_t sp = upper.find_first_of(" \t");
+        std::string firstWord = (sp == std::string::npos) ? upper : upper.substr(0, sp);
+
+        // Block openers
+        if (firstWord == "FOR")       blockStack.push_back({"FOR", lineNumber});
+        else if (firstWord == "WHILE")  blockStack.push_back({"WHILE", lineNumber});
+        else if (firstWord == "REPEAT") blockStack.push_back({"REPEAT", lineNumber});
+        else if (firstWord == "LOOP")   blockStack.push_back({"LOOP", lineNumber});
+        else if (firstWord == "CASE")   blockStack.push_back({"CASE", lineNumber});
+        else if (firstWord == "TRAP")   blockStack.push_back({"TRAP", lineNumber});
+        else if (firstWord == "IF" && upper.find("THEN") == std::string::npos)
+            blockStack.push_back({"IF", lineNumber});  // multi-line IF only
+        else if (firstWord == "PROC")   blockStack.push_back({"PROC", lineNumber});
+        else if (firstWord == "FUNC")   blockStack.push_back({"FUNC", lineNumber});
+        // Block closers
+        else if (firstWord == "NEXT" || firstWord == "ENDFOR") {
+            if (!blockStack.empty() && blockStack.back().keyword == "FOR")
+                blockStack.pop_back();
+            else
+                diagnostics.push_back({{lineNumber, 0, lineNumber, static_cast<int>(line.length())},
+                    firstWord + " without matching FOR", std::nullopt, "comal", 1});
+        }
+        else if (firstWord == "ENDWHILE") {
+            if (!blockStack.empty() && blockStack.back().keyword == "WHILE")
+                blockStack.pop_back();
+            else
+                diagnostics.push_back({{lineNumber, 0, lineNumber, static_cast<int>(line.length())},
+                    "ENDWHILE without matching WHILE", std::nullopt, "comal", 1});
+        }
+        else if (firstWord == "UNTIL") {
+            if (!blockStack.empty() && blockStack.back().keyword == "REPEAT")
+                blockStack.pop_back();
+            else
+                diagnostics.push_back({{lineNumber, 0, lineNumber, static_cast<int>(line.length())},
+                    "UNTIL without matching REPEAT", std::nullopt, "comal", 1});
+        }
+        else if (firstWord == "ENDLOOP") {
+            if (!blockStack.empty() && blockStack.back().keyword == "LOOP")
+                blockStack.pop_back();
+            else
+                diagnostics.push_back({{lineNumber, 0, lineNumber, static_cast<int>(line.length())},
+                    "ENDLOOP without matching LOOP", std::nullopt, "comal", 1});
+        }
+        else if (firstWord == "ENDCASE") {
+            if (!blockStack.empty() && blockStack.back().keyword == "CASE")
+                blockStack.pop_back();
+            else
+                diagnostics.push_back({{lineNumber, 0, lineNumber, static_cast<int>(line.length())},
+                    "ENDCASE without matching CASE", std::nullopt, "comal", 1});
+        }
+        else if (firstWord == "ENDTRAP") {
+            if (!blockStack.empty() && blockStack.back().keyword == "TRAP")
+                blockStack.pop_back();
+            else
+                diagnostics.push_back({{lineNumber, 0, lineNumber, static_cast<int>(line.length())},
+                    "ENDTRAP without matching TRAP", std::nullopt, "comal", 1});
+        }
+        else if (firstWord == "ENDIF") {
+            if (!blockStack.empty() && blockStack.back().keyword == "IF")
+                blockStack.pop_back();
+            else
+                diagnostics.push_back({{lineNumber, 0, lineNumber, static_cast<int>(line.length())},
+                    "ENDIF without matching IF", std::nullopt, "comal", 1});
+        }
+        else if (firstWord == "ENDPROC") {
+            if (!blockStack.empty() && blockStack.back().keyword == "PROC")
+                blockStack.pop_back();
+            else
+                diagnostics.push_back({{lineNumber, 0, lineNumber, static_cast<int>(line.length())},
+                    "ENDPROC without matching PROC", std::nullopt, "comal", 1});
+        }
+        else if (firstWord == "ENDFUNC") {
+            if (!blockStack.empty() && blockStack.back().keyword == "FUNC")
+                blockStack.pop_back();
+            else
+                diagnostics.push_back({{lineNumber, 0, lineNumber, static_cast<int>(line.length())},
+                    "ENDFUNC without matching FUNC", std::nullopt, "comal", 1});
+        }
+        // "END" followed by block keyword (e.g. "END FOR", "END IF", "END PROC")
+        else if (firstWord == "END" && sp != std::string::npos) {
+            std::string rest = upper.substr(sp + 1);
+            // Trim leading spaces
+            size_t rs = rest.find_first_not_of(" \t");
+            if (rs != std::string::npos) rest = rest.substr(rs);
+            // Extract the block keyword from "END PROC name" -> "PROC"
+            size_t re = rest.find_first_of(" \t");
+            std::string blockKw = (re == std::string::npos) ? rest : rest.substr(0, re);
+
+            if (blockKw == "FOR" || blockKw == "WHILE" || blockKw == "IF" ||
+                blockKw == "PROC" || blockKw == "FUNC" || blockKw == "CASE" ||
+                blockKw == "TRAP" || blockKw == "LOOP") {
+                if (!blockStack.empty() && blockStack.back().keyword == blockKw)
+                    blockStack.pop_back();
+                else
+                    diagnostics.push_back({{lineNumber, 0, lineNumber, static_cast<int>(line.length())},
+                        "END " + blockKw + " without matching " + blockKw, std::nullopt, "comal", 1});
+            }
+        }
+
+        // Validate DRAW commands using the graphics registry
+        if (firstWord == "DRAW" && sp != std::string::npos) {
+            std::string drawArgs = trimmed.substr(sp + 1);
+            // Trim leading whitespace
+            size_t ds = drawArgs.find_first_not_of(" \t");
+            if (ds != std::string::npos) {
+                drawArgs = drawArgs.substr(ds);
+                // Remove surrounding quotes if it's a string argument (DRAW "...")
+                if (!drawArgs.empty() && drawArgs.front() == '"') {
+                    // String-based DRAW — skip validation (handled at runtime)
+                } else {
+                    // Parse with the graphics command registry
+                    comal::graphics::ParsedCommand cmd;
+                    comal::graphics::ParseError err;
+                    if (!comal::graphics::parseLine(drawArgs, lineNumber + 1, graphics_registry_, cmd, err)) {
+                        diagnostics.push_back({
+                            {lineNumber, 0, lineNumber, static_cast<int>(line.length())},
+                            "DRAW: " + err.message,
+                            std::nullopt, "comal", 1
+                        });
+                    }
+                }
+            }
         }
         
         lineNumber++;
+    }
+
+    // Report unclosed blocks
+    for (const auto& block : blockStack) {
+        diagnostics.push_back({
+            {block.line, 0, block.line, 0},
+            "Unclosed " + block.keyword + " block",
+            std::nullopt, "comal", 2  // Warning
+        });
     }
     
     return diagnostics;
@@ -663,7 +881,6 @@ void LspServer::handleCompletion(const LspRequest& request) {
         return;
     }
     
-    // Get the document content
     auto docIt = documents_.find(uri);
     if (docIt == documents_.end()) {
         response.result = "[]";
@@ -673,72 +890,173 @@ void LspServer::handleCompletion(const LspRequest& request) {
     
     const std::string& content = docIt->second;
     
-    // Find the word being typed
+    // Get the current line and prefix being typed
     std::istringstream iss(content);
     std::string currentLine;
     int currentLineNum = 0;
     std::string prefix;
+    bool afterDraw = false;
     
     while (std::getline(iss, currentLine)) {
-        if (!currentLine.empty() && currentLine.back() == '\r') {
+        if (!currentLine.empty() && currentLine.back() == '\r')
             currentLine.pop_back();
-        }
         
         if (currentLineNum == line) {
-            // Extract the word up to the cursor position
             if (character <= static_cast<int>(currentLine.length())) {
                 std::string beforeCursor = currentLine.substr(0, character);
                 
-                // Find the start of the current word
                 size_t wordStart = beforeCursor.find_last_of(" \t()[]{},;=+-*/");
                 if (wordStart == std::string::npos) {
                     prefix = beforeCursor;
                 } else {
                     prefix = beforeCursor.substr(wordStart + 1);
                 }
+
+                // Check if we are after "DRAW " (context-aware completion)
+                std::string trimmed = beforeCursor;
+                // Strip leading line number
+                size_t p = 0;
+                while (p < trimmed.size() && (std::isdigit(static_cast<unsigned char>(trimmed[p])) || trimmed[p] == ' '))
+                    ++p;
+                std::string upper = trimmed.substr(p);
+                std::transform(upper.begin(), upper.end(), upper.begin(),
+                               [](unsigned char c) { return std::toupper(c); });
+                // "DRAW circle" -> after removing prefix we check for "DRAW "
+                // First, remove the prefix itself to see the statement context
+                std::string context = upper.substr(0, upper.size() - prefix.size());
+                // Trim trailing spaces from context
+                while (!context.empty() && context.back() == ' ')
+                    context.pop_back();
+                if (context == "DRAW")
+                    afterDraw = true;
             }
             break;
         }
         currentLineNum++;
     }
     
-    // Generate completion items
-    std::vector<std::string> completions;
+    // Build JSON response
+    std::ostringstream oss;
+    oss << "[";
+    bool first = true;
     
-    // Add keywords
-    std::vector<std::string> keywords = {
-        "PRINT", "INPUT", "IF", "THEN", "ELSE", "END", "FOR", "TO", "STEP", "NEXT",
-        "WHILE", "REPEAT", "UNTIL", "PROC", "FUNC", "RETURN", "LOCAL", "CLOSED",
-        "IMPORT", "EXPORT", "LET", "DIM", "READ", "DATA", "RESTORE", "STOP",
-        "TRAP", "ESCAPE", "EXECUTE", "RUN", "NEW", "OLD", "SAVE", "LIST",
-        "DELETE", "RENUMBER", "AUTO", "PAGE", "CURSOR", "ZONE", "USING"
+    auto addItem = [&](const std::string& label, int kind, const std::string& detail) {
+        if (!first) oss << ",";
+        first = false;
+        oss << R"({"label":")" << label << R"(","kind":)" << kind << R"(,"detail":")" << detail << R"("})";
     };
-    
-    for (const auto& keyword : keywords) {
-        if (keyword.find(prefix) == 0) {
-            completions.push_back(keyword);
+
+    // Convert prefix to upper for case-insensitive matching
+    std::string upperPrefix = prefix;
+    std::transform(upperPrefix.begin(), upperPrefix.end(), upperPrefix.begin(),
+                   [](unsigned char c) { return std::toupper(c); });
+
+    if (afterDraw) {
+        // Offer DRAW sub-commands from the graphics registry
+        std::string lowerPrefix = prefix;
+        std::transform(lowerPrefix.begin(), lowerPrefix.end(), lowerPrefix.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        for (const auto& spec : graphics_registry_.all()) {
+            std::string lowerName = spec.name;
+            std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+            if (lowerName.find(lowerPrefix) == 0) {
+                std::string detail = spec.description;
+                if (!spec.argDescription.empty())
+                    detail = spec.argDescription + " — " + detail;
+                addItem(spec.name, 3 /*Function*/, detail);
+            }
         }
-    }
-    
-    // Add symbols from the current document
-    auto symIt = symbol_tables_.find(uri);
-    if (symIt != symbol_tables_.end()) {
-        for (const auto& symbol : symIt->second) {
-            if (symbol.name.find(prefix) == 0) {
-                completions.push_back(symbol.name);
+    } else {
+        // Keywords (kind 14 = Keyword)
+        static const std::vector<std::string> keywords = {
+            "PRINT", "INPUT", "IF", "THEN", "ELSE", "ELIF", "END", "ENDIF",
+            "FOR", "TO", "STEP", "NEXT", "ENDFOR",
+            "WHILE", "ENDWHILE", "REPEAT", "UNTIL",
+            "PROC", "ENDPROC", "FUNC", "ENDFUNC", "RETURN",
+            "LOCAL", "CLOSED", "IMPORT", "EXPORT",
+            "LET", "DIM", "READ", "DATA", "RESTORE", "STOP",
+            "TRAP", "HANDLER", "ENDTRAP", "ESCAPE",
+            "CASE", "WHEN", "OTHERWISE", "ENDCASE", "OF",
+            "DRAW", "EXEC", "EXIT",
+            "RUN", "NEW", "OLD", "SAVE", "LIST",
+            "DELETE", "RENUMBER", "AUTO", "PAGE", "CURSOR", "ZONE", "USING",
+            "LOOP", "ENDLOOP", "NULL", "SELECT"
+        };
+        
+        for (const auto& keyword : keywords) {
+            if (keyword.find(upperPrefix) == 0)
+                addItem(keyword, 14 /*Keyword*/, "COMAL keyword");
+        }
+        
+        // Symbols from the current document (kind 3 = Function / 2 = Method)
+        auto symIt = symbol_tables_.find(uri);
+        if (symIt != symbol_tables_.end()) {
+            for (const auto& symbol : symIt->second) {
+                // Case-insensitive prefix match
+                std::string upperName = symbol.name;
+                std::transform(upperName.begin(), upperName.end(), upperName.begin(),
+                               [](unsigned char c) { return std::toupper(c); });
+                if (upperName.find(upperPrefix) == 0) {
+                    int kind = (symbol.kind == "function") ? 3 : 2;
+                    addItem(symbol.name, kind, symbol.signature);
+                }
             }
         }
     }
     
-    // Build JSON response
+    oss << "]";
+    response.result = oss.str();
+    sendResponse(response);
+}
+
+void LspServer::handleDocumentSymbol(const LspRequest& request) {
+    LspResponse response;
+    response.id = request.id;
+
+    std::string uri;
+    int line, character;
+    // Reuse the completion param parser — documentSymbol only needs the URI,
+    // but the JSON shape is {"textDocument":{"uri":"..."}}, which our parser
+    // can extract (line/character will be 0 if missing, but we don't need them).
+    // A lightweight approach: just parse the URI directly.
+    size_t uriPos = request.params.find("\"uri\"");
+    if (uriPos == std::string::npos) {
+        response.result = "[]";
+        sendResponse(response);
+        return;
+    }
+    uriPos = request.params.find("\"", uriPos + 6);
+    size_t uriEnd = request.params.find("\"", uriPos + 1);
+    if (uriPos == std::string::npos || uriEnd == std::string::npos) {
+        response.result = "[]";
+        sendResponse(response);
+        return;
+    }
+    uri = request.params.substr(uriPos + 1, uriEnd - uriPos - 1);
+
+    auto symIt = symbol_tables_.find(uri);
+    if (symIt == symbol_tables_.end() || symIt->second.empty()) {
+        response.result = "[]";
+        sendResponse(response);
+        return;
+    }
+
+    // DocumentSymbol[] — LSP SymbolInformation format
     std::ostringstream oss;
     oss << "[";
-    for (size_t i = 0; i < completions.size(); ++i) {
-        if (i > 0) oss << ",";
-        oss << R"({"label":")" << completions[i] << R"(","kind":)" << 14 << R"(,"detail":"COMAL"})";
+    bool first = true;
+    for (const auto& sym : symIt->second) {
+        if (!first) oss << ",";
+        first = false;
+        // SymbolKind: 12=Function, 6=Method (we use 12 for FUNC, 6 for PROC)
+        int symbolKind = (sym.kind == "function") ? 12 : 6;
+        oss << R"({"name":")" << sym.name
+            << R"(","kind":)" << symbolKind
+            << R"(,"range":{"start":{"line":)" << sym.line << R"(,"character":0},"end":{"line":)" << sym.line << R"(,"character":)" << static_cast<int>(sym.name.length() + 5) << R"(}})"
+            << R"(,"selectionRange":{"start":{"line":)" << sym.line << R"(,"character":)" << sym.character << R"(},"end":{"line":)" << sym.line << R"(,"character":)" << (sym.character + static_cast<int>(sym.name.length())) << R"(}}})";
     }
     oss << "]";
-    
     response.result = oss.str();
     sendResponse(response);
 }

@@ -26,7 +26,7 @@ target_include_directories(comal_lsp
 )
 
 target_link_libraries(comal_lsp
-    PUBLIC comal-parser comal-runtime
+    PUBLIC comal-parser comal-runtime comal-graphics
 )
 
 # Optional: nlohmann/json if available

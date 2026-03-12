@@ -1,6 +1,7 @@
-#pragma once
 
+#pragma once
 #include <QWidget>
+#include "comal_lsp_client.h"
 
 class QsciScintilla;
 class QTabWidget;
@@ -11,6 +12,7 @@ class CodeEditorPanel : public QWidget {
     Q_OBJECT
 
 public:
+    void setLspClient(ComalLspClient *client);
     explicit CodeEditorPanel(QWidget *parent = nullptr);
 
     QsciScintilla *currentEditor() const;
@@ -40,4 +42,5 @@ private:
     void updateTabTitle(int index);
 
     static constexpr int ERROR_MARKER_ID = 1;
+     ComalLspClient *lspClient_ = nullptr; // Added member for LSP client
 };

@@ -1,5 +1,6 @@
 #include "comal_lsp_server.h"
 #include "comal_lsp_protocol.h"
+#include "comal_graphics_commands.h"
 #include "test_framework.h"
 #include <iostream>
 #include <sstream>
@@ -109,12 +110,92 @@ test_proc()
     ASSERT_TRUE(def == nullptr, "Should not find nonexistent symbol");
 }
 
+TEST_FUNC(test_diagnostics_block_matching) {
+    LspServer server;
+
+    // Unclosed FOR
+    std::string code1 = "FOR i := 1 TO 10\n  PRINT i\n";
+    auto diags = server.parseDocument(code1);
+    bool foundUnclosedFor = false;
+    for (const auto& d : diags)
+        if (d.message.find("Unclosed FOR") != std::string::npos)
+            foundUnclosedFor = true;
+    ASSERT_TRUE(foundUnclosedFor, "Should detect unclosed FOR block");
+
+    // Properly closed FOR  
+    std::string code2 = "FOR i := 1 TO 10\n  PRINT i\nNEXT i\n";
+    diags = server.parseDocument(code2);
+    bool anyBlockError = false;
+    for (const auto& d : diags)
+        if (d.message.find("Unclosed") != std::string::npos || d.message.find("without matching") != std::string::npos)
+            anyBlockError = true;
+    ASSERT_FALSE(anyBlockError, "Properly closed FOR should have no block errors");
+
+    // NEXT without FOR
+    std::string code3 = "PRINT \"hello\"\nNEXT i\n";
+    diags = server.parseDocument(code3);
+    bool foundOrphanNext = false;
+    for (const auto& d : diags)
+        if (d.message.find("NEXT without matching FOR") != std::string::npos)
+            foundOrphanNext = true;
+    ASSERT_TRUE(foundOrphanNext, "Should detect NEXT without matching FOR");
+}
+
+TEST_FUNC(test_diagnostics_draw_validation) {
+    LspServer server;
+
+    // Valid DRAW command
+    std::string code1 = "DRAW circle 100 200 50\n";
+    auto diags = server.parseDocument(code1);
+    bool anyDrawError = false;
+    for (const auto& d : diags)
+        if (d.message.find("DRAW:") != std::string::npos)
+            anyDrawError = true;
+    ASSERT_FALSE(anyDrawError, "Valid DRAW circle should have no errors");
+
+    // Invalid DRAW command: wrong arg count
+    std::string code2 = "DRAW circle 100\n";
+    diags = server.parseDocument(code2);
+    bool foundArgError = false;
+    for (const auto& d : diags)
+        if (d.message.find("DRAW:") != std::string::npos)
+            foundArgError = true;
+    ASSERT_TRUE(foundArgError, "DRAW circle with wrong arg count should produce error");
+
+    // Unknown DRAW subcommand
+    std::string code3 = "DRAW banana 1 2 3\n";
+    diags = server.parseDocument(code3);
+    bool foundUnknown = false;
+    for (const auto& d : diags)
+        if (d.message.find("Unknown command") != std::string::npos)
+            foundUnknown = true;
+    ASSERT_TRUE(foundUnknown, "DRAW unknown subcommand should produce error");
+}
+
+TEST_FUNC(test_graphics_registry_in_server) {
+    // Verify the LSP server's embedded graphics registry has the expected commands
+    comal::graphics::CommandRegistry reg;
+    const auto& all = reg.all();
+    ASSERT_TRUE(all.size() >= 14, "Should have at least 14 graphics commands");
+
+    // Check that descriptions are populated
+    const auto* circle = reg.find("circle");
+    ASSERT_TRUE(circle != nullptr, "Should find circle command");
+    ASSERT_TRUE(!circle->description.empty(), "circle should have a description");
+    ASSERT_EQUAL(circle->argDescription, "cx cy radius", "circle arg description");
+}
+
 int main() {
     TestRunner &runner = TestRunner::instance();
     
     // Register integration tests
     runner.addTest("Document Tracking: Integration test", test_document_tracking_integration);
     runner.addTest("Diagnostics: Generation and validation", test_diagnostic_generation);
+    runner.addTest("Symbol Table: Building", test_symbol_table_building);
+    runner.addTest("Definition: Lookup", test_definition_lookup);
+    runner.addTest("Diagnostics: Block matching", test_diagnostics_block_matching);
+    runner.addTest("Diagnostics: DRAW validation", test_diagnostics_draw_validation);
+    runner.addTest("Graphics: Registry in server", test_graphics_registry_in_server);
     
     return runner.runTests();
 }

@@ -1,7 +1,8 @@
-#pragma once
 
+#pragma once
 #include <QMainWindow>
 #include <memory>
+#include "comal_lsp_client.h"
 
 class QTabWidget;
 class QDockWidget;
@@ -24,6 +25,7 @@ public:
     ~MainWindow();
 
 private:
+    ComalLspClient *lspClient_ = nullptr;
     void createMenus();
     void createToolBar();
     void createStatusBar();
@@ -65,6 +67,7 @@ private slots:
     void onCloseTab();
     void onRun();
     void onStop();
+    void onBreak(); // Break handler
     void onStepInto();
     void onStepOver();
     void onContinue();

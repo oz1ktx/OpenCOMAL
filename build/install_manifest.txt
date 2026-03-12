@@ -1,5 +1,0 @@
-/usr/bin/comal-run
-/usr/bin/comal-lsp
-/usr/bin/comal-ide
-/usr/bin/comal-parse-cli
-/usr/bin/comal-ast-demo

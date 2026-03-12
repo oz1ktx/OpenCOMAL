@@ -9,6 +9,7 @@
 
 #include "comal_parser_api.h"
 #include "comal_ast_modern.h"
+#include "comal_graphics_commands.h"
 
 namespace comal::lsp {
 
@@ -78,6 +79,7 @@ private:
     void handleCompletion(const LspRequest& request);
     void handleDefinition(const LspRequest& request);
     void handleHover(const LspRequest& request);
+    void handleDocumentSymbol(const LspRequest& request);
 
     // Utility
     void sendResponse(const LspResponse& response);
@@ -89,6 +91,9 @@ private:
     // bool parseDocumentChangeParams(const std::string& params, std::string& uri, std::string& text);
     // bool parseDocumentCloseParams(const std::string& params, std::string& uri);
     // std::vector<Diagnostic> parseDocument(const std::string& text);
+
+    // Graphics command registry (single source of truth from libcomal-graphics)
+    comal::graphics::CommandRegistry graphics_registry_;
 
     // Document tracking
     std::map<std::string, std::string> documents_;  // URI -> content

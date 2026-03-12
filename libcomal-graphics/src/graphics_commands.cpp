@@ -14,26 +14,40 @@ namespace comal::graphics {
 CommandRegistry::CommandRegistry() {
     specs_ = {
         // Shapes
-        {"line",       4, 4, CommandKind::Shape},
-        {"rect",       4, 4, CommandKind::Shape},
-        {"circle",     3, 3, CommandKind::Shape},
-        {"ellipse",    4, 4, CommandKind::Shape},
+        {"line",       4, 4, CommandKind::Shape,
+         "Draw a line segment.", "x1 y1 x2 y2"},
+        {"rect",       4, 4, CommandKind::Shape,
+         "Draw a rectangle.", "x y width height"},
+        {"circle",     3, 3, CommandKind::Shape,
+         "Draw a circle.", "cx cy radius"},
+        {"ellipse",    4, 4, CommandKind::Shape,
+         "Draw an ellipse.", "x y width height"},
 
         // Styles
-        {"stroke",     3, 4, CommandKind::Style},
-        {"fill",       3, 4, CommandKind::Style},
-        {"noFill",     0, 0, CommandKind::Style},
-        {"noStroke",   0, 0, CommandKind::Style},
-        {"lineWidth",  1, 1, CommandKind::Style},
+        {"stroke",     3, 4, CommandKind::Style,
+         "Set the stroke (outline) color.", "r g b [a]"},
+        {"fill",       3, 4, CommandKind::Style,
+         "Set the fill color.", "r g b [a]"},
+        {"noFill",     0, 0, CommandKind::Style,
+         "Disable fill.", ""},
+        {"noStroke",   0, 0, CommandKind::Style,
+         "Disable stroke.", ""},
+        {"lineWidth",  1, 1, CommandKind::Style,
+         "Set the stroke line width.", "width"},
 
         // Canvas
-        {"background", 3, 4, CommandKind::Canvas},
-        {"clear",      0, 0, CommandKind::Canvas},
+        {"background", 3, 4, CommandKind::Canvas,
+         "Set the canvas background color.", "r g b [a]"},
+        {"clear",      0, 0, CommandKind::Canvas,
+         "Clear the canvas.", ""},
 
         // Transforms
-        {"translate",  2, 2, CommandKind::Transform},
-        {"rotate",     1, 1, CommandKind::Transform},
-        {"scale",      1, 2, CommandKind::Transform},
+        {"translate",  2, 2, CommandKind::Transform,
+         "Translate a group.", "dx dy"},
+        {"rotate",     1, 1, CommandKind::Transform,
+         "Rotate a group (degrees).", "angle"},
+        {"scale",      1, 2, CommandKind::Transform,
+         "Scale a group.", "sx [sy]"},
     };
 
     for (size_t i = 0; i < specs_.size(); ++i) {

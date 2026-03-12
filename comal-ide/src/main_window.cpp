@@ -34,6 +34,12 @@ MainWindow::MainWindow(QWidget *parent)
     createToolBar();
     createStatusBar();
     restoreDefaultLayout();
+
+    // LSP client setup
+    lspClient_ = new ComalLspClient(this);
+    codeEditor_->setLspClient(lspClient_);
+    // Start LSP server (adjust path as needed)
+    lspClient_->startServer("../build/comal-lsp/comal-lsp");
 }
 
 // ── Menus ───────────────────────────────────────────────────────────
@@ -82,6 +88,8 @@ void MainWindow::createMenus()
                          QKeySequence(Qt::Key_F5));
     progMenu->addAction(tr("&Stop"),              this, &MainWindow::onStop,
                          QKeySequence(Qt::SHIFT | Qt::Key_F5));
+    progMenu->addAction(tr("&Break"),             this, &MainWindow::onBreak,
+                         QKeySequence(Qt::Key_F6));
     progMenu->addAction(tr("Step &Into"),         this, &MainWindow::onStepInto,
                          QKeySequence(Qt::Key_F11));
     progMenu->addAction(tr("Step &Over"),         this, &MainWindow::onStepOver,
@@ -124,6 +132,7 @@ void MainWindow::createToolBar()
 
     tb->addAction(tr("Run"),       this, &MainWindow::onRun);
     tb->addAction(tr("Stop"),      this, &MainWindow::onStop);
+    tb->addAction(tr("Break"),     this, &MainWindow::onBreak);
     tb->addSeparator();
     tb->addAction(tr("Step Into"), this, &MainWindow::onStepInto);
     tb->addAction(tr("Step Over"), this, &MainWindow::onStepOver);
@@ -398,4 +407,10 @@ void MainWindow::onResetLayout()
     directCommandDock_->show();
     graphicsDock_->show();
     debugDock_->show();
+}
+
+void MainWindow::onBreak()
+{
+    // TODO: Implement break/halt logic (pause interpreter)
+    stateLabel_->setText(tr("Paused (Break)"));
 }
