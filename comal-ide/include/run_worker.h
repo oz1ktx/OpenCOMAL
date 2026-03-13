@@ -35,6 +35,12 @@ public:
     /// Request the interpreter to stop (thread-safe).
     void requestStop();
 
+    /// Request the interpreter to break (pause execution).
+    void requestBreak();
+
+    /// Request the interpreter to continue after a break.
+    void requestContinue();
+
 signals:
     /// Emitted when execution finishes normally.
     void finished();

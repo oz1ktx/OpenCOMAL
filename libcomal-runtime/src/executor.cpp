@@ -57,7 +57,9 @@ void execSeq(Interpreter& interp, ComalLine* start) {
 
     while (interp.curline) {
         interp.checkInterrupt();
-
+        if (interp.isSuspended()) {
+            interp.waitWhileSuspended();
+        }
         ComalLine* line = interp.curline;
 
         // Trace mode

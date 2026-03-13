@@ -18,6 +18,8 @@
 #include <memory>
 #include <functional>
 #include <unordered_map>
+#include <condition_variable>
+#include <mutex>
 
 #include "comal_value.h"
 #include "comal_scope.h"
@@ -70,6 +72,13 @@ public:
 
     /// Parse and execute a single direct command (e.g. PRINT 2+2).
     void executeDirect(const std::string& command);
+
+    // Suspend/Resume support
+    void suspend();
+    void resume();
+    bool isSuspended() const;
+    // Wait while suspended (for use in execSeq)
+    void waitWhileSuspended();
 
     // ── I/O interface (replaceable) ─────────────────────────────────────
 
@@ -194,6 +203,11 @@ public:
 private:
     /// Interrupt controller instance.
     InterruptController interrupt_;
+
+    // Suspend state (atomic for thread safety)
+    std::atomic<bool> suspended_{false};
+    std::condition_variable suspendCv_;
+    mutable std::mutex suspendMutex_;
 
     /// I/O backend (owned).  Defaults to TerminalIO.
     std::unique_ptr<IOInterface> io_;

@@ -48,6 +48,16 @@ void RunWorker::requestStop()
     interp_->interrupt().request();
 }
 
+void RunWorker::requestBreak()
+{
+    interp_->suspend();
+}
+
+void RunWorker::requestContinue()
+{
+    interp_->resume();
+}
+
 const comal::graphics::Scene& RunWorker::graphicsScene() const
 {
     return interp_->graphicsScene();

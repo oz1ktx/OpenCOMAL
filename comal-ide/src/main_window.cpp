@@ -391,7 +391,7 @@ void MainWindow::updateCursorPos(int line, int col)
 
 void MainWindow::onStepInto()    { statusBar()->showMessage(tr("Step Into — not yet implemented")); }
 void MainWindow::onStepOver()    { statusBar()->showMessage(tr("Step Over — not yet implemented")); }
-void MainWindow::onContinue()    { statusBar()->showMessage(tr("Continue — not yet implemented")); }
+
 void MainWindow::onFormatSource(){ codeEditor_->formatSource(); }
 
 void MainWindow::onResetLayout()
@@ -411,6 +411,14 @@ void MainWindow::onResetLayout()
 
 void MainWindow::onBreak()
 {
-    // TODO: Implement break/halt logic (pause interpreter)
+    worker_->requestBreak();
     stateLabel_->setText(tr("Paused (Break)"));
+}
+
+void MainWindow::onContinue()
+{
+    if (worker_ && worker_->isRunning()) {
+        worker_->requestContinue();
+        stateLabel_->setText(tr("Running"));
+    }
 }

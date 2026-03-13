@@ -25,6 +25,28 @@ Interpreter::Interpreter()
 
 Interpreter::~Interpreter() = default;
 
+void Interpreter::suspend() {
+    std::lock_guard<std::mutex> lock(suspendMutex_);
+    suspended_ = true;
+}
+
+void Interpreter::resume() {
+    {
+        std::lock_guard<std::mutex> lock(suspendMutex_);
+        suspended_ = false;
+    }
+    suspendCv_.notify_all();
+}
+
+void Interpreter::waitWhileSuspended() {
+    std::unique_lock<std::mutex> lock(suspendMutex_);
+    suspendCv_.wait(lock, [&] { return !suspended_.load(); });
+}
+
+bool Interpreter::isSuspended() const {
+    return suspended_.load();
+}
+
 // ── loadFile ────────────────────────────────────────────────────────────
 
 void Interpreter::loadFile(const std::string& path) {
