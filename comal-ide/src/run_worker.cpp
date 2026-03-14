@@ -18,6 +18,14 @@ RunWorker::RunWorker(QObject *parent)
     interp_->setSceneChangedCallback([this]() {
         emit sceneChanged();
     });
+
+    // Suspended callback: emitted when the interpreter pauses (BREAK/step)
+    interp_->setSuspendCallback([this]() {
+        int line = 0;
+        if (interp_->curline)
+            line = interp_->curline->lineNumber();
+        emit suspended(line);
+    });
 }
 
 RunWorker::~RunWorker()
@@ -45,17 +53,38 @@ void RunWorker::setGraphicsScene(comal::graphics::Scene* scene)
 
 void RunWorker::requestStop()
 {
+    // If we're in single-step mode, stop stepping so we don't re-enter suspend.
+    interp_->setSingleStep(false);
+
+    // Ensure we wake up if suspended (break mode) so the interrupt can be processed.
+    interp_->resume();
+    if (io_)
+        io_->provideInput("");
     interp_->interrupt().request();
 }
 
 void RunWorker::requestBreak()
 {
+    // Request a cooperative pause. If the interpreter is currently blocked
+    // waiting for input, wake it so it can reach the suspend point and pause.
     interp_->suspend();
+    if (io_)
+        io_->provideInput("");
 }
 
 void RunWorker::requestContinue()
 {
     interp_->resume();
+}
+
+void RunWorker::setSingleStep(bool enable)
+{
+    interp_->setSingleStep(enable);
+}
+
+bool RunWorker::isSuspended() const
+{
+    return interp_->isSuspended();
 }
 
 const comal::graphics::Scene& RunWorker::graphicsScene() const

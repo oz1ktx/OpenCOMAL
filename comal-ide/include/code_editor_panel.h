@@ -25,6 +25,8 @@ public:
     void closeCurrentTab();
     void highlightErrorLine(int line);
     void clearErrorHighlight();
+    void highlightExecutionLine(int line);
+    void clearExecutionHighlight();
     void formatSource();
 
 signals:
@@ -42,5 +44,7 @@ private:
     void updateTabTitle(int index);
 
     static constexpr int ERROR_MARKER_ID = 1;
-     ComalLspClient *lspClient_ = nullptr; // Added member for LSP client
+    static constexpr int EXEC_MARKER_ID = 2;
+
+    ComalLspClient *lspClient_ = nullptr; // Added member for LSP client
 };

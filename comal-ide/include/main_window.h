@@ -33,6 +33,8 @@ private:
     void restoreDefaultLayout();
     void connectRunWorker();
 
+    void startSingleStepRun(const QString &title);
+
     // Central widget
     CodeEditorPanel *codeEditor_;
 
@@ -75,6 +77,7 @@ private slots:
     void onResetLayout();
     void onRunFinished();
     void onRunError(const QString &message, int lineNumber);
+    void onExecutionPaused(int lineNumber);
     void onDirectCommand(const QString &command);
     void updateCursorPos(int line, int col);
 };

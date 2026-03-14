@@ -62,6 +62,10 @@ QsciScintilla *CodeEditorPanel::createEditor()
     editor->markerDefine(QsciScintilla::Background, ERROR_MARKER_ID);
     editor->setMarkerBackgroundColor(QColor(255, 200, 200), ERROR_MARKER_ID);
 
+    // Execution pause marker — yellow background
+    editor->markerDefine(QsciScintilla::Background, EXEC_MARKER_ID);
+    editor->setMarkerBackgroundColor(QColor(255, 255, 150), EXEC_MARKER_ID);
+
     // Basic editor settings
     editor->setAutoIndent(true);
     // Connect signals for LSP integration
@@ -332,6 +336,23 @@ void CodeEditorPanel::clearErrorHighlight()
     auto *editor = currentEditor();
     if (!editor) return;
     editor->markerDeleteAll(ERROR_MARKER_ID);
+}
+
+void CodeEditorPanel::highlightExecutionLine(int line)
+{
+    clearExecutionHighlight();
+    auto *editor = currentEditor();
+    if (!editor || line <= 0) return;
+    editor->markerAdd(line - 1, EXEC_MARKER_ID);
+    editor->setCursorPosition(line - 1, 0);
+    editor->ensureLineVisible(line - 1);
+}
+
+void CodeEditorPanel::clearExecutionHighlight()
+{
+    auto *editor = currentEditor();
+    if (!editor) return;
+    editor->markerDeleteAll(EXEC_MARKER_ID);
 }
 
 // ── Format Source ───────────────────────────────────────────────────

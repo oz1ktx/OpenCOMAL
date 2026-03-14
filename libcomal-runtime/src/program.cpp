@@ -26,8 +26,12 @@ Interpreter::Interpreter()
 Interpreter::~Interpreter() = default;
 
 void Interpreter::suspend() {
-    std::lock_guard<std::mutex> lock(suspendMutex_);
-    suspended_ = true;
+    {
+        std::lock_guard<std::mutex> lock(suspendMutex_);
+        suspended_ = true;
+    }
+    if (suspendCallback_)
+        suspendCallback_();
 }
 
 void Interpreter::resume() {

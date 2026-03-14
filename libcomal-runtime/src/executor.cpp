@@ -50,6 +50,14 @@ static void assignToLval(Interpreter& interp, const Expression* lval,
                          const Value& val, int op);
 static Value& resolveLval(Interpreter& interp, const Expression* lval);
 
+// Helper used by step-mode: suspend after each executed statement.
+static void stepPause(Interpreter& interp) {
+    if (!interp.isSingleStep())
+        return;
+    interp.suspend();
+    interp.waitWhileSuspended();
+}
+
 // ── execSeq — main execution loop ──────────────────────────────────────
 
 void execSeq(Interpreter& interp, ComalLine* start) {
@@ -71,6 +79,9 @@ void execSeq(Interpreter& interp, ComalLine* start) {
         interp.curline = line->next();
 
         execLine(interp, line);
+
+        // Single-step mode: pause after each statement execution
+        stepPause(interp);
     }
 }
 
@@ -933,6 +944,7 @@ static void execFor(Interpreter& interp, ComalLine* line) {
             Value cur = evaluate(interp, fr.lval);
             if (pastEnd(cur.toDouble(), to_val.toDouble())) break;
             execLine(interp, fr.stat);
+            stepPause(interp);
             // DOWNTO subtracts the step; TO adds it
             Value next_val = downto ? (cur - step_val) : (cur + step_val);
             assignToLval(interp, fr.lval, next_val, becomesSYM);
@@ -957,6 +969,7 @@ static void execFor(Interpreter& interp, ComalLine* line) {
                 ComalLine* cur_line = interp.curline;
                 interp.curline = cur_line->next();
                 execLine(interp, cur_line);
+                stepPause(interp);
             }
             interp.curline = saved;
         } catch (ExitSignal&) {
@@ -987,6 +1000,7 @@ static void execWhile(Interpreter& interp, ComalLine* line) {
             Value cond = evaluate(interp, iw.exp);
             if (cond.toInt() == 0) break;
             execLine(interp, iw.stat);
+            stepPause(interp);
         }
         return;
     }
@@ -1007,6 +1021,7 @@ static void execWhile(Interpreter& interp, ComalLine* line) {
                 ComalLine* cur_line = interp.curline;
                 interp.curline = cur_line->next();
                 execLine(interp, cur_line);
+                stepPause(interp);
             }
             interp.curline = saved;
         } catch (ExitSignal&) {
@@ -1026,6 +1041,7 @@ static void execRepeat(Interpreter& interp, ComalLine* line) {
         do {
             interp.checkInterrupt();
             execLine(interp, iw->stat);
+            stepPause(interp);
         } while (iw->exp && evaluate(interp, iw->exp).toInt() == 0);
         return;
     }
@@ -1043,6 +1059,7 @@ static void execRepeat(Interpreter& interp, ComalLine* line) {
                 ComalLine* cur_line = interp.curline;
                 interp.curline = cur_line->next();
                 execLine(interp, cur_line);
+                stepPause(interp);
             }
             interp.curline = saved;
         } catch (ExitSignal&) {
@@ -1074,6 +1091,7 @@ static void execLoop(Interpreter& interp, ComalLine* line) {
                 ComalLine* cur_line = interp.curline;
                 interp.curline = cur_line->next();
                 execLine(interp, cur_line);
+                stepPause(interp);
             }
             interp.curline = saved;
         } catch (ExitSignal&) {
@@ -1092,8 +1110,10 @@ static void execIf(Interpreter& interp, ComalLine* line) {
     // Short-form: IF cond THEN stat
     if (iw.stat) {
         Value cond = evaluate(interp, iw.exp);
-        if (cond.toInt() != 0)
+        if (cond.toInt() != 0) {
             execLine(interp, iw.stat);
+            stepPause(interp);
+        }
         return;
     }
 
@@ -1109,6 +1129,7 @@ static void execIf(Interpreter& interp, ComalLine* line) {
             ComalLine* cur_line = interp.curline;
             interp.curline = cur_line->next();
             execLine(interp, cur_line);
+            stepPause(interp);
         }
         // Now skip to ENDIF
         // branch_end could be ELIF, ELSE, or ENDIF
@@ -1139,6 +1160,7 @@ static void execIf(Interpreter& interp, ComalLine* line) {
                     ComalLine* cur_line = interp.curline;
                     interp.curline = cur_line->next();
                     execLine(interp, cur_line);
+                    stepPause(interp);
                 }
                 // Skip to ENDIF
                 ComalLine* scan = elif_end;
@@ -1160,6 +1182,7 @@ static void execIf(Interpreter& interp, ComalLine* line) {
                 ComalLine* cur_line = interp.curline;
                 interp.curline = cur_line->next();
                 execLine(interp, cur_line);
+                stepPause(interp);
             }
             interp.curline = endif_line ? endif_line->next() : nullptr;
             return;

@@ -277,6 +277,10 @@ void MainWindow::connectRunWorker()
     connect(worker_, &RunWorker::sceneChanged, this, [this]() {
         graphics_->renderScene(worker_->graphicsScene());
     }, Qt::QueuedConnection);
+
+    // Execution suspended (break/step) — highlight current line
+    connect(worker_, &RunWorker::suspended, this, &MainWindow::onExecutionPaused,
+            Qt::QueuedConnection);
 }
 
 void MainWindow::onRun()
@@ -287,7 +291,9 @@ void MainWindow::onRun()
     if (!editor) return;
 
     QString source = editor->text();
-    directCommand_->appendOutput("\n--- RUN ---\n");    codeEditor_->clearErrorHighlight();
+    directCommand_->appendOutput("\n--- RUN ---\n");
+    codeEditor_->clearErrorHighlight();
+    codeEditor_->clearExecutionHighlight();
     // Clear scene for full program runs
     persistentScene_->clear();
     graphics_->clearCanvas();
@@ -317,6 +323,7 @@ void MainWindow::onRunFinished()
     directCommand_->appendOutput("\n--- DONE ---\n");
     stateLabel_->setText(tr("Ready"));
     directCommand_->setInputEnabled(false);
+    codeEditor_->clearExecutionHighlight();
 }
 
 void MainWindow::onRunError(const QString &message, int lineNumber)
@@ -329,8 +336,16 @@ void MainWindow::onRunError(const QString &message, int lineNumber)
     stateLabel_->setText(tr("Error"));
     directCommand_->setInputEnabled(false);
 
+    codeEditor_->clearExecutionHighlight();
     if (lineNumber > 0)
         codeEditor_->highlightErrorLine(lineNumber);
+}
+
+void MainWindow::onExecutionPaused(int lineNumber)
+{
+    codeEditor_->clearErrorHighlight();
+    codeEditor_->highlightExecutionLine(lineNumber);
+    stateLabel_->setText(tr("Paused"));
 }
 
 void MainWindow::onDirectCommand(const QString &command)
@@ -389,8 +404,46 @@ void MainWindow::updateCursorPos(int line, int col)
     posLabel_->setText(tr("Ln %1, Col %2").arg(line).arg(col));
 }
 
-void MainWindow::onStepInto()    { statusBar()->showMessage(tr("Step Into — not yet implemented")); }
-void MainWindow::onStepOver()    { statusBar()->showMessage(tr("Step Over — not yet implemented")); }
+void MainWindow::startSingleStepRun(const QString &title)
+{
+    if (worker_ && worker_->isRunning()) {
+        worker_->setSingleStep(true);
+        worker_->requestContinue();
+        stateLabel_->setText(tr("Stepping"));
+        return;
+    }
+
+    auto *editor = codeEditor_->currentEditor();
+    if (!editor) return;
+
+    QString source = editor->text();
+    directCommand_->appendOutput("\n--- " + title + " ---\n");
+    codeEditor_->clearErrorHighlight();
+    codeEditor_->clearExecutionHighlight();
+    // Clear scene for full program runs
+    persistentScene_->clear();
+    graphics_->clearCanvas();
+    // Create a fresh worker each run
+    delete worker_;
+    worker_ = new RunWorker(this);
+    worker_->setGraphicsScene(persistentScene_.get());
+    worker_->setSource(source);
+    worker_->setSingleStep(true);  // Enable single-step mode
+    connectRunWorker();
+
+    stateLabel_->setText(tr("Stepping"));
+    worker_->start();
+}
+
+void MainWindow::onStepInto()
+{
+    startSingleStepRun(tr("STEP INTO"));
+}
+
+void MainWindow::onStepOver()
+{
+    startSingleStepRun(tr("STEP OVER"));
+}
 
 void MainWindow::onFormatSource(){ codeEditor_->formatSource(); }
 
@@ -411,6 +464,8 @@ void MainWindow::onResetLayout()
 
 void MainWindow::onBreak()
 {
+    if (!worker_ || !worker_->isRunning())
+        return;
     worker_->requestBreak();
     stateLabel_->setText(tr("Paused (Break)"));
 }
@@ -418,6 +473,7 @@ void MainWindow::onBreak()
 void MainWindow::onContinue()
 {
     if (worker_ && worker_->isRunning()) {
+        worker_->setSingleStep(false);  // Disable single-step when continuing
         worker_->requestContinue();
         stateLabel_->setText(tr("Running"));
     }

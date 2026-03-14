@@ -41,6 +41,12 @@ public:
     /// Request the interpreter to continue after a break.
     void requestContinue();
 
+    /// Return true if the interpreter is currently suspended.
+    bool isSuspended() const;
+
+    /// Enable or disable single-step mode.
+    void setSingleStep(bool enable);
+
 signals:
     /// Emitted when execution finishes normally.
     void finished();
@@ -50,6 +56,9 @@ signals:
 
     /// Emitted when the graphics scene has changed (DRAW executed).
     void sceneChanged();
+
+    /// Emitted when execution is suspended (break/step).
+    void suspended(int lineNumber);
 
 protected:
     void run() override;

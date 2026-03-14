@@ -55,9 +55,21 @@ set(CPACK_GENERATOR "DEB;RPM")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "maintainer@example.com")
 # Runtime package dependencies (adjust as appropriate for target distros)
 # Debian/DEB: match entries in docs/PROJECT_STATUS.md (may be runtime package names)
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "qt6-base, qt6-svg, libqscintilla2-qt6, libncurses6, readline")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS
+    qt6-base
+    qt6-svg
+    libqscintilla2-qt6
+    libncurses6
+    readline)
+
 # RPM: use common Fedora package names
-set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase, qt6-qtsvg, qscintilla-qt6, ncurses, readline")
+# CPACK_RPM_PACKAGE_REQUIRES doesn't work properly with lists, so use SPEC_MORE_DEFINE
+set(CPACK_RPM_SPEC_MORE_DEFINE
+    "Requires: qt6-qtbase
+Requires: qt6-qtsvg
+Requires: qscintilla-qt6
+Requires: ncurses
+Requires: readline")
 set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0-or-later")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/legacy/doc/LICENSE")
 set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}")

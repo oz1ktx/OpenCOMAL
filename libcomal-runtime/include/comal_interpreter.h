@@ -108,6 +108,9 @@ public:
     /// The GUI uses this to trigger re-rendering of the graphics panel.
     void setSceneChangedCallback(std::function<void()> cb) { sceneChangedCb_ = std::move(cb); }
 
+    /// Set a callback to be invoked when execution is suspended (BREAK / step).
+    void setSuspendCallback(std::function<void()> cb) { suspendCallback_ = std::move(cb); }
+
     /// Notify that the scene has changed (called by executor after DRAW).
     void notifySceneChanged() { if (sceneChangedCb_) sceneChangedCb_(); }
 
@@ -160,7 +163,19 @@ public:
 
     /// Check for pending interrupt (convenience wrapper).
     /// Call at loop iteration boundaries and in execSeq.
-    void checkInterrupt() { interrupt_.check(); }
+    ///
+    /// This also supports the IDE "Break" button by waiting while the
+    /// interpreter is suspended.
+    void checkInterrupt() {
+        interrupt_.check();
+        if (isSuspended())
+            waitWhileSuspended();
+    }
+
+    /// Single-step mode: pause after each statement execution.
+    /// Used by IDE "Step Into" for debugging.
+    void setSingleStep(bool enable) { singleStep_ = enable; }
+    bool isSingleStep() const { return singleStep_; }
 
     /// Last error info (for ERR, ERR$, ERRLINE).
     ErrorCode lastError{ErrorCode::None};
@@ -209,6 +224,9 @@ private:
     std::condition_variable suspendCv_;
     mutable std::mutex suspendMutex_;
 
+    /// Single-step mode flag.
+    bool singleStep_{false};
+
     /// I/O backend (owned).  Defaults to TerminalIO.
     std::unique_ptr<IOInterface> io_;
 
@@ -220,6 +238,9 @@ private:
     comal::graphics::Scene* gfxScene_{&defaultScene_};  // active scene
     comal::graphics::CommandRegistry gfxRegistry_;
     std::function<void()> sceneChangedCb_;
+
+    /// Called when execution is suspended (break/step).
+    std::function<void()> suspendCallback_;
 
     /// Build the global procedure table from the program.
     void buildProcTable();
