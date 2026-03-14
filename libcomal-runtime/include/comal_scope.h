@@ -108,6 +108,9 @@ public:
     /// Number of symbols in this scope.
     size_t size() const { return symbols_.size(); }
 
+    /// Get all symbols in this scope (for debugging/variable inspection).
+    const std::unordered_map<std::string, Symbol>& allSymbols() const { return symbols_; }
+
 private:
     std::unordered_map<std::string, Symbol> symbols_;
 };
@@ -124,6 +127,10 @@ public:
 
     /// The current (top-most) scope.
     Scope& current() {
+        if (!raw_stack_.empty()) return *raw_stack_.back();
+        return *scopes_.back();
+    }
+    const Scope& current() const {
         if (!raw_stack_.empty()) return *raw_stack_.back();
         return *scopes_.back();
     }

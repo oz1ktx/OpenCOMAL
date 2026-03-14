@@ -281,6 +281,10 @@ void MainWindow::connectRunWorker()
     // Execution suspended (break/step) — highlight current line
     connect(worker_, &RunWorker::suspended, this, &MainWindow::onExecutionPaused,
             Qt::QueuedConnection);
+
+    // Variables changed — update debug panel
+    connect(worker_, &RunWorker::variablesChanged, debug_, &DebugPanel::updateVariables,
+            Qt::QueuedConnection);
 }
 
 void MainWindow::onRun()

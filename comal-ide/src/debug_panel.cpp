@@ -4,6 +4,7 @@
 #include <QTabWidget>
 #include <QTreeWidget>
 #include <QHeaderView>
+#include <QVariantMap>
 
 DebugPanel::DebugPanel(QWidget *parent)
     : QWidget(parent)
@@ -15,15 +16,9 @@ DebugPanel::DebugPanel(QWidget *parent)
 
     // Variables / Watch tab
     variables_ = new QTreeWidget;
-    variables_->setHeaderLabels({tr("Name"), tr("Type"), tr("Value")});
+    variables_->setHeaderLabels({tr("Name"), tr("Type"), tr("Value"), tr("Scope")});
     variables_->header()->setStretchLastSection(true);
-    // Placeholder data
-    auto *item1 = new QTreeWidgetItem({"i", "INT", "7"});
-    auto *item2 = new QTreeWidgetItem({"name$", "STRING", "\"Alice\""});
-    auto *item3 = new QTreeWidgetItem({"total#", "FLOAT", "3.14159"});
-    variables_->addTopLevelItem(item1);
-    variables_->addTopLevelItem(item2);
-    variables_->addTopLevelItem(item3);
+    // Remove placeholder data - will be populated dynamically
     tabs_->addTab(variables_, tr("Variables"));
 
     // Call Stack tab
@@ -47,4 +42,18 @@ DebugPanel::DebugPanel(QWidget *parent)
     tabs_->addTab(breakpoints_, tr("Breakpoints"));
 
     layout->addWidget(tabs_);
+}
+
+void DebugPanel::updateVariables(const QVariantList &variables)
+{
+    variables_->clear();
+    for (const QVariant &var : variables) {
+        QVariantMap varMap = var.toMap();
+        QString name = varMap["name"].toString();
+        QString type = varMap["type"].toString();
+        QString value = varMap["value"].toString();
+        QString scope = varMap["scope"].toString();
+        auto *item = new QTreeWidgetItem({name, type, value, scope});
+        variables_->addTopLevelItem(item);
+    }
 }

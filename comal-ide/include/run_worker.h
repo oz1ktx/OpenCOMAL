@@ -2,6 +2,7 @@
 
 #include <QThread>
 #include <QString>
+#include <QVariantList>
 #include <memory>
 
 namespace comal::runtime { class Interpreter; }
@@ -59,6 +60,9 @@ signals:
 
     /// Emitted when execution is suspended (break/step).
     void suspended(int lineNumber);
+
+    /// Emitted when execution is suspended, with current variables.
+    void variablesChanged(const QVariantList &variables);
 
 protected:
     void run() override;

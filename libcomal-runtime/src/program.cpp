@@ -51,6 +51,46 @@ bool Interpreter::isSuspended() const {
     return suspended_.load();
 }
 
+std::vector<VariableInfo> Interpreter::getVariables() const {
+    std::vector<VariableInfo> vars;
+
+    // Walk the scope stack from current to global
+    const Scope* scope = &scopes.current();
+    while (scope) {
+        for (const auto& [name, symbol] : scope->allSymbols()) {
+            if (symbol.kind == SymbolKind::Variable || symbol.kind == SymbolKind::RefAlias) {
+                VariableInfo info;
+                info.name = name;
+                info.scope = scope->name;
+
+                const Value& val = symbol.resolve();
+                if (val.isInt()) {
+                    info.type = "INTEGER";
+                    info.value = std::to_string(val.asInt());
+                } else if (val.isFloat()) {
+                    info.type = "REAL";
+                    info.value = std::to_string(val.asFloat());
+                } else if (val.isString()) {
+                    info.type = "STRING";
+                    info.value = "\"" + val.asString() + "\"";
+                } else if (val.isArray()) {
+                    const ArrayData& arr = val.asArray();
+                    info.type = "ARRAY";
+                    info.value = "[" + std::to_string(arr.elements.size()) + " elements]";
+                } else {
+                    info.type = "UNKNOWN";
+                    info.value = "?";
+                }
+
+                vars.push_back(info);
+            }
+        }
+        scope = scope->parent;
+    }
+
+    return vars;
+}
+
 // ── loadFile ────────────────────────────────────────────────────────────
 
 void Interpreter::loadFile(const std::string& path) {

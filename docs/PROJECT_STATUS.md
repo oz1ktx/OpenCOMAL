@@ -192,11 +192,11 @@ Adjust `CPACK_PACKAGE_VERSION` and maintainer fields in `CMakeLists.txt` as need
 The debug panel currently exists as a placeholder with 3 tabs (Variables, Call Stack, Breakpoints). Implementation requires runtime integration to expose debugging state during program execution.
 
 ### Variables Tab
-- [ ] **Runtime integration**: Add `Interpreter::getVariables()` method to collect current scope variables
-- [ ] **Variable display**: QTreeWidget with columns: Name, Type, Value, Scope
-- [ ] **Type formatting**: Display `int64_t`/`double`/`string` appropriately, show array dimensions
-- [ ] **Scope hierarchy**: Tree structure showing GLOBAL → LOCAL → PROC/FUNC scopes
-- [ ] **Real-time updates**: Refresh variable list when execution pauses (Break/Step)
+- [x] **Runtime integration**: Add `Interpreter::getVariables()` method to collect current scope variables
+- [x] **Variable display**: QTreeWidget with columns: Name, Type, Value, Scope
+- [x] **Type formatting**: Display `int64_t`/`double`/`string` appropriately, show array dimensions
+- [ ] **Scope hierarchy**: Tree structure showing GLOBAL → LOCAL → PROC/FUNC scopes (currently flat list)
+- [x] **Real-time updates**: Refresh variable list when execution pauses (Break/Step)
 - [ ] **Value editing**: Allow modifying variable values during debugging (optional)
 
 ### Call Stack Tab

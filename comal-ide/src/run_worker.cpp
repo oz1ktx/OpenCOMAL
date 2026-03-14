@@ -3,6 +3,7 @@
 #include "comal_interpreter.h"
 #include "comal_error.h"
 #include "comal_scene_model.h"
+#include <QVariantMap>
 
 using namespace comal::runtime;
 
@@ -25,6 +26,19 @@ RunWorker::RunWorker(QObject *parent)
         if (interp_->curline)
             line = interp_->curline->lineNumber();
         emit suspended(line);
+
+        // Collect variables for debug panel
+        auto vars = interp_->getVariables();
+        QVariantList varList;
+        for (const auto& var : vars) {
+            QVariantMap varMap;
+            varMap["name"] = QString::fromStdString(var.name);
+            varMap["type"] = QString::fromStdString(var.type);
+            varMap["value"] = QString::fromStdString(var.value);
+            varMap["scope"] = QString::fromStdString(var.scope);
+            varList.append(varMap);
+        }
+        emit variablesChanged(varList);
     });
 }
 

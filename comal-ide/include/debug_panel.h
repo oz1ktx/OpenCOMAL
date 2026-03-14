@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QWidget>
+#include <QVariantList>
 
 class QTreeWidget;
 class QTabWidget;
@@ -11,6 +12,9 @@ class DebugPanel : public QWidget {
 
 public:
     explicit DebugPanel(QWidget *parent = nullptr);
+
+public slots:
+    void updateVariables(const QVariantList &variables);
 
 private:
     QTabWidget  *tabs_;

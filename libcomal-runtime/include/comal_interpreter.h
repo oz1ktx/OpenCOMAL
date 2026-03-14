@@ -33,6 +33,16 @@
 
 namespace comal::runtime {
 
+// ── Variable info for debugging ─────────────────────────────────────────
+
+/// Information about a variable for the debug panel.
+struct VariableInfo {
+    std::string name;
+    std::string type;      // "INTEGER", "REAL", "STRING", "ARRAY", etc.
+    std::string value;     // string representation of the value
+    std::string scope;     // scope name (e.g. "GLOBAL", "MAIN", procedure name)
+};
+
 // ── Structure scan table ────────────────────────────────────────────────
 
 /// Pairs of matching statement types (FOR↔ENDFOR, IF↔ENDIF, etc.)
@@ -79,6 +89,9 @@ public:
     bool isSuspended() const;
     // Wait while suspended (for use in execSeq)
     void waitWhileSuspended();
+
+    /// Get all current variables for debugging (collects from scope stack).
+    std::vector<VariableInfo> getVariables() const;
 
     // ── I/O interface (replaceable) ─────────────────────────────────────
 
