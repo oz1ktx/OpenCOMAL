@@ -285,6 +285,15 @@ void MainWindow::connectRunWorker()
     // Variables changed — update debug panel
     connect(worker_, &RunWorker::variablesChanged, debug_, &DebugPanel::updateVariables,
             Qt::QueuedConnection);
+
+    // Call stack changed — update debug panel
+    connect(worker_, &RunWorker::callStackChanged, debug_, &DebugPanel::updateCallStack,
+            Qt::QueuedConnection);
+
+    // Jump to source line when a call stack frame is activated
+    connect(debug_, &DebugPanel::frameActivated, this, [this](int line) {
+        codeEditor_->highlightExecutionLine(line);
+    }, Qt::QueuedConnection);
 }
 
 void MainWindow::onRun()

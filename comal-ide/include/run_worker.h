@@ -64,6 +64,9 @@ signals:
     /// Emitted when execution is suspended, with current variables.
     void variablesChanged(const QVariantList &variables);
 
+    /// Emitted when execution is suspended, with current call stack.
+    void callStackChanged(const QVariantList &frames);
+
 protected:
     void run() override;
 

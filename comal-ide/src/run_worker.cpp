@@ -39,6 +39,17 @@ RunWorker::RunWorker(QObject *parent)
             varList.append(varMap);
         }
         emit variablesChanged(varList);
+
+        // Collect call stack for debug panel
+        auto stack = interp_->getCallStack();
+        QVariantList stackList;
+        for (const auto &frame : stack) {
+            QVariantMap frameMap;
+            frameMap["name"] = QString::fromStdString(frame.name);
+            frameMap["line"] = frame.line;
+            stackList.append(frameMap);
+        }
+        emit callStackChanged(stackList);
     });
 }
 

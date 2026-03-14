@@ -91,6 +91,26 @@ std::vector<VariableInfo> Interpreter::getVariables() const {
     return vars;
 }
 
+std::vector<CallStackFrame> Interpreter::getCallStack() const {
+    std::vector<CallStackFrame> stack;
+
+    // Walk the scope stack from the current scope outward (top -> global)
+    const Scope* scope = &scopes.current();
+    while (scope) {
+        CallStackFrame frame;
+        frame.name = scope->name;
+        if (scope->curproc) {
+            frame.line = static_cast<int>(scope->curproc->lineNumber());
+        } else if (curline) {
+            frame.line = static_cast<int>(curline->lineNumber());
+        }
+        stack.push_back(std::move(frame));
+        scope = scope->parent;
+    }
+
+    return stack;
+}
+
 // ── loadFile ────────────────────────────────────────────────────────────
 
 void Interpreter::loadFile(const std::string& path) {

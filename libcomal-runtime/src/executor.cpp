@@ -75,13 +75,19 @@ void execSeq(Interpreter& interp, ComalLine* start) {
             interp.print("[" + std::to_string(line->lineNumber()) + "] ");
         }
 
-        // Advance to next line before executing (some stmts change curline)
-        interp.curline = line->next();
+        // Single-step mode: pause before executing the current statement.
+        // This ensures stepping lands on the first line inside a PROC/FUNC.
+        stepPause(interp);
+
+        // Default next line (in case execLine doesn't modify curline)
+        ComalLine* next = line->next();
 
         execLine(interp, line);
 
-        // Single-step mode: pause after each statement execution
-        stepPause(interp);
+        // If execLine didn't change curline (normal straight-line flow),
+        // advance to the next line.
+        if (interp.curline == line)
+            interp.curline = next;
     }
 }
 

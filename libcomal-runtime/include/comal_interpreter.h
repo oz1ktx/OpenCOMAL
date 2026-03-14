@@ -43,6 +43,12 @@ struct VariableInfo {
     std::string scope;     // scope name (e.g. "GLOBAL", "MAIN", procedure name)
 };
 
+/// One frame in the call stack (for the debug panel).
+struct CallStackFrame {
+    std::string name;      // e.g. PROC/FUNC name or "GLOBAL"
+    int line{0};           // line number of proc definition (or current line)
+};
+
 // ── Structure scan table ────────────────────────────────────────────────
 
 /// Pairs of matching statement types (FOR↔ENDFOR, IF↔ENDIF, etc.)
@@ -92,6 +98,9 @@ public:
 
     /// Get all current variables for debugging (collects from scope stack).
     std::vector<VariableInfo> getVariables() const;
+
+    /// Get the current call stack for debugging (top frame first).
+    std::vector<CallStackFrame> getCallStack() const;
 
     // ── I/O interface (replaceable) ─────────────────────────────────────
 

@@ -25,10 +25,13 @@ DebugPanel::DebugPanel(QWidget *parent)
     callStack_ = new QTreeWidget;
     callStack_->setHeaderLabels({tr("Frame"), tr("Location")});
     callStack_->header()->setStretchLastSection(true);
-    auto *frame0 = new QTreeWidgetItem({"#0", "calculate_sum (line 25)"});
-    auto *frame1 = new QTreeWidgetItem({"#1", "main (line 10)"});
-    callStack_->addTopLevelItem(frame0);
-    callStack_->addTopLevelItem(frame1);
+    callStack_->setSelectionMode(QAbstractItemView::SingleSelection);
+    connect(callStack_, &QTreeWidget::itemActivated, this, [this](QTreeWidgetItem *item, int) {
+        if (!item) return;
+        int line = item->data(0, Qt::UserRole).toInt();
+        if (line > 0)
+            emit frameActivated(line);
+    });
     tabs_->addTab(callStack_, tr("Call Stack"));
 
     // Breakpoints tab
@@ -55,5 +58,28 @@ void DebugPanel::updateVariables(const QVariantList &variables)
         QString scope = varMap["scope"].toString();
         auto *item = new QTreeWidgetItem({name, type, value, scope});
         variables_->addTopLevelItem(item);
+    }
+}
+
+void DebugPanel::updateCallStack(const QVariantList &frames)
+{
+    callStack_->clear();
+    int index = 0;
+    for (const QVariant &frame : frames) {
+        QVariantMap frameMap = frame.toMap();
+        QString name = frameMap["name"].toString();
+        int line = frameMap["line"].toInt();
+        QString location = QString("line %1").arg(line);
+        auto *item = new QTreeWidgetItem({QString("#%1 %2").arg(index).arg(name), location});
+        item->setData(0, Qt::UserRole, line);
+        // Bold the current frame (top of stack)
+        if (index == 0) {
+            QFont font = item->font(0);
+            font.setBold(true);
+            item->setFont(0, font);
+            item->setFont(1, font);
+        }
+        callStack_->addTopLevelItem(item);
+        index++;
     }
 }

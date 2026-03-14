@@ -15,6 +15,11 @@ public:
 
 public slots:
     void updateVariables(const QVariantList &variables);
+    void updateCallStack(const QVariantList &frames);
+
+signals:
+    /// Emitted when a call-stack frame is activated (double-clicked).
+    void frameActivated(int lineNumber);
 
 private:
     QTabWidget  *tabs_;
