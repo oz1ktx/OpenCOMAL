@@ -187,7 +187,51 @@ Adjust `CPACK_PACKAGE_VERSION` and maintainer fields in `CMakeLists.txt` as need
 
 ---
 
+## Debug Panel Implementation TODO
+
+The debug panel currently exists as a placeholder with 3 tabs (Variables, Call Stack, Breakpoints). Implementation requires runtime integration to expose debugging state during program execution.
+
+### Variables Tab
+- [ ] **Runtime integration**: Add `Interpreter::getVariables()` method to collect current scope variables
+- [ ] **Variable display**: QTreeWidget with columns: Name, Type, Value, Scope
+- [ ] **Type formatting**: Display `int64_t`/`double`/`string` appropriately, show array dimensions
+- [ ] **Scope hierarchy**: Tree structure showing GLOBAL → LOCAL → PROC/FUNC scopes
+- [ ] **Real-time updates**: Refresh variable list when execution pauses (Break/Step)
+- [ ] **Value editing**: Allow modifying variable values during debugging (optional)
+
+### Call Stack Tab
+- [ ] **Stack walking**: Add `Interpreter::getCallStack()` to build stack frames from `ScopeStack`
+- [ ] **Frame display**: QListWidget showing procedure/function names with line numbers
+- [ ] **Current frame highlight**: Bold/highlight the current execution frame
+- [ ] **Frame navigation**: Double-click to jump to source line in editor
+- [ ] **Parameter display**: Show PROC/FUNC parameters in each frame
+
+### Breakpoints Tab
+- [ ] **Breakpoint storage**: Add breakpoint management to `Interpreter` class
+- [ ] **Breakpoint types**: Support line breakpoints (initially), conditional breakpoints (future)
+- [ ] **UI display**: QListWidget showing file:line for each breakpoint
+- [ ] **Breakpoint toggle**: Enable/disable breakpoints without removing them
+- [ ] **Editor integration**: Visual markers in gutter (circle for enabled, hollow for disabled)
+- [ ] **Persistence**: Save/restore breakpoints across IDE sessions
+
+### Core Debug Infrastructure
+- [ ] **Debug event system**: Extend `Interpreter` suspend/resume with debug event types
+- [ ] **Breakpoint checking**: Add breakpoint hit detection in `execSeq` before each statement
+- [ ] **Debug commands**: Extend `RunWorker` with step-over, step-out, continue-to-cursor
+- [ ] **Source line mapping**: Maintain mapping between AST line numbers and editor lines
+- [ ] **Thread safety**: Ensure debug panel updates are thread-safe with execution thread
+
+### UI Integration
+- [ ] **Panel wiring**: Connect debug panel to `RunWorker` signals for state updates
+- [ ] **Menu integration**: Add debug commands to Program menu (Step Over, Step Out, etc.)
+- [ ] **Toolbar buttons**: Add debug action buttons (Step Into, Step Over, Continue)
+- [ ] **Status updates**: Show debug state in status bar ("Debugging", "At breakpoint", etc.)
+- [ ] **Keyboard shortcuts**: F9 for toggle breakpoint, F10/F11 for stepping
+
+---
+
 ## Future Improvements
+
 
 ### Animation Support
 DRAW `animate` command for group-level property animation
