@@ -97,8 +97,10 @@ void MainWindow::createMenus()
     progMenu->addAction(tr("&Continue"),          this, &MainWindow::onContinue,
                          QKeySequence(Qt::Key_F5));
     progMenu->addSeparator();
-    progMenu->addAction(tr("Toggle &Breakpoint"), this, []{},
-                         QKeySequence(Qt::Key_F9));
+    progMenu->addAction(tr("Toggle &Breakpoint"), this, [this]{
+        if (codeEditor_)
+            codeEditor_->toggleBreakpointAtCurrentLine();
+    }, QKeySequence(Qt::Key_F9));
 
     // View — toggle each dock panel
     auto *viewMenu = menuBar()->addMenu(tr("&View"));
@@ -191,6 +193,24 @@ void MainWindow::createPanels()
     // Cursor position tracking
     connect(codeEditor_, &CodeEditorPanel::cursorPositionChanged,
             this,        &MainWindow::updateCursorPos);
+
+    // Breakpoints → debug panel
+    connect(codeEditor_, &CodeEditorPanel::breakpointsChanged,
+            debug_, &DebugPanel::updateBreakpoints,
+            Qt::QueuedConnection);
+
+    // Keep running interpreter in sync with breakpoint changes while running.
+    connect(codeEditor_, &CodeEditorPanel::breakpointsChanged, this, [this](const QString &, const QVector<int> &lines) {
+        if (worker_ && worker_->isRunning()) {
+            worker_->setBreakpoints(std::vector<int>(lines.begin(), lines.end()));
+        }
+    });
+
+    // Update debug panel when user switches files
+    connect(codeEditor_, &CodeEditorPanel::currentFileChanged, this, [this](const QString &filePath) {
+        if (!debug_) return;
+        debug_->updateBreakpoints(filePath, codeEditor_->breakpointsForCurrentFile());
+    });
 
     // Help — right
     help_ = new HelpPanel;
@@ -315,6 +335,10 @@ void MainWindow::onRun()
     worker_ = new RunWorker(this);
     worker_->setGraphicsScene(persistentScene_.get());
     worker_->setSource(source);
+    {
+        auto bps = codeEditor_->breakpointsForCurrentFile();
+        worker_->setBreakpoints(std::vector<int>(bps.begin(), bps.end()));
+    }
     connectRunWorker();
 
     stateLabel_->setText(tr("Running"));
@@ -441,6 +465,10 @@ void MainWindow::startSingleStepRun(const QString &title)
     worker_ = new RunWorker(this);
     worker_->setGraphicsScene(persistentScene_.get());
     worker_->setSource(source);
+    {
+        auto bps = codeEditor_->breakpointsForCurrentFile();
+        worker_->setBreakpoints(std::vector<int>(bps.begin(), bps.end()));
+    }
     worker_->setSingleStep(true);  // Enable single-step mode
     connectRunWorker();
 

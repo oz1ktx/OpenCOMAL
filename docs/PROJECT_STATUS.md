@@ -110,22 +110,6 @@ Language Server Protocol v3.17 implementation.
 - Unified test runner: `tests/run_tests.sh` (CTest-integrated)
 - **Results**: 127 pass, 6 skip, 0 failures
 
-### Packaging
-CPack configuration for `.rpm` and `.deb` packages. Package `comal-run`,
-`comal-ide`, shared libraries, sample programs.
-
-**Building packages (DEB and RPM)**
-
-From the repository root, create a build dir and run CPack via CMake:
-
-```bash
-cmake -S . -B build -DCPACK_GENERATOR="DEB;RPM"
-cmake --build build --target package
-```
-
-Generated packages will appear in the `build/` directory (e.g. `OpenCOMAL-0.0.1.deb`, `OpenCOMAL-0.0.1.rpm`).
-Adjust `CPACK_PACKAGE_VERSION` and maintainer fields in `CMakeLists.txt` as needed.
-
 ---
 
 ## In Progress: Qt6 GUI IDE (`comal-ide/`) — ~2200 lines
@@ -187,46 +171,35 @@ Adjust `CPACK_PACKAGE_VERSION` and maintainer fields in `CMakeLists.txt` as need
 
 ---
 
-## Debug Panel Implementation TODO
+## Debug Panel (Status)
 
-The debug panel currently exists as a placeholder with 3 tabs (Variables, Call Stack, Breakpoints). Implementation requires runtime integration to expose debugging state during program execution.
+The debug panel is now wired end-to-end with the runtime: the IDE can pause execution on breakpoints, show the current line, and refresh Variables / Call Stack when suspended.
 
 ### Variables Tab
-- [x] **Runtime integration**: Add `Interpreter::getVariables()` method to collect current scope variables
-- [x] **Variable display**: QTreeWidget with columns: Name, Type, Value, Scope
-- [x] **Type formatting**: Display `int64_t`/`double`/`string` appropriately, show array dimensions
-- [ ] **Scope hierarchy**: Tree structure showing GLOBAL → LOCAL → PROC/FUNC scopes (currently flat list)
-- [x] **Real-time updates**: Refresh variable list when execution pauses (Break/Step)
-- [ ] **Value editing**: Allow modifying variable values during debugging (optional)
+- [x] Runtime integration: `Interpreter::getVariables()` returns current scope variables.
+- [x] Display in QTreeWidget (Name/Type/Value/Scope).
+- [x] Real-time refresh on pause (Break/Step).
+- [ ] Scope hierarchy (currently a flat list).
+- [ ] Value editing (optional).
 
 ### Call Stack Tab
-- [ ] **Stack walking**: Add `Interpreter::getCallStack()` to build stack frames from `ScopeStack`
-- [ ] **Frame display**: QListWidget showing procedure/function names with line numbers
-- [ ] **Current frame highlight**: Bold/highlight the current execution frame
-- [ ] **Frame navigation**: Double-click to jump to source line in editor
-- [ ] **Parameter display**: Show PROC/FUNC parameters in each frame
+- [x] Stack walking: `Interpreter::getCallStack()` builds frames from `ScopeStack`.
+- [x] Display shows frame name + line number.
+- [x] Current frame is highlighted.
+- [x] Double-click jumps to the line in the editor.
+- [ ] Show PROC/FUNC parameters in each frame.
 
-### Breakpoints Tab
-- [ ] **Breakpoint storage**: Add breakpoint management to `Interpreter` class
-- [ ] **Breakpoint types**: Support line breakpoints (initially), conditional breakpoints (future)
-- [ ] **UI display**: QListWidget showing file:line for each breakpoint
-- [ ] **Breakpoint toggle**: Enable/disable breakpoints without removing them
-- [ ] **Editor integration**: Visual markers in gutter (circle for enabled, hollow for disabled)
-- [ ] **Persistence**: Save/restore breakpoints across IDE sessions
+### Breakpoints
+- [x] Editor gutter toggle (click margin or F9) sets/removes breakpoints.
+- [x] Debug panel lists breakpoints for the current file.
+- [x] Runtime breakpoint checking in `execSeq` suspends execution on hit.
+- [ ] Enable/disable (currently only on/off via toggle).
+- [ ] Conditional breakpoints (future).
 
-### Core Debug Infrastructure
-- [ ] **Debug event system**: Extend `Interpreter` suspend/resume with debug event types
-- [ ] **Breakpoint checking**: Add breakpoint hit detection in `execSeq` before each statement
-- [ ] **Debug commands**: Extend `RunWorker` with step-over, step-out, continue-to-cursor
-- [ ] **Source line mapping**: Maintain mapping between AST line numbers and editor lines
-- [ ] **Thread safety**: Ensure debug panel updates are thread-safe with execution thread
-
-### UI Integration
-- [ ] **Panel wiring**: Connect debug panel to `RunWorker` signals for state updates
-- [ ] **Menu integration**: Add debug commands to Program menu (Step Over, Step Out, etc.)
-- [ ] **Toolbar buttons**: Add debug action buttons (Step Into, Step Over, Continue)
-- [ ] **Status updates**: Show debug state in status bar ("Debugging", "At breakpoint", etc.)
-- [ ] **Keyboard shortcuts**: F9 for toggle breakpoint, F10/F11 for stepping
+### Remaining debug work (next steps)
+- Add step-over / step-out / continue-to-cursor support in the runtime.
+- Improve scope hierarchy display and allow variable editing.
+- Expand call stack details (parameters, return values, etc.).
 
 ---
 
@@ -248,6 +221,11 @@ from stdin/pipes, enabling COMAL programs in Unix pipelines
 ### Multithreading
 `INPUT QUEUE` for inter-thread message passing — COMAL PROCs running in
 separate threads communicating via typed message channels.
+
+
+### Debugging / IDE
+- Add optional **separate Run vs Debug mode** (run without breakpoints vs run with breakpoints).
+- Persist breakpoints across IDE sessions (per-project cache or workspace settings).
 
 
 ### Code cleanups
@@ -292,6 +270,22 @@ libncurses-dev, libreadline-dev.
 | qt6-qtbase-devel | qt6-base-dev |
 | qt6-qtsvg-devel | qt6-svg-dev |
 | qscintilla-qt6-devel | libqscintilla2-qt6-dev |
+
+### Packaging
+CPack configuration for `.rpm` and `.deb` packages. Package `comal-run`,
+`comal-ide`, shared libraries, sample programs.
+
+**Building packages (DEB and RPM)**
+
+From the repository root, create a build dir and run CPack via CMake:
+
+```bash
+cmake -S . -B build -DCPACK_GENERATOR="DEB;RPM"
+cmake --build build --target package
+```
+
+Generated packages will appear in the `build/` directory (e.g. `OpenCOMAL-0.0.1.deb`, `OpenCOMAL-0.0.1.rpm`).
+Adjust `CPACK_PACKAGE_VERSION` and maintainer fields in `CMakeLists.txt` as needed.
 
 ---
 

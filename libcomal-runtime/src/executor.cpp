@@ -70,6 +70,10 @@ void execSeq(Interpreter& interp, ComalLine* start) {
         }
         ComalLine* line = interp.curline;
 
+        // Breakpoint support: pause before executing a statement if a
+        // breakpoint is set on this line.
+        interp.checkBreakpoint();
+
         // Trace mode
         if (interp.trace && line->lineNumber() > 0) {
             interp.print("[" + std::to_string(line->lineNumber()) + "] ");

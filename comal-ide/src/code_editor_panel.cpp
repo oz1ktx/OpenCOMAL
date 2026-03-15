@@ -58,6 +58,10 @@ QsciScintilla *CodeEditorPanel::createEditor()
     editor->setMarginSensitivity(1, true);   // click gutter → toggle breakpoint
     editor->markerDefine(QsciScintilla::Circle, 0);
 
+    // Breakpoint marker — red circle
+    editor->markerDefine(QsciScintilla::Circle, BREAKPOINT_MARKER_ID);
+    editor->setMarkerForegroundColor(QColor(220, 0, 0), BREAKPOINT_MARKER_ID);
+
     // Error line marker — red background
     editor->markerDefine(QsciScintilla::Background, ERROR_MARKER_ID);
     editor->setMarkerBackgroundColor(QColor(255, 200, 200), ERROR_MARKER_ID);
@@ -65,6 +69,13 @@ QsciScintilla *CodeEditorPanel::createEditor()
     // Execution pause marker — yellow background
     editor->markerDefine(QsciScintilla::Background, EXEC_MARKER_ID);
     editor->setMarkerBackgroundColor(QColor(255, 255, 150), EXEC_MARKER_ID);
+
+    // Click on gutter → toggle breakpoint marker
+    connect(editor, &QsciScintilla::marginClicked, this, [this, editor](int margin, int line, Qt::KeyboardModifiers) {
+        if (margin == 1) {
+            toggleBreakpointAtLine(editor, line + 1);
+        }
+    });
 
     // Basic editor settings
     editor->setAutoIndent(true);
@@ -211,6 +222,9 @@ void CodeEditorPanel::openFile(const QString &filePath)
     int idx = tabs_->addTab(editor, info.fileName());
     tabs_->setTabToolTip(idx, filePath);
     tabs_->setCurrentIndex(idx);
+
+    // Apply any existing breakpoints for this file in the editor gutter.
+    applyBreakpointsToEditor(editor, filePath);
 }
 
 QString CodeEditorPanel::currentFilePath() const
@@ -260,8 +274,20 @@ bool CodeEditorPanel::saveFileAs()
     editor->setModified(false);
 
     int idx = tabs_->currentIndex();
+
+    // Transfer breakpoints from old path to new path (if any)
+    QString oldPath = tabs_->tabToolTip(idx);
+    if (!oldPath.isEmpty() && oldPath != path) {
+        auto it = breakpoints_.find(oldPath);
+        if (it != breakpoints_.end()) {
+            breakpoints_.insert(path, std::move(*it));
+            breakpoints_.erase(it);
+        }
+    }
+
     tabs_->setTabToolTip(idx, path);
     updateTabTitle(idx);
+    applyBreakpointsToEditor(currentEditor(), path);
     return true;
 }
 
@@ -317,6 +343,9 @@ void CodeEditorPanel::onCurrentTabChanged(int /*index*/)
         editor->getCursorPosition(&line, &col);
         emit cursorPositionChanged(line + 1, col + 1);
     }
+
+    // Notify listeners that the current file changed (for updating debug UI)
+    emit currentFileChanged(currentFilePath());
 }
 
 // ── Error highlighting ──────────────────────────────────────────────
@@ -606,4 +635,83 @@ void CodeEditorPanel::formatSource()
     editor->selectAll();
     editor->replaceSelectedText(formatted);
     editor->setCursorPosition(line, col);
+}
+
+// ── Breakpoints ────────────────────────────────────────────────────────
+
+static QString breakpointFileKey(const QString &filePath)
+{
+    if (!filePath.isEmpty())
+        return filePath;
+    return QStringLiteral("<unsaved>");
+}
+
+void CodeEditorPanel::toggleBreakpointAtCurrentLine()
+{
+    auto *editor = currentEditor();
+    if (!editor)
+        return;
+
+    int line, col;
+    editor->getCursorPosition(&line, &col);
+    toggleBreakpointAtLine(editor, line + 1);
+}
+
+void CodeEditorPanel::toggleBreakpointAtLine(QsciScintilla *editor, int line)
+{
+    if (!editor || line <= 0)
+        return;
+
+    int idx = tabs_->indexOf(editor);
+    if (idx < 0)
+        return;
+
+    QString path = breakpointFileKey(tabs_->tabToolTip(idx));
+    auto &set = breakpoints_[path];
+
+    if (set.contains(line)) {
+        set.remove(line);
+        editor->markerDelete(line - 1, BREAKPOINT_MARKER_ID);
+    } else {
+        set.insert(line);
+        editor->markerAdd(line - 1, BREAKPOINT_MARKER_ID);
+    }
+
+    QVector<int> lines = breakpointsForFile(path);
+    emit breakpointsChanged(path, lines);
+}
+
+void CodeEditorPanel::applyBreakpointsToEditor(QsciScintilla *editor, const QString &filePath)
+{
+    if (!editor)
+        return;
+
+    QString key = breakpointFileKey(filePath);
+    editor->markerDeleteAll(BREAKPOINT_MARKER_ID);
+
+    auto it = breakpoints_.find(key);
+    if (it == breakpoints_.end())
+        return;
+
+    for (int line : *it)
+        editor->markerAdd(line - 1, BREAKPOINT_MARKER_ID);
+}
+
+QVector<int> CodeEditorPanel::breakpointsForFile(const QString &filePath) const
+{
+    QString key = breakpointFileKey(filePath);
+    QVector<int> lines;
+    auto it = breakpoints_.constFind(key);
+    if (it == breakpoints_.constEnd())
+        return lines;
+
+    for (int l : *it)
+        lines.append(l);
+    std::sort(lines.begin(), lines.end());
+    return lines;
+}
+
+QVector<int> CodeEditorPanel::breakpointsForCurrentFile() const
+{
+    return breakpointsForFile(currentFilePath());
 }

@@ -2,6 +2,7 @@
 
 #include <QWidget>
 #include <QVariantList>
+#include <QVector>
 
 class QTreeWidget;
 class QTabWidget;
@@ -16,6 +17,7 @@ public:
 public slots:
     void updateVariables(const QVariantList &variables);
     void updateCallStack(const QVariantList &frames);
+    void updateBreakpoints(const QString &filePath, const QVector<int> &lines);
 
 signals:
     /// Emitted when a call-stack frame is activated (double-clicked).

@@ -18,6 +18,7 @@
 #include <memory>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 #include <condition_variable>
 #include <mutex>
 
@@ -199,6 +200,17 @@ public:
     void setSingleStep(bool enable) { singleStep_ = enable; }
     bool isSingleStep() const { return singleStep_; }
 
+    /// Breakpoints (line numbers) for debugging.
+    void setBreakpoints(const std::vector<int>& lines);
+    void addBreakpoint(int line);
+    void removeBreakpoint(int line);
+    bool hasBreakpoint(int line) const;
+    std::vector<int> breakpoints() const;
+
+    /// Called from execSeq to check for a breakpoint on the current line.
+    /// If a breakpoint is hit, this suspends execution once (until resume).
+    void checkBreakpoint();
+
     /// Last error info (for ERR, ERR$, ERRLINE).
     ErrorCode lastError{ErrorCode::None};
     std::string lastErrorMsg;
@@ -248,6 +260,11 @@ private:
 
     /// Single-step mode flag.
     bool singleStep_{false};
+
+    /// Breakpoints (line numbers).
+    std::unordered_set<int> breakpoints_;
+    /// The last line that caused a breakpoint suspension.
+    int lastBreakpointLine_{0};
 
     /// I/O backend (owned).  Defaults to TerminalIO.
     std::unique_ptr<IOInterface> io_;

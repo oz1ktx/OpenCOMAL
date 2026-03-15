@@ -38,10 +38,6 @@ DebugPanel::DebugPanel(QWidget *parent)
     breakpoints_ = new QTreeWidget;
     breakpoints_->setHeaderLabels({tr("File"), tr("Line"), tr("Condition")});
     breakpoints_->header()->setStretchLastSection(true);
-    auto *bp1 = new QTreeWidgetItem({"sample.lst", "25", ""});
-    auto *bp2 = new QTreeWidgetItem({"sample.lst", "42", "i > 5"});
-    breakpoints_->addTopLevelItem(bp1);
-    breakpoints_->addTopLevelItem(bp2);
     tabs_->addTab(breakpoints_, tr("Breakpoints"));
 
     layout->addWidget(tabs_);
@@ -81,5 +77,14 @@ void DebugPanel::updateCallStack(const QVariantList &frames)
         }
         callStack_->addTopLevelItem(item);
         index++;
+    }
+}
+
+void DebugPanel::updateBreakpoints(const QString &filePath, const QVector<int> &lines)
+{
+    breakpoints_->clear();
+    for (int line : lines) {
+        auto *item = new QTreeWidgetItem({filePath, QString::number(line), QString()});
+        breakpoints_->addTopLevelItem(item);
     }
 }

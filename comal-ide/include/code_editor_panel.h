@@ -29,8 +29,16 @@ public:
     void clearExecutionHighlight();
     void formatSource();
 
+    /// Toggle breakpoint at the current cursor line.
+    void toggleBreakpointAtCurrentLine();
+    QVector<int> breakpointsForCurrentFile() const;
+
 signals:
     void cursorPositionChanged(int line, int col);
+    void currentFileChanged(const QString &filePath);
+
+    /// Emitted when breakpoints change for the current file.
+    void breakpointsChanged(const QString &filePath, const QVector<int> &lines);
 
 private slots:
     void onTabCloseRequested(int index);
@@ -43,8 +51,17 @@ private:
     bool maybeSaveTab(int index);
     void updateTabTitle(int index);
 
+    // Breakpoints keyed by file path (tabs). The set contains 1-based line numbers.
+    QMap<QString, QSet<int>> breakpoints_;
+
+    // Helpers for breakpoint markers
+    void toggleBreakpointAtLine(QsciScintilla *editor, int line);
+    void applyBreakpointsToEditor(QsciScintilla *editor, const QString &filePath);
+    QVector<int> breakpointsForFile(const QString &filePath) const;
+
     static constexpr int ERROR_MARKER_ID = 1;
     static constexpr int EXEC_MARKER_ID = 2;
+    static constexpr int BREAKPOINT_MARKER_ID = 3;
 
     ComalLspClient *lspClient_ = nullptr; // Added member for LSP client
 };

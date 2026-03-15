@@ -11,6 +11,7 @@
 #include <iostream>
 #include <algorithm>
 #include <stack>
+#include <unordered_set>
 
 namespace comal::runtime {
 
@@ -109,6 +110,61 @@ std::vector<CallStackFrame> Interpreter::getCallStack() const {
     }
 
     return stack;
+}
+
+void Interpreter::setBreakpoints(const std::vector<int>& lines) {
+    breakpoints_.clear();
+    for (int l : lines) {
+        if (l > 0)
+            breakpoints_.insert(l);
+    }
+}
+
+void Interpreter::addBreakpoint(int line) {
+    if (line > 0)
+        breakpoints_.insert(line);
+}
+
+void Interpreter::removeBreakpoint(int line) {
+    breakpoints_.erase(line);
+}
+
+bool Interpreter::hasBreakpoint(int line) const {
+    return line > 0 && breakpoints_.count(line);
+}
+
+std::vector<int> Interpreter::breakpoints() const {
+    std::vector<int> lines;
+    lines.reserve(breakpoints_.size());
+    for (int l : breakpoints_)
+        lines.push_back(l);
+    std::sort(lines.begin(), lines.end());
+    return lines;
+}
+
+void Interpreter::checkBreakpoint() {
+    if (isSingleStep())
+        return;
+
+    if (!curline)
+        return;
+
+    int ln = static_cast<int>(curline->lineNumber());
+    if (ln <= 0)
+        return;
+
+    // Only suspend once per visit to a line.
+    if (lastBreakpointLine_ != 0 && lastBreakpointLine_ != ln)
+        lastBreakpointLine_ = 0;
+
+    if (ln == lastBreakpointLine_)
+        return;
+
+    if (hasBreakpoint(ln)) {
+        lastBreakpointLine_ = ln;
+        suspend();
+        waitWhileSuspended();
+    }
 }
 
 // ── loadFile ────────────────────────────────────────────────────────────
@@ -460,6 +516,10 @@ void Interpreter::resetRunState() {
 
     trace = false;
     curline = nullptr;
+
+    // Reset breakpoint tracking (line-based breakpoints persist but should
+    // only trigger once per line visit).
+    lastBreakpointLine_ = 0;
 }
 
 // ── run ─────────────────────────────────────────────────────────────────

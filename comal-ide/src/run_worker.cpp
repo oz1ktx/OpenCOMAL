@@ -107,6 +107,11 @@ void RunWorker::setSingleStep(bool enable)
     interp_->setSingleStep(enable);
 }
 
+void RunWorker::setBreakpoints(const std::vector<int> &lines)
+{
+    interp_->setBreakpoints(lines);
+}
+
 bool RunWorker::isSuspended() const
 {
     return interp_->isSuspended();

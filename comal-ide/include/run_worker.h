@@ -48,6 +48,9 @@ public:
     /// Enable or disable single-step mode.
     void setSingleStep(bool enable);
 
+    /// Set line-number breakpoints for the next run.
+    void setBreakpoints(const std::vector<int> &lines);
+
 signals:
     /// Emitted when execution finishes normally.
     void finished();
