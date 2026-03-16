@@ -398,11 +398,12 @@ void MainWindow::onDirectCommand(const QString &command)
     }
 
     // Otherwise, execute as a direct COMAL command
-    delete worker_;
-    worker_ = new RunWorker(this);
-    worker_->setGraphicsScene(persistentScene_.get());
+    if (!worker_) {
+        worker_ = new RunWorker(this);
+        worker_->setGraphicsScene(persistentScene_.get());
+        connectRunWorker();
+    }
     worker_->setDirectCommand(command);
-    connectRunWorker();
     stateLabel_->setText(tr("Running"));
     worker_->start();
 }
