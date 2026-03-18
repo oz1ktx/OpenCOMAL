@@ -21,6 +21,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <locale.h>
 
 extern char *yytext;
 //extern YYSTYPE yylval;
@@ -262,10 +263,14 @@ PUBLIC int lex_string_flatten()
 PUBLIC int lex_floatnum()
 {
 	char *endptr;
-
+	// Save current locale
+    char *current_locale = setlocale(LC_NUMERIC, NULL);
+    // Switch to "C" locale temporarily
+    setlocale(LC_NUMERIC, "C");
 	yylval.dubbel.val = strtod(yytext, &endptr);
 	yylval.dubbel.text=yytext;
-
+	// Restore original locale
+    setlocale(LC_NUMERIC, current_locale);
 	if (*endptr)
 		pars_error("Error converting numeric value %s", yytext);
 
