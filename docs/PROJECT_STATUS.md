@@ -213,6 +213,11 @@ Uses Qt's `QPropertyAnimation` framework (no QML needed). Requires QObject
 property wrappers per group and a continuous render loop or incremental
 transform updates. See `docs/future_graphics_addon.md` §2.3.
 
+### Planned Language/Runtime Features
+- **SLEEP command:** Pause execution for a specified duration (milliseconds/seconds). Useful for demonstrating multithreading and timing control.
+- **TONE command:** Produce a pure sine wave tone with specified frequency (Hz) and duration (ms). Integrates with Qt audio output.
+- **PLAY command:** Interpret a string in conventional BASIC/MML format (e.g., "O3B4C4D4") to play a sequence of notes. Supports octave, note, and duration as in classic BASIC.
+
 ### Stream Processing
 Generalize INPUT to accept stream sources (`INPUT STREAM`) for reading
 from stdin/pipes, enabling COMAL programs in Unix pipelines
