@@ -264,6 +264,8 @@ static const std::unordered_map<std::string, std::string>& keywordDocs() {
         {"OF",       "Part of CASE ... OF."},
         {"SELECT",   "Select output device."},
         {"DRAW",     "Execute a graphics command: DRAW subcommand args."},
+        {"TONE",     "Play a simple sine tone: TONE frequency duration (ms)."},
+        {"PLAY",     "Play a melody or instrument sequence (MML/MIDI-like string)."},
         {"USING",    "Formatted output: PRINT USING format$ ; values."},
         {"EXIT",     "Exit a loop early."},
         {"LOOP",     "Infinite loop (LOOP ... ENDLOOP / EXIT WHEN)."},
@@ -978,7 +980,7 @@ void LspServer::handleCompletion(const LspRequest& request) {
             "LET", "DIM", "READ", "DATA", "RESTORE", "STOP",
             "TRAP", "HANDLER", "ENDTRAP", "ESCAPE",
             "CASE", "WHEN", "OTHERWISE", "ENDCASE", "OF",
-            "DRAW", "EXEC", "EXIT",
+            "DRAW", "PLAY", "TONE", "EXEC", "EXIT",
             "RUN", "NEW", "OLD", "SAVE", "LIST",
             "DELETE", "RENUMBER", "AUTO", "PAGE", "CURSOR", "ZONE", "USING",
             "LOOP", "ENDLOOP", "NULL", "SELECT"

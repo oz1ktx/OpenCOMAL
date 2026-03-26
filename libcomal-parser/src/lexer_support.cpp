@@ -1,7 +1,6 @@
 /*
  * OpenComal -- a free Comal implementation
  *
- * This file is part of the OpenComal package.
  * (c) Copyright 1992-2002 Jos Visser <josv@osp.nl>
  *
  * The OpenComal package is covered by the GNU General Public
@@ -73,6 +72,8 @@ PRIVATE struct {
 	delSYM, 0, "DEL"}, {
 	dimSYM, 0, "DIM"}, {
 	dirSYM, 0, "DIR"}, {
+	playSYM, 0, "PLAY"}, {
+	toneSYM, 0, "TONE"}, {
 	drawSYM, 0, "DRAW"}, {
 	rsSYM, _DIR, "DIR$"}, {
 	divSYM, 0, "DIV"}, {

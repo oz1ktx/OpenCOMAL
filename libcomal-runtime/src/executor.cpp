@@ -12,6 +12,7 @@
 #include "parser.tab.h"          // token constants
 #include "comal_graphics_commands.h"
 #include "comal_scene_model.h"
+#include "comal_sound.h"
 
 #include <iostream>
 #include <fstream>
@@ -43,6 +44,8 @@ static void execImport(Interpreter& interp, ComalLine* line);
 static void execCall(Interpreter& interp, const std::string& name,
                      const ExpList* args, bool isFunc);
 static void execDraw(Interpreter& interp, ComalLine* line);
+static void execTone(Interpreter& interp, ComalLine* line);
+static void execPlay(Interpreter& interp, ComalLine* line);
 static void execRestore(Interpreter& interp, ComalLine* line);
 
 // Lvalue assignment helpers
@@ -446,6 +449,14 @@ void execLine(Interpreter& interp, ComalLine* line) {
     case StatementType::Run:
     case StatementType::Draw:
         execDraw(interp, line);
+        break;
+
+    case StatementType::Tone:
+        execTone(interp, line);
+        break;
+
+    case StatementType::Play:
+        execPlay(interp, line);
         break;
 
     case StatementType::Dir:
@@ -1684,6 +1695,71 @@ static void execDraw(Interpreter& interp, ComalLine* line) {
     }
 
     interp.notifySceneChanged();
+}
+
+// ── TONE / PLAY (sound) ───────────────────────────────────────────────
+
+static void execTone(Interpreter& interp, ComalLine* line) {
+    auto* elist = std::get_if<ExpList*>(&line->contents());
+    if (!elist || !*elist)
+        throw ComalError(ErrorCode::Parm, "TONE requires two integer arguments: frequency, duration");
+
+    // Expect exactly two numeric arguments: frequency (Hz), duration (ms)
+    std::vector<int> args;
+    for (auto* node = *elist; node; node = node->next()) {
+        Value v = evaluate(interp, node->exp());
+        if (!v.isNumeric())
+            throw ComalError(ErrorCode::Parm, "TONE arguments must be numeric");
+        args.push_back(static_cast<int>(v.toInt()));
+    }
+
+    if (args.size() < 2)
+        throw ComalError(ErrorCode::Parm, "TONE requires two arguments: frequency (Hz), duration (ms)");
+
+    comal::sound::PlaySpec spec;
+    spec.name = "tone";
+    spec.params.push_back(static_cast<double>(args[0]));
+    spec.params.push_back(static_cast<double>(args[1]));
+    spec.duration = static_cast<double>(args[1]);
+
+    static comal::sound::Engine engine;
+    engine.init();
+    engine.play(spec);
+}
+
+static void execPlay(Interpreter& interp, ComalLine* line) {
+    auto* elist = std::get_if<ExpList*>(&line->contents());
+    if (!elist || !*elist)
+        throw ComalError(ErrorCode::Parm, "PLAY requires a string argument");
+
+    // PLAY requires a single string argument for now
+    auto* node = *elist;
+    Value v = evaluate(interp, node->exp());
+    if (!v.isString())
+        throw ComalError(ErrorCode::Parm, "PLAY requires a string argument");
+
+    comal::sound::PlaySpec spec;
+    spec.name = v.asString();
+    spec.duration = 0;
+
+    static comal::sound::Engine engine;
+    engine.init();
+    // If the PLAY string is a volume control like "VOL=80", set engine volume.
+    std::string s = spec.name;
+    std::string up = s;
+    for (auto &c : up) c = std::toupper(static_cast<unsigned char>(c));
+    if (up.rfind("VOL=", 0) == 0) {
+        try {
+            int vnum = std::stoi(s.substr(4));
+            engine.setVolume(vnum);
+            // volume set silently; no debug output
+            return;
+        } catch (...) {
+            throw ComalError(ErrorCode::Parm, "PLAY VOL requires an integer value");
+        }
+    }
+
+    engine.play(spec);
 }
 
 // ── FUNC call from expression ───────────────────────────────────────────

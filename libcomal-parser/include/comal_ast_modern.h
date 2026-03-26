@@ -585,6 +585,8 @@ enum class StatementType : int {
     Rmdir,              // RMDIR path
     Os,                 // OS command
     Draw,               // DRAW expr, ... (graphics placeholder)
+    Tone,               // TONE freq_ms duration_ms
+    Play,               // PLAY param-list / MML string
     Retry,              // RETRY (in HANDLER)
     Trace,              // TRACE on/off
     Label,              // label:

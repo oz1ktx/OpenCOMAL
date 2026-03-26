@@ -48,3 +48,21 @@ PLAY "T140 I10 O5C4E4G4C5"
 
 ## Summary
 This design provides a beginner-friendly PLAY command with a clear path to advanced MIDI features, leveraging Qt Multimedia for robust, cross-platform audio and music support.
+
+---
+
+## Implementation Status (progress update)
+
+- **libcomal-sound**: new subproject added providing a sound `Engine` and `PlaySpec` API. Implemented in `libcomal-sound/` with Qt Multimedia guarded by `USE_QTMULTIMEDIA`.
+- **TONE command**: implemented in `libcomal-runtime/src/executor.cpp` and backed by `libcomal-sound/src/sound_engine.cpp`. Accepts `TONE freq,duration` and generates a sine wave (non-blocking playback).
+- **PLAY command**: parsing and full MML/MIDI playback not yet implemented. Minimal runtime support added: `PLAY "VOL=nn"` sets persistent engine volume. More PLAY features are planned.
+- **Playback details**: uses Qt Multimedia when available; playback is non-blocking and engine state includes an atomic volume. Background playback threads are tracked and joined on shutdown to ensure graceful cleanup.
+- **Tests & cleanup**: a basic integration test `tests/programs/tone_play_test.lst` and helper `tests/test_tone_play.sh` were added; debug output removed from the sound engine.
+- **Packaging**: packaging deps updated to include Qt Multimedia (DEB/RPM) in `CMakeLists.txt` for generated packages.
+
+## Next Implementation Steps
+
+- Implement full PLAY string parsing (MML → event sequence) and MIDI translation.
+- Move `Engine` into per-interpreter state (isolation) — planned optimisation.
+- Add richer tests for non-blocking playback, Engine shutdown, and PLAY semantics.
+

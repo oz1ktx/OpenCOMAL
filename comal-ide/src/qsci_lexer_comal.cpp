@@ -12,7 +12,7 @@ static const QSet<QString> &comalKeywords()
     static const QSet<QString> kw {
         "AND", "APPEND", "CASE", "CLOSE", "CLOSED",
         "CURSOR", "DATA", "DEL", "DELETE", "DIM", "DIV", "DO",
-        "DRAW", "DOWNTO", "ELIF", "ELSE", "END", "ENDCASE", "ENDFOR",
+        "DRAW", "PLAY", "TONE", "DOWNTO", "ELIF", "ELSE", "END", "ENDCASE", "ENDFOR",
         "ENDFUNC", "ENDIF", "ENDLOOP", "ENDPROC", "ENDTRAP",
         "ENDWHILE", "EXEC", "EXIT", "FILE", "FOR",
         "FUNC", "HANDLER", "IF", "IMPORT", "IN", "INPUT", "LOOP",

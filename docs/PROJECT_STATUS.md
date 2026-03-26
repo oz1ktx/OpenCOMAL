@@ -11,6 +11,7 @@
 | Parser Library (libcomal-parser) | ✅ Complete | ~4500 |
 | Runtime Library (libcomal-runtime) | ✅ Complete | ~4500 |
 | Graphics Library (libcomal-graphics) | ✅ Complete | ~690 |
+| Sound Library (libcomal-sound) | ✅ Implemented (partial) | ~120 |
 | LSP Server (comal-lsp) | ✅ Complete | ~1000 |
 | Qt6 GUI IDE (comal-ide) | 🔧 In Progress | ~2200 |
 | Test Suite | ✅ 127/133 pass | 133 programs |
@@ -92,6 +93,16 @@ Self-contained scene model and command parser for 2D drawing.
 - **Group nesting**: dot-notation paths (`Spaceship.Engine.rect …`),
   auto-created on first use
 - **Unit tests**: command parsing and scene execution
+
+### Sound Library (`libcomal-sound/`) — ~120 lines
+
+New sound backend providing `TONE` and a start of `PLAY` support. Key points:
+
+- **TONE**: implemented — generates a sine wave (Qt Multimedia when available) and plays it non-blocking.
+- **PLAY**: minimal runtime support implemented (volume control via `PLAY "VOL=nn"`). Full PLAY MML parsing and MIDI translation are TODO.
+- **Shutdown**: Engine now tracks playback threads and performs graceful stop/join on destruction to avoid leaked threads and dangling audio sinks.
+- **Tests**: basic integration test added (`tests/programs/tone_play_test.lst` + `tests/test_tone_play.sh`).
+
 
 ### LSP Server (`comal-lsp/`) — ~1000 lines
 
@@ -212,6 +223,10 @@ DRAW `animate` command for group-level property animation
 Uses Qt's `QPropertyAnimation` framework (no QML needed). Requires QObject
 property wrappers per group and a continuous render loop or incremental
 transform updates. See `docs/future_graphics_addon.md` §2.3.
+
+### DRAW text command
+The set of DRAW commands lack a method for placing text on the canvas. First iteration could be: DRAW text, x, y, "String"
+and later font size, rotation, colour, etc, can be added.
 
 ### Planned Language/Runtime Features
 - **SLEEP command:** Pause execution for a specified duration (milliseconds/seconds). Useful for demonstrating multithreading and timing control.

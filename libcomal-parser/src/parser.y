@@ -87,6 +87,8 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	dimSYM
 %token  dirSYM
 %token  drawSYM
+%token  playSYM
+%token  toneSYM
 %token	divideSYM 
 %token	divSYM 
 %token	doSYM 
@@ -231,7 +233,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %type	<cl>		select_out_stat stop_stat sys_stat write_stat assign_stat
 %type	<cl>		select_in_stat exit_stat trace_stat cursor_stat chdir_stat
 %type	<cl>		rmdir_stat mkdir_stat repeat_stat
-%type	<cl>		local_stat trap_stat dir_stat unit_stat draw_stat
+%type	<cl>		local_stat trap_stat dir_stat unit_stat draw_stat play_stat tone_stat
 
 %type	<pcl>		optsimple_stat 
 
@@ -508,6 +510,8 @@ simple_stat	:	close_stat
 		|	select_in_stat
 		|	stop_stat
 		|	sys_stat
+		|	play_stat
+		|	tone_stat
 		|	trace_stat
 		|	trap_stat
 		|	unit_stat
@@ -681,6 +685,22 @@ draw_stat	:	drawSYM exp_list
 				}
 			}
 		;
+
+	tone_stat	:	toneSYM exp_list
+				{
+				$$.cmd=toneSYM;
+				$$.lc.exproot=PARS_REVERSE(struct exp_list, $2);
+				/* Expected usage: TONE freq_ms duration_ms or numeric expressions */
+			}
+			;
+
+	play_stat	:	playSYM exp_list
+				{
+				$$.cmd=playSYM;
+				$$.lc.exproot=PARS_REVERSE(struct exp_list, $2);
+				/* PLAY takes a parameter list or string — parsed as expression list */
+			}
+			;
 
 del_stat	:	delSYM stringexp
 			{

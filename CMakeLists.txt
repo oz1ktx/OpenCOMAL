@@ -8,6 +8,8 @@ add_subdirectory(libcomal-parser)
 add_subdirectory(libcomal-runtime)
 
 add_subdirectory(libcomal-graphics)
+ 
+add_subdirectory(libcomal-sound)
 
 add_subdirectory(comal-lsp)
 add_subdirectory(comal-ide)
@@ -58,6 +60,7 @@ set(CPACK_DEBIAN_PACKAGE_MAINTAINER "maintainer@example.com")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS
     qt6-base
     qt6-svg
+  qt6-multimedia
     libqscintilla2-qt6
     libncurses6
     readline)
@@ -67,6 +70,7 @@ set(CPACK_DEBIAN_PACKAGE_DEPENDS
 set(CPACK_RPM_SPEC_MORE_DEFINE
     "Requires: qt6-qtbase
 Requires: qt6-qtsvg
+Requires: qt6-qtmultimedia
 Requires: qscintilla-qt6
 Requires: ncurses
 Requires: readline")
