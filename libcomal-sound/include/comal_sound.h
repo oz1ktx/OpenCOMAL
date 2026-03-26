@@ -34,9 +34,13 @@ private:
     // Playback bookkeeping for graceful shutdown
 #ifdef USE_QTMULTIMEDIA
     std::mutex play_mutex_;
-    std::vector<std::thread> play_threads_;
     // store opaque pointers to QAudioSink to avoid requiring the Qt headers
-    std::vector<void*> active_audios_;
+    // persistent audio output owned by the Engine (opaque QAudioSink*)
+    void* persistent_audio_ = nullptr;
+    // track active QIODevice pointers used for playback so we can close them
+    std::vector<void*> active_buffers_;
+    // Qt-specific helper to start a tone on the Qt event loop
+    void startToneOnQtThread(int freq, int sampleCount, int sampleRate, double ampScale, double dur_ms);
 #else
     // no-op when Qt multimedia is not available
 #endif

@@ -103,6 +103,19 @@ New sound backend providing `TONE` and a start of `PLAY` support. Key points:
 - **Shutdown**: Engine now tracks playback threads and performs graceful stop/join on destruction to avoid leaked threads and dangling audio sinks.
 - **Tests**: basic integration test added (`tests/programs/tone_play_test.lst` + `tests/test_tone_play.sh`).
 
+**Recent changes (26 March 2026)**
+
+- Reworked playback to use a persistent `QAudioSink` owned by `Engine`.
+- Replaced large PCM buffers with an on-demand `ToneIODevice` that
+  synthesises samples in `readData()` (reduces memory and latency).
+- Removed seconds-vs-milliseconds heuristic; durations are treated as
+  milliseconds.
+- Output is stereo (duplicate mono into both channels) and uses a
+  phase-accumulator to avoid pops/clicks.
+- Cleanup and lifetime handling moved to Qt-style event-based logic
+  (`QTimer::singleShot`, `deleteLater`) and a `startToneOnQtThread`
+  helper was added for clean dispatching.
+
 
 ### LSP Server (`comal-lsp/`) — ~1000 lines
 

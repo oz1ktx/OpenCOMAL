@@ -1705,12 +1705,12 @@ static void execTone(Interpreter& interp, ComalLine* line) {
         throw ComalError(ErrorCode::Parm, "TONE requires two integer arguments: frequency, duration");
 
     // Expect exactly two numeric arguments: frequency (Hz), duration (ms)
-    std::vector<int> args;
+    std::vector<double> args;
     for (auto* node = *elist; node; node = node->next()) {
         Value v = evaluate(interp, node->exp());
         if (!v.isNumeric())
             throw ComalError(ErrorCode::Parm, "TONE arguments must be numeric");
-        args.push_back(static_cast<int>(v.toInt()));
+        args.push_back(v.toDouble());
     }
 
     if (args.size() < 2)
@@ -1718,13 +1718,16 @@ static void execTone(Interpreter& interp, ComalLine* line) {
 
     comal::sound::PlaySpec spec;
     spec.name = "tone";
-    spec.params.push_back(static_cast<double>(args[0]));
-    spec.params.push_back(static_cast<double>(args[1]));
-    spec.duration = static_cast<double>(args[1]);
+    spec.params.push_back(args[0]);
+    spec.params.push_back(args[1]);
+    spec.duration = args[1];
 
-    static comal::sound::Engine engine;
-    engine.init();
-    engine.play(spec);
+    static comal::sound::Engine* engine = [](){
+        auto *e = new comal::sound::Engine();
+        e->init();
+        return e;
+    }();
+    engine->play(spec);
 }
 
 static void execPlay(Interpreter& interp, ComalLine* line) {
@@ -1742,8 +1745,11 @@ static void execPlay(Interpreter& interp, ComalLine* line) {
     spec.name = v.asString();
     spec.duration = 0;
 
-    static comal::sound::Engine engine;
-    engine.init();
+    static comal::sound::Engine* engine = [](){
+        auto *e = new comal::sound::Engine();
+        e->init();
+        return e;
+    }();
     // If the PLAY string is a volume control like "VOL=80", set engine volume.
     std::string s = spec.name;
     std::string up = s;
@@ -1751,7 +1757,7 @@ static void execPlay(Interpreter& interp, ComalLine* line) {
     if (up.rfind("VOL=", 0) == 0) {
         try {
             int vnum = std::stoi(s.substr(4));
-            engine.setVolume(vnum);
+            engine->setVolume(vnum);
             // volume set silently; no debug output
             return;
         } catch (...) {
@@ -1759,7 +1765,7 @@ static void execPlay(Interpreter& interp, ComalLine* line) {
         }
     }
 
-    engine.play(spec);
+    engine->play(spec);
 }
 
 // ── FUNC call from expression ───────────────────────────────────────────

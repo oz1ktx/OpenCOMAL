@@ -65,4 +65,5 @@ This design provides a beginner-friendly PLAY command with a clear path to advan
 - Implement full PLAY string parsing (MML → event sequence) and MIDI translation.
 - Move `Engine` into per-interpreter state (isolation) — planned optimisation.
 - Add richer tests for non-blocking playback, Engine shutdown, and PLAY semantics.
-
+- Implement the software mixer for overlapping tones, or
+- Add tests for TONE playback.
