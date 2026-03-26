@@ -39,8 +39,9 @@ PLAY "C D E F"
 - Future: Extend the TONE command with ASDR (attack, sustain, delay, release) envelope. 
 
 ## Summary
-This design provides a beginner-friendly PLAY command with a clear path to advanced MIDI features, leveraging Qt Multimedia for robust, cross-platform audio and music support.
-Adding MIDI support adds an extra dependency to the final package.
+
+- This design provides a beginner-friendly PLAY command with a clear path to advanced MIDI features, leveraging Qt Multimedia for robust, cross-platform audio and music support.
+- Adding MIDI support adds an extra dependency to the final package.
 ---
 
 ## Implementation Status (progress update)
