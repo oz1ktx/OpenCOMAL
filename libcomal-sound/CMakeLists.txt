@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(SOUND_SOURCES
     src/sound_commands.cpp
     src/sound_engine.cpp
+    src/tone_player.cpp
+    src/midi_player.cpp
 )
 
 # ── Library ────────────────────────────────────────────────────────────────

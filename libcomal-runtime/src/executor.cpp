@@ -20,6 +20,8 @@
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
+#include <thread>
+#include <chrono>
 
 namespace comal::runtime {
 
@@ -1706,11 +1708,47 @@ static void execTone(Interpreter& interp, ComalLine* line) {
 
     // Expect exactly two numeric arguments: frequency (Hz), duration (ms)
     std::vector<double> args;
+    bool async = false;
     for (auto* node = *elist; node; node = node->next()) {
-        Value v = evaluate(interp, node->exp());
-        if (!v.isNumeric())
-            throw ComalError(ErrorCode::Parm, "TONE arguments must be numeric");
-        args.push_back(v.toDouble());
+        const comal::Expression* e = node->exp();
+        if (!e) continue;
+        
+        // Unwrap ExpIsNum/ExpIsString wrappers so modifiers (Id/String) are visible
+        const comal::Expression* inner = e;
+        while (inner && (inner->opType() == comal::OpType::ExpIsNum || inner->opType() == comal::OpType::ExpIsString))
+            inner = inner->asExp();
+
+        // First handle bare identifier/string modifiers like ASYNC/NOWAIT
+        if (inner->opType() == comal::OpType::Id) {
+            const auto &eid = std::get<comal::ExpId>(inner->data());
+            const char* idn = eid.id ? eid.id->name : "";
+            std::string iname(idn);
+            for (auto &c : iname) c = std::toupper(static_cast<unsigned char>(c));
+            if (iname == "ASYNC" || iname == "NOWAIT") {
+                async = true;
+                continue;
+            }
+            // Not a known modifier — fall through to evaluate (may be a variable containing a number)
+        }
+        if (inner->opType() == comal::OpType::String) {
+            auto *s = inner->asString();
+            std::string ss(s->s, s->len);
+            std::string up = ss;
+            for (auto &c : up) c = std::toupper(static_cast<unsigned char>(c));
+            if (up == "ASYNC" || up == "NOWAIT") {
+                async = true;
+                continue;
+            }
+            // Otherwise treat as an expression (may evaluate to a number)
+        }
+
+        // Evaluate expression for numeric arguments (evaluate original expression to honor wrappers)
+        Value v = evaluate(interp, e);
+        if (v.isNumeric()) {
+            args.push_back(v.toDouble());
+            continue;
+        }
+        throw ComalError(ErrorCode::Parm, "TONE arguments must be numeric or ASYNC/NOWAIT");
     }
 
     if (args.size() < 2)
@@ -1721,51 +1759,122 @@ static void execTone(Interpreter& interp, ComalLine* line) {
     spec.params.push_back(args[0]);
     spec.params.push_back(args[1]);
     spec.duration = args[1];
+    spec.async = async;
 
     static comal::sound::Engine* engine = [](){
         auto *e = new comal::sound::Engine();
         e->init();
+        comal::sound::registerEngine(e);
         return e;
     }();
-    engine->play(spec);
+    auto fut = engine->play(spec);
+    // Blocking behaviour by default: wait on engine completion unless async requested
+    if (!spec.async && fut) {
+        try {
+            fut->wait();
+        } catch (...) {
+            // ignore wait errors
+        }
+    }
+
 }
 
 static void execPlay(Interpreter& interp, ComalLine* line) {
     auto* elist = std::get_if<ExpList*>(&line->contents());
     if (!elist || !*elist)
         throw ComalError(ErrorCode::Parm, "PLAY requires a string argument");
-
-    // PLAY requires a single string argument for now
+    // PLAY supports a string argument followed by optional parameters.
+    // First element must be a string describing the source/command.
     auto* node = *elist;
-    Value v = evaluate(interp, node->exp());
-    if (!v.isString())
-        throw ComalError(ErrorCode::Parm, "PLAY requires a string argument");
+    Value firstVal = evaluate(interp, node->exp());
+    if (!firstVal.isString())
+        throw ComalError(ErrorCode::Parm, "PLAY requires a string argument as the first parameter");
 
     comal::sound::PlaySpec spec;
-    spec.name = v.asString();
+    spec.name = firstVal.asString();
     spec.duration = 0;
+    spec.async = false;
+
+    // parse remaining parameters (if any)
+    for (auto *n = node->next(); n; n = n->next()) {
+        const comal::Expression* e = n->exp();
+        if (!e) continue;
+        // If it's a string, allow key=value forms (e.g. "VOL=80", "SF2=/path")
+        if (e->opType() == comal::OpType::String) {
+            auto *s = e->asString();
+            std::string ss(s->s, s->len);
+            std::string up = ss;
+            for (auto &c : up) c = std::toupper(static_cast<unsigned char>(c));
+            if (up.rfind("VOL=", 0) == 0) {
+                try {
+                    int vnum = std::stoi(ss.substr(4));
+                    // set engine volume immediately
+                    static comal::sound::Engine* engine = [](){ auto *e = new comal::sound::Engine(); e->init(); comal::sound::registerEngine(e); return e; }();
+                    engine->setVolume(vnum);
+                } catch (...) {
+                    throw ComalError(ErrorCode::Parm, "PLAY VOL requires an integer value");
+                }
+            } else if (up.rfind("DUR=", 0) == 0) {
+                try {
+                    spec.duration = std::stod(ss.substr(4));
+                } catch (...) {
+                    throw ComalError(ErrorCode::Parm, "PLAY DUR requires a numeric value (ms)");
+                }
+            } else if (up == "ASYNC" || up == "NOWAIT") {
+                spec.async = true;
+            }
+            continue;
+        }
+
+        // If it's an identifier (Id/Sid), inspect the id name without evaluating
+        if (e->opType() == comal::OpType::Id) {
+            const auto &eid = std::get<comal::ExpId>(e->data());
+            const char* idn = eid.id ? eid.id->name : "";
+            std::string iname(idn);
+            for (auto &c : iname) c = std::toupper(static_cast<unsigned char>(c));
+            if (iname == "ASYNC" || iname == "NOWAIT") {
+                spec.async = true;
+                continue;
+            }
+            if (iname == "VOL") {
+                // expect next node to be numeric
+                if (!n->next()) throw ComalError(ErrorCode::Parm, "PLAY VOL requires a numeric value");
+                Value vv = evaluate(interp, n->next()->exp());
+                if (!vv.isNumeric()) throw ComalError(ErrorCode::Parm, "PLAY VOL requires a numeric value");
+                static comal::sound::Engine* engine = [](){ auto *e = new comal::sound::Engine(); e->init(); comal::sound::registerEngine(e); return e; }();
+                engine->setVolume(static_cast<int>(vv.toDouble()));
+                n = n->next(); // skip value
+                continue;
+            }
+            if (iname == "DUR") {
+                if (!n->next()) throw ComalError(ErrorCode::Parm, "PLAY DUR requires a numeric value (ms)");
+                Value dv = evaluate(interp, n->next()->exp());
+                if (!dv.isNumeric()) throw ComalError(ErrorCode::Parm, "PLAY DUR requires a numeric value (ms)");
+                spec.duration = dv.toDouble();
+                n = n->next();
+                continue;
+            }
+        }
+
+        // If it's numeric, append to params (e.g., PLAY "tone", freq, dur)
+        Value vv = evaluate(interp, e);
+        if (vv.isNumeric()) {
+            spec.params.push_back(vv.toDouble());
+            continue;
+        }
+        // Unknown parameter form — ignore or raise error; choose to ignore silently
+    }
 
     static comal::sound::Engine* engine = [](){
         auto *e = new comal::sound::Engine();
         e->init();
         return e;
     }();
-    // If the PLAY string is a volume control like "VOL=80", set engine volume.
-    std::string s = spec.name;
-    std::string up = s;
-    for (auto &c : up) c = std::toupper(static_cast<unsigned char>(c));
-    if (up.rfind("VOL=", 0) == 0) {
-        try {
-            int vnum = std::stoi(s.substr(4));
-            engine->setVolume(vnum);
-            // volume set silently; no debug output
-            return;
-        } catch (...) {
-            throw ComalError(ErrorCode::Parm, "PLAY VOL requires an integer value");
-        }
-    }
 
-    engine->play(spec);
+    auto pfut = engine->play(spec);
+    if (!spec.async && pfut) {
+        try { pfut->wait(); } catch (...) {}
+    }
 }
 
 // ── FUNC call from expression ───────────────────────────────────────────

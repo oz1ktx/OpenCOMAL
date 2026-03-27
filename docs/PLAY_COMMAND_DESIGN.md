@@ -1,8 +1,13 @@
 # PLAY and TONE Command Design for OpenCOMAL
 
 ## Overview
-The PLAY command enables users to play musical notes and melodies from within COMAL programs. The design aims to be accessible for beginners while providing advanced features for users familiar with MIDI and music programming. The implementation leverages the Qt Multimedia framework for audio and MIDI support.
-The TONE command enables users to generate a sine wave at any frequency and duration.
+This document describes the intended design and the current, implemented behaviour of the `PLAY` and `TONE` commands.
+
+Summary of implemented behaviour (current):
+- `TONE` is implemented in the runtime and accepts comma-separated arguments: frequency (Hz), duration (ms), and optional flags such as `ASYNC`/`NOWAIT`, `VOL`, `DUR`.
+- `PLAY` (ABC subset → MIDI) is planned; a lightweight subset was specified, but full ABC→MIDI playback is not implemented yet. The runtime provides the playback engine API used by `TONE` and (eventually) `PLAY`.
+
+Notes about implementation: the sound subsystem exposes an `Engine::play(PlaySpec)` API that returns a completion handle (`std::shared_ptr<std::shared_future<void>>`). The interpreter (`execTone` / `execPlay`) will wait on that future when the call is blocking; when `ASYNC`/`NOWAIT` is given the interpreter does not wait.
 
 ## Goals
 - Allow beginners to play simple melodies with minimal syntax.
@@ -12,23 +17,35 @@ The TONE command enables users to generate a sine wave at any frequency and dura
 
 ## User-Facing Syntax
 ### Basic Usage
+`TONE` (implemented):
+```
+TONE 440, 500           ; frequency in Hz, duration in ms (comma-separated)
+TONE 440, 500, ASYNC    ; same, do not block
+TONE 440, 500, VOL=80   ; optional volume param
+```
+
+Notes:
+- The parser uses `exp_list` so arguments must be comma-separated. A missing comma (for example before `ASYNC`) will produce a parse error.
+- `ASYNC` and `NOWAIT` keywords are recognized as optional flags. When present, the interpreter issues playback and continues without waiting for completion.
+- Numeric and named parameters (`VOL`, `DUR`) are accepted by the runtime where applicable.
+
+`PLAY` (partial/spec):
 ```
 PLAY "C D E F"
 ```
-- Plays notes C, D, E, G .
-- Octave, note, and duration follow ABC conventions.
+- `PLAY` was designed to accept an ABC subset, but full ABC→MIDI playback is not yet implemented in the runtime. The design below documents the intended conversion rules for a future implementation.
 
-### ABC Subset (initial)
+### ABC Subset (design — not fully implemented)
 
-- The first implementation will accept a small, well-defined subset of ABC notation to provide a "PLAY \"A B C D\"" experience without pulling in external tools.
-- Supported features (initial):
-	- Notes A–G, accidentals `^` (sharp), `_` (flat), and `=` (natural).
-	- Octave markers via commas/quotes (`,` for lower, `'` for higher) or implicit octave from a starting `L:` value.
-	- Note lengths as integers or fractions (e.g. `A`, `A2`, `A/2`).
-	- Rests `z`.
-	- Default unit length `L:` and tempo `Q:` directives to set duration-to-ms conversion.
-- This subset is intentionally small so it can be converted 1:1 into timed note events (pitch + duration) and then into MIDI note-on/note-off messages or fed to an internal mixer.
-- Full ABC features (voices, ornaments, complex tuplets, repeats) are out of scope for the initial implementation and can be added later or handled by an optional `abc2midi` bridge.
+The design specifies a small ABC subset for future `PLAY` implementation. This file records the conversion rules, but note that the runtime currently lacks the complete ABC parser/translator and MIDI backend wiring described here.
+
+Planned subset (for deterministic conversion to timed events):
+- Notes A–G, accidentals `^`/`_`/`=`.
+- Octave markers via `,` and `'` or a starting `L:` value.
+- Note lengths as integers/fractions (`A`, `A2`, `A/2`).
+- Rests `z`, default `L:` and tempo `Q:` directives.
+
+Full ABC features (voices, complex repeats) are out of scope for the initial engine and may be added later or handled by an external bridge.
 
 ### Advanced Usage
 - ABC commands are transferred to the MIDI backend.
@@ -41,10 +58,16 @@ PLAY "C D E F"
 
 Notes on conversion: for the initial subset, conversion is deterministic — resolve `L:` and `Q:` to a base milliseconds-per-beat, convert ABC length tokens to milliseconds, map note+octave+accidental to MIDI note numbers, and emit note-on/note-off at computed times.
 
-## Playback Implementation
-- Use Qt Multimedia (QMediaPlayer, QAudioOutput, or QMidiOut) to play the generated MIDI sequence.
-- For simple tones (TONE command), generate sine waves using QAudioOutput and a custom QIODevice.
-- For PLAY, prefer MIDI playback for polyphony, instrument support, and timing accuracy.
+## Playback Implementation (actual behaviour)
+
+- Engine API: `libcomal-sound` exposes an `Engine::play(const PlaySpec &)` API that returns a `std::shared_ptr<std::shared_future<void>>` representing completion.
+- Interpreter: `execTone` and `execPlay` construct a `PlaySpec` (frequency/name, duration, optional params, and an `async` flag). They call `engine->play(spec)` and: wait on the returned future when `spec.async` is false; do not wait when `spec.async` is true.
+- Qt vs CLI behaviour: the Qt-based engine implementation posts cleanup tasks via the Qt event loop when available, but it guarantees the completion promise is fulfilled even when no Qt event loop runs (comal-run CLI). To achieve this, the Qt implementation uses a detached thread to schedule timed completion and always sets the completion promise — preventing deadlocks in CLI mode.
+- Fallback engine: a non-Qt fallback engine returns an already-ready `shared_future` so blocking calls return immediately without playing audio (useful for headless or test builds).
+
+Implementation notes:
+- The runtime previously used ad-hoc `sleep()` to simulate blocking playback; this was replaced by waiting on engine-provided futures so the engine can decide how to implement completion semantics.
+- Engines are registered with `registerEngine(...)` and cleaned up via `shutdownAllEngines()` on program exit to ensure resources (threads, Qt objects) are stopped before process termination.
 
 ## Extensibility
 - Future: support for loading/saving MIDI files, real-time playback control.
@@ -140,17 +163,21 @@ Update the roadmap tasks in the repository TODOs (or project board) when ready s
 
 ## Implementation Status (progress update)
 
-- **libcomal-sound**: new subproject added providing a sound `Engine` and `PlaySpec` API. Implemented in `libcomal-sound/` with Qt Multimedia guarded by `USE_QTMULTIMEDIA`.
-- **TONE command**: implemented in `libcomal-runtime/src/executor.cpp` and backed by `libcomal-sound/src/sound_engine.cpp`. Accepts `TONE freq,duration` and generates a sine wave (non-blocking playback).
-- **PLAY command**: parsing and full ABC/MIDI playback not yet implemented. Minimal runtime support added: `PLAY "VOL=nn"` sets persistent engine volume. More PLAY features are planned.
-- **Playback details**: uses Qt Multimedia when available; playback is non-blocking and engine state includes an atomic volume. Background playback threads are tracked and joined on shutdown to ensure graceful cleanup.
-- **Tests & cleanup**: a basic integration test `tests/programs/tone_play_test.lst` and helper `tests/test_tone_play.sh` were added; debug output removed from the sound engine.
-- **Packaging**: packaging deps updated to include Qt Multimedia (DEB/RPM) in `CMakeLists.txt` for generated packages.
+- `libcomal-sound` provides the sound `Engine` API and `PlaySpec`. The header API (`PlaySpec`, `Engine::play`) and a fallback engine are implemented.
+- `TONE` is implemented in `libcomal-runtime/src/executor.cpp`. It requires comma-separated arguments (parser `exp_list`) and recognizes `ASYNC`/`NOWAIT` and parameter keywords like `VOL`/`DUR` where applicable. The interpreter waits on engine completion futures for blocking calls.
+- `PLAY` (ABC subset → MIDI) remains design/roadmap work: conversion rules are documented here but full translation and MIDI playback are not yet wired into the runtime.
+- Engine completion semantics:
+	- Engines return a `std::shared_ptr<std::shared_future<void>>` to signal completion.
+	- The Qt engine implementation guarantees the completion promise is fulfilled even when no Qt event loop runs (comal-run CLI), avoiding deadlocks.
+	- A fallback engine returns a ready future (no-op) for headless/testing builds.
+- Shutdown: `shutdownAllEngines()` is invoked from `tools/comal_run.cpp` on exit paths so engines can stop background threads and release Qt resources.
+- Tests: unit/integration tests added for `TONE` blocking/async behaviour; temporary debug tests were removed.
 
 ## Next Implementation Steps
 
-- Implement full PLAY string parsing (ABC → event sequence) and MIDI translation.
-- Move `Engine` into per-interpreter state (isolation) — planned optimisation.
-- Add richer tests for non-blocking playback, Engine shutdown, and PLAY semantics.
-- Implement the software mixer for overlapping tones, or
-- Add tests for TONE playback.
+1. Implement ABC→event conversion and a MIDI backend or FluidSynth integration so `PLAY` can render polyphonic ABC input.
+2. Add a software mixer and proper polyphony/mixer tests (voice management, per-source volumes, envelope support).
+3. Add packaging support for FluidSynth/SoundFont usage and document SF2 handling.
+4. Consider making `Engine` interpreter-scoped (per-interpreter instance) for better isolation in multi-instance hosts.
+
+If you want, I can open a follow-up PR that implements the ABC parser stub and a small integration test that exercises `PLAY` in a no-op (fallback) mode so tests can assert parsing without requiring audio backends.

@@ -8,6 +8,7 @@
 #include <mutex>
 #include <thread>
 #include <memory>
+#include <future>
 
 namespace comal::sound {
 
@@ -15,6 +16,7 @@ struct PlaySpec {
     std::string name;
     double duration = 0.0;
     std::vector<double> params;
+    bool async = false;
 };
 
 class Engine {
@@ -22,7 +24,8 @@ public:
     Engine();
     ~Engine();
     void init();
-    void play(const PlaySpec& spec);
+    // Returns a shared_future handle that will be set when playback finishes.
+    std::shared_ptr<std::shared_future<void>> play(const PlaySpec& spec);
     // Stop any active playback and join background threads.
     void stop();
     // Volume 0-100
@@ -40,10 +43,17 @@ private:
     // track active QIODevice pointers used for playback so we can close them
     std::vector<void*> active_buffers_;
     // Qt-specific helper to start a tone on the Qt event loop
-    void startToneOnQtThread(int freq, int sampleCount, int sampleRate, double ampScale, double dur_ms);
+    // The optional `completion` promise will be fulfilled when playback finishes.
+    void startToneOnQtThread(int freq, int sampleCount, int sampleRate, double ampScale, double dur_ms,
+                              std::shared_ptr<std::promise<void>> completion = nullptr);
 #else
     // no-op when Qt multimedia is not available
 #endif
 };
+
+// Register a created Engine so it can be shutdown on process exit.
+void registerEngine(Engine* e);
+// Stop and destroy all registered engines. Safe to call multiple times.
+void shutdownAllEngines();
 
 } // namespace comal::sound
