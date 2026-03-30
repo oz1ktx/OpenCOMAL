@@ -65,6 +65,12 @@ set(CPACK_DEBIAN_PACKAGE_DEPENDS
     libncurses6
     readline)
 
+# Recommend FluidSynth and a common soundfont package for MIDI playback
+# Add fluidsynth to runtime dependencies and recommend a soundfont package
+list(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS fluidsynth)
+set(CPACK_DEBIAN_PACKAGE_RECOMMENDS
+    fluid-soundfont-gm)
+
 # RPM: use common Fedora package names
 # CPACK_RPM_PACKAGE_REQUIRES doesn't work properly with lists, so use SPEC_MORE_DEFINE
 set(CPACK_RPM_SPEC_MORE_DEFINE
@@ -74,6 +80,7 @@ Requires: qt6-qtmultimedia
 Requires: qscintilla-qt6
 Requires: ncurses
 Requires: readline")
+set(CPACK_RPM_SPEC_MORE_DEFINE "${CPACK_RPM_SPEC_MORE_DEFINE}\nRequires: fluidsynth\nSuggests: fluid-soundfont-gm")
 set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0-or-later")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/legacy/doc/LICENSE")
 set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}")

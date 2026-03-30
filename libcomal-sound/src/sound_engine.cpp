@@ -49,11 +49,25 @@ void Engine::init() {
 }
 
 std::shared_ptr<std::shared_future<void>> Engine::play(const PlaySpec& /*spec*/) {
-    // fallback: no-op when Qt Multimedia is unavailable — return an already-ready future
+    // Fallback: if FluidSynth is available, route ABC-like strings to it.
+#ifdef USE_FLUIDSYNTH
+    // If the spec encodes an ABC string in spec.name, forward to synth.
+    // We expect the runtime to set spec.name to the ABC payload for PLAY.
+    // The midi player will return a future that completes when playback ends.
+    // Note: this minimal path ignores spec.params and spec.duration for now.
+    try {
+        // call into midi_player wrapper
+        return comal::sound::playABCWithSynth(spec.name);
+    } catch (...) {
+        std::promise<void> pr; pr.set_value(); return std::make_shared<std::shared_future<void>>(pr.get_future().share());
+    }
+#else
+    // No multimedia / no fluidsynth: return ready future (no-op)
     std::promise<void> pr;
     pr.set_value();
     auto sf = std::make_shared<std::shared_future<void>>(pr.get_future().share());
     return sf;
+#endif
 }
 #else
 // silence - when USE_QTMULTIMEDIA is set the implementation is in tone_player.cpp

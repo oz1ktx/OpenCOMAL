@@ -17,6 +17,12 @@
 
 namespace comal::sound {
 
+#ifdef USE_FLUIDSYNTH
+// Forward declaration of fluidsynth wrapper implemented in midi_player.cpp
+std::shared_ptr<std::shared_future<void>> playABCWithSynth(const std::string& abc);
+#endif
+
+
 // A QIODevice that generates a sine wave on demand. Generates interleaved
 // samples for the requested channel count (duplicates mono into all channels).
 class ToneIODevice : public QIODevice {
@@ -129,11 +135,23 @@ std::shared_ptr<std::shared_future<void>> Engine::play(const PlaySpec& spec) {
     auto prom = std::make_shared<std::promise<void>>();
     auto fut = std::make_shared<std::shared_future<void>>(prom->get_future().share());
 
+#ifdef USE_FLUIDSYNTH
+    if (spec.name != "tone") {
+        // If FluidSynth is available, forward ABC/MML strings to the synth
+        try {
+            return playABCWithSynth(spec.name);
+        } catch (...) {
+            try { prom->set_value(); } catch (...) {}
+            return fut;
+        }
+    }
+#else
     if (spec.name != "tone") {
         // unsupported play type for now — signal completion immediately
         try { prom->set_value(); } catch (...) {}
         return fut;
     }
+#endif
 
     if (spec.params.empty()) {
         try { prom->set_value(); } catch (...) {}

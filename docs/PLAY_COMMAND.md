@@ -52,3 +52,32 @@ References
 
 - FluidSynth: https://www.fluidsynth.org/ (link for packaging/build configuration)
 - abcmidi / abc2midi (for ABC→MIDI conversion)
+
+---
+
+Progress snapshot (2026-03-30)
+
+- ABC parser: added a lightweight, token-based ABC→ToneEvent parser (libcomal-sound/include/comal_abc.h, src/abc_parser.cpp) and unit test. (done)
+- `TONE` implemented in the Qt engine and routes to a Qt-based `ToneIODevice`. (existing)
+- FluidSynth backend: added a FluidSynth-based midi player wrapper (src/midi_player.cpp) and CMake detection for FluidSynth; `Engine::play` is wired to call FluidSynth for ABC strings in fallback and Qt builds when FluidSynth is available. (done)
+- Packaging: CPack metadata updated to recommend `fluid-soundfont-gm` and depend on `fluidsynth` where appropriate. (done)
+
+What worked during testing
+
+- CLI FluidSynth (`fluidsynth`) loads the system SF2 and plays notes when connected to an audible sink.
+- The IDE (comal-ide) can emit note events via the in-process FluidSynth when the system sink routing allowed audio to the speakers. The lack of sound earlier was due to sink routing (USB headset vs built-in speakers).
+
+Outstanding follow-ups (next session)
+
+- Add `SF2=` parameter parsing in `execPlay` so callers can select a SoundFont per `PLAY` call. (planned)
+- Add verbose FluidSynth logs and an environment override `COMAL_FLUIDSYNTH_DRIVER` to force the audio driver (`pulseaudio`, `alsa`, etc.). (planned)
+- Improve scheduling: replace sleep-based note scheduling with a proper event scheduler and add polyphony/mixer. (planned)
+- Optionally include a default SF2 in `packaging/` (requires license confirmation) and wire packaging to install it under `/usr/share/soundfonts/`. (planned)
+- Add automated tests (CI-friendly) that exercise the ABC parser and verify `Engine::play` behavior using the fallback ready-future in headless builds. (planned)
+
+If you want to pick up from here next time, recommended first actions:
+
+1. Implement `SF2=` support in `execPlay` and a small runtime test program under `tests/programs/`.
+2. Add `COMAL_FLUIDSYNTH_DRIVER` support and verbose logging so in-process playback is diagnosable across audio backends.
+3. Add one or two small polyphony/mixer unit tests and then refactor the `tone_player` to use a mixer `QIODevice`.
+
