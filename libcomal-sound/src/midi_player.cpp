@@ -48,8 +48,10 @@ public:
                 nullptr
             };
             for (const char** p = candidates; *p; ++p) {
-                int r = fluid_synth_sfload(synth, *p, 1);
-                if (r > 0) break;
+                if (access(*p, F_OK) == 0) {
+                    int r = fluid_synth_sfload(synth, *p, 1);
+                    if (r > 0) break;
+                }
             }
         }
     }
@@ -113,27 +115,4 @@ std::shared_ptr<std::shared_future<void>> playABCWithSynth(const std::string& ab
 }
 
 } // namespace comal::sound
-#include "comal_sound.h"
-
-#include <string>
-#include <iostream>
-
-namespace comal::sound {
-
-// Minimal ABC/MIDI handling lives here. At the moment this is a
-// lightweight stub so the codebase separates responsibilities; real
-// parsing/playback implementations can be added here later.
-class MidiHandler {
-public:
-    static void init() {
-        // placeholder: initialize MIDI/ABC subsystems if present
-        std::cout << "[sound] midi init (stub)\n";
-    }
-
-    static void playABC(const std::string& abc) {
-        // placeholder: schedule/interpret ABC string
-        std::cout << "[sound] playABC stub: " << abc << "\n";
-    }
-};
-
-} // namespace comal::sound
+// end of file
