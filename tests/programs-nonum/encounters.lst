@@ -1,0 +1,4 @@
+PAGE
+PRINT "Close encounters"
+PLAY "L:1  D E C C, G, "
+PRINT "Done"

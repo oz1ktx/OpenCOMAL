@@ -193,6 +193,7 @@ PRIVATE struct {
 	whenSYM, 0, "WHEN"}, {
 	whileSYM, 0, "WHILE"}, {
 	writeSYM, 0, "WRITE"}, {
+	sleepSYM, 0, "SLEEP"}, {
 	0, 0, "<undefined>"}
 };
 

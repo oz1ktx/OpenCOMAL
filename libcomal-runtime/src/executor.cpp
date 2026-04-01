@@ -103,7 +103,24 @@ void execSeq(Interpreter& interp, ComalLine* start) {
 // ── execLine — dispatch one statement ───────────────────────────────────
 
 void execLine(Interpreter& interp, ComalLine* line) {
+
     switch (line->command()) {
+    // ── SLEEP ─────────────────────────────────────────────────────────────
+    case StatementType::Sleep: {
+        auto* elist = std::get_if<ExpList*>(&line->contents());
+        if (!elist || !*elist)
+            break; // no args -> no-op
+
+        auto* node = *elist;
+        if (!node || !node->exp())
+            break;
+
+        Value v = evaluate(interp, node->exp());
+        int64_t ms = v.toInt();
+        if (ms > 0)
+            std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+        break;
+    }
 
     // ── No-ops ──────────────────────────────────────────────────────────
     case StatementType::Empty:

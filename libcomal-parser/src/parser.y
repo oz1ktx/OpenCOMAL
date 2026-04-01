@@ -89,6 +89,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token  drawSYM
 %token  playSYM
 %token  toneSYM
+%token  sleepSYM
 %token	divideSYM 
 %token	divSYM 
 %token	doSYM 
@@ -223,17 +224,17 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %type	<whenptr>	when_strlist
 %type	<assignptr>	assign_list assign_item
 
-%type	<cl>		comal_line command list_cmd
-%type	<cl>		program_line complex_stat simple_stat complex_1word
-%type	<cl>		simple_1word case_stat data_stat elif_stat for_stat
-%type	<cl>		func_stat if_stat proc_stat until_stat when_stat
-%type	<cl>		while_stat label_stat close_stat del_stat dim_stat
-%type	<cl>		exec_stat import_stat input_stat open_stat os_stat
-%type	<cl>		print_stat read_stat restore_stat return_stat run_stat
-%type	<cl>		select_out_stat stop_stat sys_stat write_stat assign_stat
-%type	<cl>		select_in_stat exit_stat trace_stat cursor_stat chdir_stat
-%type	<cl>		rmdir_stat mkdir_stat repeat_stat
-%type	<cl>		local_stat trap_stat dir_stat unit_stat draw_stat play_stat tone_stat
+%type	<cl>	comal_line command list_cmd
+%type	<cl>	program_line complex_stat simple_stat complex_1word
+%type	<cl>	simple_1word case_stat data_stat elif_stat for_stat
+%type	<cl>	func_stat if_stat proc_stat until_stat when_stat
+%type	<cl>	while_stat label_stat close_stat del_stat dim_stat
+%type	<cl>	exec_stat import_stat input_stat open_stat os_stat
+%type	<cl>	print_stat read_stat restore_stat return_stat run_stat
+%type	<cl>	select_out_stat stop_stat sys_stat write_stat assign_stat
+%type	<cl>	select_in_stat exit_stat trace_stat cursor_stat chdir_stat
+%type	<cl>	rmdir_stat mkdir_stat repeat_stat
+%type	<cl>	local_stat trap_stat dir_stat unit_stat draw_stat play_stat tone_stat sleep_stat
 
 %type	<pcl>		optsimple_stat 
 
@@ -470,17 +471,12 @@ program_line	:	complex_stat
 			}
 		;
 		
+
 complex_stat	:	case_stat
-		|	data_stat
-		|	draw_stat
-		|	elif_stat
-		|	exit_stat
-		|	for_stat
-		|	func_stat
-		|	if_stat
-		|	proc_stat
-		|	until_stat
-		|	when_stat
+		| data_stat
+		| draw_stat
+		| run_stat
+		| when_stat
 		|	while_stat
 		|	repeat_stat
 		|	label_stat
@@ -506,6 +502,7 @@ simple_stat	:	close_stat
 		|	return_stat
 		|	rmdir_stat
 		|	run_stat
+		|	sleep_stat
 		|	select_out_stat
 		|	select_in_stat
 		|	stop_stat
@@ -701,6 +698,14 @@ draw_stat	:	drawSYM exp_list
 				/* PLAY takes a parameter list or string — parsed as expression list */
 			}
 			;
+
+	sleep_stat	:	sleepSYM exp_list
+			{
+			$$.cmd=sleepSYM;
+			$$.lc.exproot=PARS_REVERSE(struct exp_list, $2);
+			/* SLEEP ms_expr (expression list, but only first is used) */
+		}
+		;
 
 del_stat	:	delSYM stringexp
 			{

@@ -587,6 +587,7 @@ enum class StatementType : int {
     Draw,               // DRAW expr, ... (graphics placeholder)
     Tone,               // TONE freq_ms duration_ms
     Play,               // PLAY param-list / MML string
+    Sleep,              // SLEEP ms_expr
     Retry,              // RETRY (in HANDLER)
     Trace,              // TRACE on/off
     Label,              // label:
