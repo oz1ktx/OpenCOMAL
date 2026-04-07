@@ -397,7 +397,7 @@ static const QSet<QString> &comalKeywords()
     static const QSet<QString> kw {
         "AND", "APPEND", "CALLVEC", "CASE", "CLOSE", "CLOSED",
         "CURSOR", "DATA", "DEL", "DELETE", "DIM", "DIV", "DO",
-        "DRAW", "PLAY", "TONE", "SLEEP", "DOWNTO", "ELIF", "ELSE", "END", "ENDCASE", "ENDFOR",
+        "DRAW", "PLAY", "TONE", "SLEEP", "DOWNTO", "ELIF", "ELSE", "END", "ENDCASE", "ENDFOR", "NEXT",
         "ENDFUNC", "ENDIF", "ENDLOOP", "ENDPROC", "ENDTRAP",
         "ENDWHILE", "EXEC", "EXIT", "FALSE", "FILE", "FOR",
         "FUNC", "HANDLER", "IF", "IMPORT", "IN", "INPUT", "LOOP",
@@ -574,7 +574,7 @@ void CodeEditorPanel::formatSource()
         int delta_after = 0;
 
         // Closers: dedent this line
-        if (firstWord == "ENDFOR" || firstWord == "ENDWHILE" ||
+        if (firstWord == "ENDFOR" || firstWord == "NEXT" || firstWord == "ENDWHILE" ||
             firstWord == "UNTIL"  || firstWord == "ENDLOOP"  ||
             firstWord == "ENDIF"  || firstWord == "ENDCASE"  ||
             firstWord == "ENDPROC"|| firstWord == "ENDFUNC"  ||

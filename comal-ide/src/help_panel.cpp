@@ -7,7 +7,7 @@ static const char *defaultHelp = R"HTML(
 <h2>OpenCOMAL Quick Reference</h2>
 <table border="1" cellpadding="4" cellspacing="0">
 <tr><th>Category</th><th>Keywords</th></tr>
-<tr><td>Control Flow</td><td>IF/THEN/ELIF/ELSE/ENDIF, FOR/TO/STEP/DO/ENDFOR,
+<tr><td>Control Flow</td><td>IF/THEN/ELIF/ELSE/ENDIF, FOR/TO/STEP/DO/ENDFOR (or NEXT),
     WHILE/DO/ENDWHILE, REPEAT/UNTIL, CASE/WHEN/OTHERWISE/ENDCASE,
     LOOP/EXIT/ENDLOOP</td></tr>
 <tr><td>Procedures</td><td>PROC/ENDPROC, FUNC/RETURN/ENDFUNC,

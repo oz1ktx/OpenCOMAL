@@ -103,7 +103,6 @@ const char* statement_type_name(StatementType cmd) {
         case StatementType::End:           return "END";
         case StatementType::Exit:          return "EXIT";
         case StatementType::Null:          return "NULL";
-        case StatementType::Run:           return "RUN";
         case StatementType::Del:           return "DEL";
         case StatementType::Page:          return "PAGE";
         case StatementType::Cursor:        return "CURSOR";
@@ -119,7 +118,6 @@ const char* statement_type_name(StatementType cmd) {
         case StatementType::Tone:          return "TONE";
         case StatementType::Play:          return "PLAY";
         case StatementType::Retry:         return "RETRY";
-        case StatementType::Trace:         return "TRACE";
         case StatementType::Label:         return "LABEL";
         case StatementType::Local:         return "LOCAL";
         case StatementType::For:           return "FOR";
@@ -146,18 +144,6 @@ const char* statement_type_name(StatementType cmd) {
         case StatementType::EndProc:       return "ENDPROC";
         case StatementType::EndFunc:       return "ENDFUNC";
         case StatementType::EndTrap:       return "ENDTRAP";
-        case StatementType::List:          return "LIST";
-        case StatementType::Save:          return "SAVE";
-        case StatementType::Load:          return "LOAD";
-        case StatementType::Enter:         return "ENTER";
-        case StatementType::New:           return "NEW";
-        case StatementType::Scan:          return "SCAN";
-        case StatementType::Auto:          return "AUTO";
-        case StatementType::Cont:          return "CONT";
-        case StatementType::Edit:          return "EDIT";
-        case StatementType::Renumber:      return "RENUMBER";
-        case StatementType::Env:           return "ENV";
-        case StatementType::Quit:          return "QUIT";
     }
     return "???";
 }

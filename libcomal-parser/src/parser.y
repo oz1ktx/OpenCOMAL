@@ -70,7 +70,6 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	andSYM 
 %token	andthenSYM
 %token	appendSYM 
-%token	autoSYM
 %token	becomesSYM 
 %token	becplusSYM
 %token	becminusSYM
@@ -80,7 +79,6 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	closeSYM 
 %token	colonSYM
 %token	commaSYM 
-%token	contSYM 
 %token	cursorSYM
 %token	dataSYM 
 %token	delSYM 
@@ -95,7 +93,6 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	doSYM 
 %token	downtoSYM 
 %token	dynamicSYM
-%token	editSYM
 %token	elifSYM 
 %token	elseSYM
 %token	endcaseSYM 
@@ -107,8 +104,6 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	endSYM 
 %token	endtrapSYM 
 %token	endwhileSYM 
-%token	envSYM 
-%token	enterSYM
 %token	eolnSYM 
 %token	eorSYM 
 %token	eqlSYM 
@@ -127,9 +122,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	inputSYM 
 %token	inSYM
 %token	leqSYM 
-%token	listSYM 
 %token	localSYM
-%token	loadSYM 
 %token	loopSYM 
 %token	lparenSYM 
 %token	lssSYM 
@@ -138,7 +131,6 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	modSYM 
 %token	nameSYM
 %token	neqSYM 
-%token	newSYM
 %token	nullSYM 
 %token	ofSYM 
 %token	openSYM 
@@ -151,12 +143,10 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	powerSYM
 %token	printSYM 
 %token	procSYM 
-%token	quitSYM
 %token	randomSYM 
 %token	readSYM 
 %token	read_onlySYM 
 %token	refSYM
-%token	renumberSYM 
 %token	repeatSYM 
 %token	restoreSYM 
 %token  retrySYM
@@ -164,9 +154,6 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	rmdirSYM
 %token	rndSYM
 %token	rparenSYM 
-%token	runSYM 
-%token	saveSYM 
-%token	scanSYM
 %token	select_inputSYM 
 %token	select_outputSYM 
 %token	semicolonSYM
@@ -178,7 +165,6 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	thenSYM 
 %token	timesSYM 
 %token	toSYM 
-%token	traceSYM
 %token	trapSYM 
 %token  unitSYM
 %token	untilSYM 
@@ -200,9 +186,8 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %right	powerSYM
 %left	USIGN
 
-%type	<twonum>	line_range renumlines autolines
 %type	<id>		optid numid id optid2
-%type	<str>		optrem optfilename
+%type	<str>		optrem
 %type	<expptr>	exp_list lval_list
 %type	<dimptr>	dim_list dim_item local_list local_item
 %type	<dimensionptr>	dim_ensions opt_dim_ensions dim_ension_list dim_ension
@@ -224,15 +209,15 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %type	<whenptr>	when_strlist
 %type	<assignptr>	assign_list assign_item
 
-%type	<cl>	comal_line command list_cmd
+%type	<cl>	comal_line
 %type	<cl>	program_line complex_stat simple_stat complex_1word
 %type	<cl>	simple_1word case_stat data_stat elif_stat for_stat
 %type	<cl>	func_stat if_stat proc_stat until_stat when_stat
 %type	<cl>	while_stat label_stat close_stat del_stat dim_stat
 %type	<cl>	exec_stat import_stat input_stat open_stat os_stat
-%type	<cl>	print_stat read_stat restore_stat return_stat run_stat
+%type	<cl>	print_stat read_stat restore_stat return_stat
 %type	<cl>	select_out_stat stop_stat sys_stat write_stat assign_stat
-%type	<cl>	select_in_stat exit_stat trace_stat cursor_stat chdir_stat
+%type	<cl>	select_in_stat exit_stat cursor_stat chdir_stat
 %type	<cl>	rmdir_stat mkdir_stat repeat_stat
 %type	<cl>	local_stat trap_stat dir_stat unit_stat draw_stat play_stat tone_stat sleep_stat
 
@@ -256,12 +241,7 @@ a_comal_line	:	comal_line eolnSYM
 			}
 		;
 		
-comal_line	:	command 
-			{
-				$$=$1;
-				$$.ld=NULL;
-			}
-		|	intnumSYM program_line optrem
+comal_line	:	intnumSYM program_line optrem
 			{
 				$$=$2;
 				$$.ld=PARS_ALLOC(struct comal_line_data);
@@ -301,168 +281,6 @@ optrem		:	remSYM
 				$$=NULL;
 			}
 		;
-	
-		
-command		:	quitSYM
-			{
-				$$.cmd=quitSYM;
-			}
-		|	list_cmd
-		|	saveSYM optfilename
-			{
-				$$.cmd=saveSYM;
-				$$.lc.str=$2;
-			}
-		|	loadSYM optfilename
-			{
-				$$.cmd=loadSYM;
-				$$.lc.str=$2;
-			}
-		|	enterSYM stringSYM
-			{
-				$$.cmd=enterSYM;
-				$$.lc.str=$2;
-			}
-		|	envSYM optid2
-			{
-				$$.cmd=envSYM;
-				$$.lc.id=$2;
-			}
-		|	runSYM
-			{
-				$$.cmd=COMMAND(runSYM);
-				$$.lc.str=NULL;
-			}
-		|	newSYM
-			{
-				$$.cmd=newSYM;
-			}
-		|	scanSYM
-			{
-				$$.cmd=scanSYM;
-			}
-		|	autoSYM autolines
-			{
-				$$.cmd=autoSYM;
-				$$.lc.twonum=$2;
-			}
-		|	contSYM
-			{
-				$$.cmd=contSYM;
-			}
-		|	delSYM line_range
-			{
-				$$.cmd=COMMAND(delSYM);
-				$$.lc.twonum=$2;
-			}
-		|	editSYM line_range
-			{
-				$$.cmd=editSYM;
-				$$.lc.twonum=$2;
-			}
-		|	renumberSYM renumlines
-			{
-				$$.cmd=renumberSYM;
-				$$.lc.twonum=$2;
-			}
-		;
-
-list_cmd	:	listSYM line_range
-			{
-				$$.cmd=listSYM;
-				$$.lc.listrec.str=NULL;
-				$$.lc.listrec.twonum=$2;
-				$$.lc.listrec.id=NULL;
-			}
-		|	listSYM stringSYM
-			{
-				$$.cmd=listSYM;
-				$$.lc.listrec.str=$2;
-				$$.lc.listrec.twonum.num1=0;
-				$$.lc.listrec.twonum.num2=INT_MAX;
-				$$.lc.listrec.id=NULL;
-			}
-		|	listSYM line_range commaSYM stringSYM
-			{
-				$$.cmd=listSYM;
-				$$.lc.listrec.str=$4;
-				$$.lc.listrec.twonum=$2;
-				$$.lc.listrec.id=NULL;
-			}
-		|	listSYM id
-			{
-				$$.cmd=listSYM;
-				$$.lc.listrec.str=NULL;
-				$$.lc.listrec.id=$2;
-			}
-		|	listSYM id commaSYM stringSYM
-			{
-				$$.cmd=listSYM;
-				$$.lc.listrec.str=$4;
-				$$.lc.listrec.id=$2;
-			}
-		;
-
-line_range	:	/* epsilon */
-			{
-				$$.num1=0;	$$.num2=INT_MAX;
-			}
-		|	intnumSYM
-			{
-				$$.num1=$1;	$$.num2=$1;
-			}
-		|	minusSYM intnumSYM
-			{
-				$$.num1=0;	$$.num2=$2;
-			}
-		|	intnumSYM minusSYM
-			{
-				$$.num1=$1;	$$.num2=INT_MAX;
-			}
-		|	intnumSYM minusSYM intnumSYM
-			{
-				$$.num1=$1;	$$.num2=$3;
-			}
-		;		
-		
-renumlines	:	intnumSYM
-			{
-				$$.num1=$1;	$$.num2=10;
-			}
-		|	intnumSYM commaSYM intnumSYM
-			{
-				$$.num1=$1;	$$.num2=$3;
-			}
-		|	commaSYM intnumSYM
-			{
-				$$.num1=10;	$$.num2=$2;
-			}
-		|	/* epsilon */
-			{
-				$$.num1=10;	$$.num2=10;
-			}
-		;
-
-autolines	:	intnumSYM
-			{
-				$$.num1=$1;	$$.num2=10;
-			}
-		|	intnumSYM commaSYM intnumSYM
-			{
-				$$.num1=$1;	$$.num2=$3;
-			}
-		|	commaSYM intnumSYM
-			{
-				$$.num1=prog_highest_line()+$2;	
-				$$.num2=$2;
-			}
-		|	/* epsilon */
-			{
-				$$.num1=prog_highest_line()+10;	
-				$$.num2=10;
-			}
-		;
-		
 program_line	:	complex_stat
 		|	simple_stat
 		|	/* epsilon */
@@ -474,8 +292,14 @@ program_line	:	complex_stat
 
 complex_stat	:	case_stat
 		| data_stat
+		| elif_stat
+		| exit_stat
+		| for_stat
+		| func_stat
+		| if_stat
+		| proc_stat
+		| until_stat
 		| draw_stat
-		| run_stat
 		| when_stat
 		|	while_stat
 		|	repeat_stat
@@ -501,7 +325,6 @@ simple_stat	:	close_stat
 		|	restore_stat
 		|	return_stat
 		|	rmdir_stat
-		|	run_stat
 		|	sleep_stat
 		|	select_out_stat
 		|	select_in_stat
@@ -509,7 +332,6 @@ simple_stat	:	close_stat
 		|	sys_stat
 		|	play_stat
 		|	tone_stat
-		|	trace_stat
 		|	trap_stat
 		|	unit_stat
 		|	write_stat
@@ -1130,13 +952,6 @@ return_stat	:	returnSYM optexp
 			}
 		;
 
-run_stat	:	runSYM stringexp
-			{
-				$$.cmd=runSYM;
-				$$.lc.exp=$2;
-			}
-		;		
-
 select_out_stat	:	select_outputSYM stringexp
 			{
 				$$.cmd=select_outputSYM;
@@ -1169,18 +984,6 @@ sys_stat	:	sysSYM exp_list
 until_stat	:	untilSYM numexp
 			{
 				$$.cmd=untilSYM;
-				$$.lc.exp=$2;
-			}
-		;
-
-trace_stat	:	traceSYM numexp
-			{
-				char *cmd=exp_cmd($2);
-				
-				if (strcasecmp(cmd,"on")!=0 && strcasecmp(cmd,"off")!=0)
-					pars_error("TRACE \"on\" or \"off\"");
-				
-				$$.cmd=traceSYM;
 				$$.lc.exp=$2;
 			}
 		;
@@ -1913,13 +1716,6 @@ optsimple_stat	:	simple_stat
 			}
 		;
 
-optfilename	:	stringSYM
-		|	/* epsilon */
-			{
-				$$=NULL;
-			}
-		;
-		
 optof		:	ofSYM
 		|	/* epsilon */
 		;

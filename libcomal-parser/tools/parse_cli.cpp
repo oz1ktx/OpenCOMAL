@@ -296,7 +296,6 @@ static void print_modern_line(const ComalLine* line) {
 	case StatementType::Unit:
 	case StatementType::Os:
 	case StatementType::Return:
-	case StatementType::Run:
 	case StatementType::Stop:
 	case StatementType::Select_Output:
 	case StatementType::Select_Input:
@@ -390,32 +389,10 @@ static void print_modern_line(const ComalLine* line) {
 		printf(" col="); print_expr(te.exp2, 0);
 		break;
 	}
-	case StatementType::List: {
-		auto& lc = line->asList();
-		if (lc.str) printf("file=%.*s ", (int)lc.str->len, lc.str->s);
-		printf("range=%ld-%ld", (long)lc.twonum.num1, (long)lc.twonum.num2);
-		if (lc.id) printf(" id=%s", lc.id->name);
-		break;
-	}
-	case StatementType::Save:
-	case StatementType::Load:
-	case StatementType::Enter: {
-		auto* sp = std::get_if<string*>(&line->contents());
-		if (sp && *sp) printf("\"%.*s\"", (int)(*sp)->len, (*sp)->s);
-		break;
-	}
 	case StatementType::Label:
-	case StatementType::Restore:
-	case StatementType::Env: {
+	case StatementType::Restore: {
 		auto* ip = std::get_if<id_rec*>(&line->contents());
 		if (ip && *ip) printf("%s", (*ip)->name);
-		break;
-	}
-	case StatementType::Auto:
-	case StatementType::Renumber:
-	case StatementType::Edit: {
-		auto& tn = line->asTwoNum();
-		printf("%ld-%ld", (long)tn.num1, (long)tn.num2);
 		break;
 	}
 	default:

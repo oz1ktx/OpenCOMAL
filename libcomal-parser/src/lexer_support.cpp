@@ -57,19 +57,16 @@ PRIVATE struct {
 	appendSYM, 0, "APPEND"}, {
 	tnrnSYM, _ASN, "ASN"}, {
 	tnrnSYM, _ATN, "ATN"}, {
-	autoSYM, 0, "AUTO"}, {
 	caseSYM, 0, "CASE"}, {
 	chdirSYM, 0, "CHDIR"}, {
 	tnrsSYM, _CHR, "CHR$"}, {
 	closeSYM, 0, "CLOSE"}, {
 	closedSYM, 0, "CLOSED"}, {
-	contSYM, 0, "CON"}, {
 	cursorSYM, 0, "CURSOR"}, {
 	tnrnSYM, _COS, "COS"}, {
 	dataSYM, 0, "DATA"}, {
 	tnrnSYM, _DEG, "DEG"}, {
 	delSYM, 0, "DELETE"}, {
-	delSYM, 0, "DEL"}, {
 	dimSYM, 0, "DIM"}, {
 	dirSYM, 0, "DIR"}, {
 	playSYM, 0, "PLAY"}, {
@@ -80,7 +77,6 @@ PRIVATE struct {
 	doSYM, 0, "DO"}, {
 	downtoSYM, 0, "DOWNTO"}, {
 	dynamicSYM, 0, "DYNAMIC"}, {
-	editSYM, 0, "EDIT"}, {
 	elifSYM, 0, "ELIF"}, {
 	elseSYM, 0, "ELSE"}, {
 	endSYM, 0, "END"}, {
@@ -92,9 +88,8 @@ PRIVATE struct {
 	endloopSYM, 0, "ENDLOOP"}, {
 	endprocSYM, 0, "ENDPROC"}, {
 	endtrapSYM, 0, "ENDTRAP"}, {
-	enterSYM, 0, "ENTER"}, {
 	endwhileSYM, 0, "ENDWHILE"}, {
-	envSYM, 0, "ENV"}, {
+
 	rnSYM, _EOD, "EOD"}, {
 	tnrnSYM, _EOF, "EOF"}, {
 	eorSYM, 0, "EOR"}, {
@@ -121,17 +116,14 @@ PRIVATE struct {
 	tnrnSYM, _INT, "INT"}, {
 	rsSYM, _KEY, "KEY$"}, {
 	lenSYM, _LEN, "LEN"}, {
-	listSYM, 0, "LIST"}, {
 	tnrnSYM, _LN, "LN"}, {
 	tnrnSYM, _LOG, "LOG"}, {
 	localSYM, 0, "LOCAL"}, {
 	tsrsSYM, _LOWER, "LOWER$"}, {
-	loadSYM, 0, "LOAD"}, {
 	loopSYM, 0, "LOOP"}, {
 	mkdirSYM, 0, "MKDIR"}, {
 	modSYM, 0, "MOD"}, {
 	nameSYM, 0, "NAME"}, {
-	newSYM, 0, "NEW"}, {
 	tnrnSYM, _NOT, "NOT"}, {
 	nullSYM, 0, "NULL"}, {
 	ofSYM, 0, "OF"}, {
@@ -146,15 +138,11 @@ PRIVATE struct {
 	rnSYM, _PI, "PI"}, {
 	printSYM, 0, "PRINT"}, {
 	procSYM, 0, "PROC"}, {
-	quitSYM, 0, "QUIT"}, {
-	quitSYM, 0, "BYE"}, {
 	tnrnSYM, _RAD, "RAD"}, {
 	randomSYM, 0, "RANDOM"}, {
 	readSYM, 0, "READ"}, {
 	read_onlySYM, 0, "READ ONLY"}, {
 	refSYM, 0, "REF"}, {
-	renumberSYM, 0, "RENUMBER"}, {
-	renumberSYM, 0, "RENUM"}, {
 	repeatSYM, 0, "REPEAT"}, {
 	restoreSYM, 0, "RESTORE"}, {
 	retrySYM, 0, "RETRY"}, {
@@ -162,11 +150,8 @@ PRIVATE struct {
 	rmdirSYM, 0, "RMDIR"}, {
 	tnrnSYM, _ROUND, "ROUND"}, {
 	rndSYM, _RND , "RND"}, {
-	runSYM, 0, "RUN"}, {
-	saveSYM, 0, "SAVE"}, {
 	select_outputSYM, 0, "SELECT OUTPUT"}, {
 	select_inputSYM, 0, "SELECT INPUT"}, {
-	scanSYM, 0, "SCAN"}, {
 	staticSYM, 0, "STATIC"}, {
 	sysSYM, 0, "SYS"}, {
 	syssSYM, 0, "SYS$"}, {
@@ -180,7 +165,6 @@ PRIVATE struct {
 	tnrnSYM, _TAN, "TAN"}, {
 	thenSYM, 0, "THEN"}, {
 	toSYM, 0, "TO"}, {
-	traceSYM, 0, "TRACE"}, {
 	trapSYM, 0, "TRAP"}, {
 	rnSYM, _TRUE, "TRUE"}, {
 	unitSYM, 0, "UNIT"}, {

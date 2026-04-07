@@ -527,23 +527,11 @@ static TrapRec convert_trap_rec(const struct trap_rec& old_tr) {
     return TrapRec{old_tr.esc};
 }
 
-static ListCmd convert_list_cmd(const struct list_cmd& old_lc) {
-    ListCmd lc;
-    lc.str    = old_lc.str;  // borrowed
-    lc.twonum = convert_two_num(old_lc.twonum);
-    lc.id     = old_lc.id;   // borrowed
-    return lc;
-}
-
 // ============================================================================
 // map_cmd: legacy int cmd -> modern StatementType
 // ============================================================================
 
 static StatementType map_cmd(int cmd) {
-    // Handle COMMAND(x) macro: interactive commands use (32767 - x)
-    if (cmd == COMMAND(runSYM))   return StatementType::Run;
-    if (cmd == COMMAND(delSYM))   return StatementType::Del;
-
     switch (cmd) {
         case 0:                return StatementType::Empty;
         case becomesSYM:       return StatementType::Assign;
@@ -562,7 +550,6 @@ static StatementType map_cmd(int cmd) {
         case endSYM:           return StatementType::End;
         case exitSYM:          return StatementType::Exit;
         case nullSYM:          return StatementType::Null;
-        case runSYM:           return StatementType::Run;
         case delSYM:           return StatementType::Del;
         case pageSYM:          return StatementType::Page;
         case cursorSYM:        return StatementType::Cursor;
@@ -605,20 +592,7 @@ static StatementType map_cmd(int cmd) {
         case endprocSYM:       return StatementType::EndProc;
         case endfuncSYM:       return StatementType::EndFunc;
         case endtrapSYM:       return StatementType::EndTrap;
-        case listSYM:          return StatementType::List;
-        case saveSYM:          return StatementType::Save;
-        case loadSYM:          return StatementType::Load;
-        case enterSYM:         return StatementType::Enter;
-        case newSYM:           return StatementType::New;
-        case scanSYM:          return StatementType::Scan;
-        case autoSYM:          return StatementType::Auto;
-        case contSYM:          return StatementType::Cont;
-        case editSYM:          return StatementType::Edit;
-        case renumberSYM:      return StatementType::Renumber;
-        case envSYM:           return StatementType::Env;
-        case quitSYM:          return StatementType::Quit;
         case sysSYM:           return StatementType::Os;  // SYS — not impl, map to Os
-        case traceSYM:         return StatementType::Trace;
         default:               return StatementType::Empty;
     }
 }
@@ -648,10 +622,6 @@ ComalLine* convert_comal_line(const struct comal_line* old_line) {
     switch (old_line->cmd) {
         // ---- No-data statements (monostate) ----
         case 0:  // empty
-        case quitSYM:
-        case newSYM:
-        case scanSYM:
-        case contSYM:
         case elseSYM:
         case endcaseSYM:
         case endfuncSYM:
@@ -671,35 +641,15 @@ ComalLine* convert_comal_line(const struct comal_line* old_line) {
             contents = std::monostate{};
             break;
 
-        // ---- String data (lc.str) ----
-        case saveSYM:
-        case loadSYM:
-        case enterSYM:
-            contents = old_line->lc.str;
-            break;
-
         // ---- ID data (lc.id) ----
-        case envSYM:
         case restoreSYM:
         case idSYM:  // label
             contents = old_line->lc.id;
             break;
 
-        // ---- TwoNum data (lc.twonum) ----
-        case autoSYM:
-        case editSYM:
-        case renumberSYM:
-            contents = convert_two_num(old_line->lc.twonum);
-            break;
-
         // ---- TwoExp data (lc.twoexp) ----
         case cursorSYM:
             contents = convert_two_exp(old_line->lc.twoexp);
-            break;
-
-        // ---- LIST command (lc.listrec) ----
-        case listSYM:
-            contents = convert_list_cmd(old_line->lc.listrec);
             break;
 
         // ---- Single expression (lc.exp) ----
@@ -715,12 +665,10 @@ ComalLine* convert_comal_line(const struct comal_line* old_line) {
         case elifSYM:
         case exitSYM:
         case returnSYM:
-        case runSYM:
         case select_outputSYM:
         case select_inputSYM:
         case stopSYM:
         case untilSYM:
-        case traceSYM:
             contents = convert_expression(old_line->lc.exp);
             break;
 
@@ -804,15 +752,8 @@ ComalLine* convert_comal_line(const struct comal_line* old_line) {
             contents = convert_assign_list(old_line->lc.assignroot);
             break;
 
-        // ---- COMMAND() variants (interactive) ----
         default:
-            if (old_line->cmd == COMMAND(runSYM)) {
-                contents = old_line->lc.str;
-            } else if (old_line->cmd == COMMAND(delSYM)) {
-                contents = convert_two_num(old_line->lc.twonum);
-            } else {
-                contents = std::monostate{};
-            }
+            contents = std::monostate{};
             break;
     }
     

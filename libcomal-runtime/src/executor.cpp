@@ -240,22 +240,6 @@ void execLine(Interpreter& interp, ComalLine* line) {
         break;
     }
 
-    case StatementType::Trace: {
-        auto* expr = std::get_if<Expression*>(&line->contents());
-        if (expr && *expr) {
-            // Unwrap ExpIsNum/ExpIsString wrapper if present
-            const Expression* e = *expr;
-            if (e->opType() == OpType::ExpIsNum || e->opType() == OpType::ExpIsString)
-                e = e->asExp();
-            if (e->opType() == OpType::Id) {
-                std::string name = std::get<ExpId>(e->data()).id->name;
-                for (auto& c : name) c = std::toupper(c);
-                interp.trace = (name == "ON");
-            }
-        }
-        break;
-    }
-
     // ── File I/O ────────────────────────────────────────────────────────
     case StatementType::Open:
         execOpen(interp, line);
@@ -452,20 +436,7 @@ void execLine(Interpreter& interp, ComalLine* line) {
         // Should not be reached by sequential execution in well-structured code
         break;
 
-    // ── Stubs for interactive-only commands ─────────────────────────────
-    case StatementType::List:
-    case StatementType::Save:
-    case StatementType::Load:
-    case StatementType::Enter:
-    case StatementType::New:
-    case StatementType::Scan:
-    case StatementType::Auto:
-    case StatementType::Cont:
-    case StatementType::Edit:
-    case StatementType::Renumber:
-    case StatementType::Env:
-    case StatementType::Quit:
-    case StatementType::Run:
+    // ── Graphics and audio ───────────────────────────────────────────────
     case StatementType::Draw:
         execDraw(interp, line);
         break;
