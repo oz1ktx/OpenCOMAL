@@ -14,6 +14,40 @@
 #include "qsci_lexer_comal.h"
 #include <QToolTip>
 
+static bool isWordChar(QChar c)
+{
+    return c.isLetterOrNumber() || c == '_';
+}
+
+static QString wordAtCursor(const QString &lineText, int column)
+{
+    if (lineText.isEmpty())
+        return {};
+
+    int col = column;
+    if (col < 0)
+        col = 0;
+    if (col > lineText.size())
+        col = lineText.size();
+
+    int start = col;
+    while (start > 0 && isWordChar(lineText[start - 1]))
+        --start;
+
+    int end = col;
+    while (end < lineText.size() && isWordChar(lineText[end]))
+        ++end;
+
+    if (start == end)
+        return {};
+
+    QString word = lineText.mid(start, end - start);
+    if (end < lineText.size() && (lineText[end] == '$' || lineText[end] == '#'))
+        word += lineText[end];
+
+    return word;
+}
+
 CodeEditorPanel::CodeEditorPanel(QWidget *parent)
     : QWidget(parent)
 {
@@ -88,6 +122,7 @@ QsciScintilla *CodeEditorPanel::createEditor()
     });
     connect(editor, &QsciScintilla::cursorPositionChanged, this, [this, editor](int line, int col){
         emit cursorPositionChanged(line, col);
+        emit keywordUnderCursorChanged(wordAtCursor(editor->text(line), col));
         if (!lspClient_) return;
         QString filePath = currentFilePath();
         lspClient_->requestHover(filePath, line, col);

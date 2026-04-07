@@ -18,6 +18,10 @@ public:
     explicit RunWorker(QObject *parent = nullptr);
     ~RunWorker() override;
 
+    /// Set an external (persistent) interpreter to use instead of creating a new one.
+    /// If set before start(), this interpreter will be reused across multiple runs.
+    void setExternalInterpreter(std::shared_ptr<comal::runtime::Interpreter> interp);
+
     /// Set the source code to execute (call before start()).
     void setSource(const QString &source);
 
@@ -75,7 +79,13 @@ protected:
 
 private:
     std::unique_ptr<comal::runtime::Interpreter> interp_;
+    std::shared_ptr<comal::runtime::Interpreter> externalInterp_;
     QtIO    *io_;       // owned by interp_ via setIO()
     QString  source_;
     QString  directCmd_;
+
+    /// Get the active interpreter (external if set, otherwise default internal one).
+    comal::runtime::Interpreter* getInterp() const {
+        return externalInterp_ ? externalInterp_.get() : interp_.get();
+    }
 };

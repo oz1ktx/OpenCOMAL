@@ -16,6 +16,8 @@ public:
     explicit DirectCommandPanel(QWidget *parent = nullptr);
 
     void appendOutput(const QString &text);
+    void clearOutputPanel();
+    void focusInput();
     void setInputEnabled(bool enabled);
     bool isInputForProgram() const;
 

@@ -8,6 +8,7 @@
 #include "run_worker.h"
 #include "qt_io.h"
 #include "comal_scene_model.h"
+#include "comal_interpreter.h"
 
 #include <QMenuBar>
 #include <QToolBar>
@@ -24,9 +25,21 @@ MainWindow::~MainWindow() = default;
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , persistentScene_(std::make_unique<comal::graphics::Scene>())
+    , persistentIO_(new QtIO)
+    , persistentInterp_(std::make_shared<comal::runtime::Interpreter>())
 {
     setWindowTitle("OpenCOMAL IDE");
     resize(1280, 800);
+
+    // Set up the persistent I/O backend on the persistent interpreter
+    persistentInterp_->setIO(std::unique_ptr<comal::runtime::IOInterface>(persistentIO_));
+
+    // Wire the persistent interpreter's scene-changed callback
+    persistentInterp_->setSceneChangedCallback([this]() {
+        // Trigger graphics panel update when scene changes
+        if (worker_)
+            emit worker_->sceneChanged();
+    });
 
     createPanels();
     createMenus();
@@ -34,6 +47,25 @@ MainWindow::MainWindow(QWidget *parent)
     createToolBar();
     createStatusBar();
     restoreDefaultLayout();
+
+    // Wire the persistent I/O signals to the output panel
+    connect(persistentIO_, &QtIO::textOutput,
+            directCommand_, &DirectCommandPanel::appendOutput,
+            Qt::QueuedConnection);
+
+    connect(persistentIO_, &QtIO::screenCleared, directCommand_, [this]() {
+        directCommand_->clearOutputPanel();
+    }, Qt::QueuedConnection);
+
+    connect(persistentIO_, &QtIO::cursorMoved, directCommand_, [this](int r, int c) {
+        directCommand_->appendOutput(
+            QString("[CURSOR %1,%2]").arg(r).arg(c));
+    }, Qt::QueuedConnection);
+
+    connect(persistentIO_, &QtIO::inputRequested, directCommand_, [this](const QString &prompt) {
+        directCommand_->showInputMarker(prompt);
+        directCommand_->setInputEnabled(true);
+    }, Qt::QueuedConnection);
 
     // LSP client setup
     lspClient_ = new ComalLspClient(this);
@@ -218,6 +250,10 @@ void MainWindow::createPanels()
     helpDock_->setObjectName("HelpDock");
     helpDock_->setWidget(help_);
 
+        // Contextual keyword help from editor cursor position (independent of LSP hover).
+        connect(codeEditor_, &CodeEditorPanel::keywordUnderCursorChanged,
+            help_, &HelpPanel::showKeywordHelp);
+
     // Direct command execution (when no program is running)
     connect(directCommand_, &DirectCommandPanel::lineEntered,
             this, &MainWindow::onDirectCommand);
@@ -267,25 +303,29 @@ void MainWindow::connectRunWorker()
 {
     auto *io = worker_->io();
 
-    // Output from the runtime → Direct Command panel
-    connect(io, &QtIO::textOutput,
-            directCommand_, &DirectCommandPanel::appendOutput,
-            Qt::QueuedConnection);
+    // Only connect I/O signals if this is NOT the persistent I/O
+    // (persistent I/O signals are already connected in MainWindow constructor)
+    if (io != persistentIO_) {
+        // Output from the runtime → Direct Command panel
+        connect(io, &QtIO::textOutput,
+                directCommand_, &DirectCommandPanel::appendOutput,
+                Qt::QueuedConnection);
 
-    connect(io, &QtIO::screenCleared, directCommand_, [this]() {
-        directCommand_->appendOutput("\n--- PAGE ---\n");
-    }, Qt::QueuedConnection);
+        connect(io, &QtIO::screenCleared, directCommand_, [this]() {
+            directCommand_->clearOutputPanel();
+        }, Qt::QueuedConnection);
 
-    connect(io, &QtIO::cursorMoved, directCommand_, [this](int r, int c) {
-        directCommand_->appendOutput(
-            QString("[CURSOR %1,%2]").arg(r).arg(c));
-    }, Qt::QueuedConnection);
+        connect(io, &QtIO::cursorMoved, directCommand_, [this](int r, int c) {
+            directCommand_->appendOutput(
+                QString("[CURSOR %1,%2]").arg(r).arg(c));
+        }, Qt::QueuedConnection);
 
-    // Input request: show marker in output and enable the input line
-    connect(io, &QtIO::inputRequested, directCommand_, [this](const QString &prompt) {
-        directCommand_->showInputMarker(prompt);
-        directCommand_->setInputEnabled(true);
-    }, Qt::QueuedConnection);
+        // Input request: show marker in output and enable the input line
+        connect(io, &QtIO::inputRequested, directCommand_, [this](const QString &prompt) {
+            directCommand_->showInputMarker(prompt);
+            directCommand_->setInputEnabled(true);
+        }, Qt::QueuedConnection);
+    }
 
     // Execution finished / error
     connect(worker_, &RunWorker::finished,
@@ -324,6 +364,7 @@ void MainWindow::onRun()
     if (!editor) return;
 
     QString source = editor->text();
+    lastActionWasDirectCommand_ = false;
     directCommand_->appendOutput("\n--- RUN ---\n");
     codeEditor_->clearErrorHighlight();
     codeEditor_->clearExecutionHighlight();
@@ -334,6 +375,7 @@ void MainWindow::onRun()
     delete worker_;
     worker_ = new RunWorker(this);
     worker_->setGraphicsScene(persistentScene_.get());
+    worker_->setExternalInterpreter(persistentInterp_);
     worker_->setSource(source);
     {
         auto bps = codeEditor_->breakpointsForCurrentFile();
@@ -357,10 +399,14 @@ void MainWindow::onStop()
 
 void MainWindow::onRunFinished()
 {
-    directCommand_->appendOutput("\n--- DONE ---\n");
+    const bool completedDirectCommand = lastActionWasDirectCommand_;
+    lastActionWasDirectCommand_ = false;
     stateLabel_->setText(tr("Ready"));
     directCommand_->setInputEnabled(false);
     codeEditor_->clearExecutionHighlight();
+
+    if (completedDirectCommand)
+        directCommand_->focusInput();
 }
 
 void MainWindow::onRunError(const QString &message, int lineNumber)
@@ -398,10 +444,15 @@ void MainWindow::onDirectCommand(const QString &command)
     }
 
     // Otherwise, execute as a direct COMAL command
+    lastActionWasDirectCommand_ = true;
     if (!worker_) {
         worker_ = new RunWorker(this);
         worker_->setGraphicsScene(persistentScene_.get());
+        worker_->setExternalInterpreter(persistentInterp_);
         connectRunWorker();
+    } else {
+        // Reuse existing worker; just set external interpreter again to ensure consistency
+        worker_->setExternalInterpreter(persistentInterp_);
     }
     worker_->setDirectCommand(command);
     stateLabel_->setText(tr("Running"));
@@ -445,6 +496,7 @@ void MainWindow::updateCursorPos(int line, int col)
 void MainWindow::startSingleStepRun(const QString &title)
 {
     if (worker_ && worker_->isRunning()) {
+        lastActionWasDirectCommand_ = false;
         worker_->setSingleStep(true);
         worker_->requestContinue();
         stateLabel_->setText(tr("Stepping"));
@@ -455,6 +507,7 @@ void MainWindow::startSingleStepRun(const QString &title)
     if (!editor) return;
 
     QString source = editor->text();
+    lastActionWasDirectCommand_ = false;
     directCommand_->appendOutput("\n--- " + title + " ---\n");
     codeEditor_->clearErrorHighlight();
     codeEditor_->clearExecutionHighlight();
@@ -465,6 +518,7 @@ void MainWindow::startSingleStepRun(const QString &title)
     delete worker_;
     worker_ = new RunWorker(this);
     worker_->setGraphicsScene(persistentScene_.get());
+    worker_->setExternalInterpreter(persistentInterp_);
     worker_->setSource(source);
     {
         auto bps = codeEditor_->breakpointsForCurrentFile();

@@ -12,7 +12,7 @@ RunWorker::RunWorker(QObject *parent)
     , interp_(std::make_unique<Interpreter>())
     , io_(new QtIO)          // will be owned by Interpreter via unique_ptr
 {
-    // Hand the QtIO to the interpreter (transfers ownership)
+    // Hand the QtIO to the internal interpreter (transfers ownership)
     interp_->setIO(std::unique_ptr<IOInterface>(io_));
 
     // Scene-change callback: emit signal (queued to GUI thread)
@@ -23,12 +23,12 @@ RunWorker::RunWorker(QObject *parent)
     // Suspended callback: emitted when the interpreter pauses (BREAK/step)
     interp_->setSuspendCallback([this]() {
         int line = 0;
-        if (interp_->curline)
-            line = interp_->curline->lineNumber();
+        if (getInterp()->curline)
+            line = getInterp()->curline->lineNumber();
         emit suspended(line);
 
         // Collect variables for debug panel
-        auto vars = interp_->getVariables();
+        auto vars = getInterp()->getVariables();
         QVariantList varList;
         for (const auto& var : vars) {
             QVariantMap varMap;
@@ -41,7 +41,7 @@ RunWorker::RunWorker(QObject *parent)
         emit variablesChanged(varList);
 
         // Collect call stack for debug panel
-        auto stack = interp_->getCallStack();
+        auto stack = getInterp()->getCallStack();
         QVariantList stackList;
         for (const auto &frame : stack) {
             QVariantMap frameMap;
@@ -59,6 +59,13 @@ RunWorker::~RunWorker()
     wait();
 }
 
+void RunWorker::setExternalInterpreter(std::shared_ptr<comal::runtime::Interpreter> interp)
+{
+    externalInterp_ = interp;
+    // Note: The external interpreter should already have a QtIO backend
+    // configured by MainWindow before being passed here.
+}
+
 void RunWorker::setSource(const QString &source)
 {
     source_ = source;
@@ -73,53 +80,53 @@ void RunWorker::setDirectCommand(const QString &command)
 
 void RunWorker::setGraphicsScene(comal::graphics::Scene* scene)
 {
-    interp_->setGraphicsScene(scene);
+    getInterp()->setGraphicsScene(scene);
 }
 
 void RunWorker::requestStop()
 {
     // If we're in single-step mode, stop stepping so we don't re-enter suspend.
-    interp_->setSingleStep(false);
+    getInterp()->setSingleStep(false);
 
     // Ensure we wake up if suspended (break mode) so the interrupt can be processed.
-    interp_->resume();
+    getInterp()->resume();
     if (io_)
         io_->provideInput("");
-    interp_->interrupt().request();
+    getInterp()->interrupt().request();
 }
 
 void RunWorker::requestBreak()
 {
     // Request a cooperative pause. If the interpreter is currently blocked
     // waiting for input, wake it so it can reach the suspend point and pause.
-    interp_->suspend();
+    getInterp()->suspend();
     if (io_)
         io_->provideInput("");
 }
 
 void RunWorker::requestContinue()
 {
-    interp_->resume();
+    getInterp()->resume();
 }
 
 void RunWorker::setSingleStep(bool enable)
 {
-    interp_->setSingleStep(enable);
+    getInterp()->setSingleStep(enable);
 }
 
 void RunWorker::setBreakpoints(const std::vector<int> &lines)
 {
-    interp_->setBreakpoints(lines);
+    getInterp()->setBreakpoints(lines);
 }
 
 bool RunWorker::isSuspended() const
 {
-    return interp_->isSuspended();
+    return getInterp()->isSuspended();
 }
 
 const comal::graphics::Scene& RunWorker::graphicsScene() const
 {
-    return interp_->graphicsScene();
+    return getInterp()->graphicsScene();
 }
 
 void RunWorker::run()
@@ -127,12 +134,12 @@ void RunWorker::run()
     try {
         if (!directCmd_.isEmpty()) {
             // Direct command mode: parse and execute a single line
-            interp_->executeDirect(directCmd_.toStdString());
+            getInterp()->executeDirect(directCmd_.toStdString());
         } else {
             // Full program mode
-            interp_->resetRunState();
-            interp_->loadSource(source_.toStdString());
-            interp_->run();
+            getInterp()->resetRunState();
+            getInterp()->loadSource(source_.toStdString());
+            getInterp()->run();
         }
         emit finished();
     } catch (const StopSignal&) {

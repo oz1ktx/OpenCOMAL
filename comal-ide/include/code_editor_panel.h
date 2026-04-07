@@ -36,6 +36,7 @@ public:
 signals:
     void cursorPositionChanged(int line, int col);
     void currentFileChanged(const QString &filePath);
+    void keywordUnderCursorChanged(const QString &keyword);
 
     /// Emitted when breakpoints change for the current file.
     void breakpointsChanged(const QString &filePath, const QVector<int> &lines);

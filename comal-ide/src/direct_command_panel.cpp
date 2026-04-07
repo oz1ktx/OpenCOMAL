@@ -55,6 +55,16 @@ void DirectCommandPanel::appendOutput(const QString &text)
     output_->ensureCursorVisible();
 }
 
+void DirectCommandPanel::clearOutputPanel()
+{
+    clearOutput();
+}
+
+void DirectCommandPanel::focusInput()
+{
+    input_->setFocus();
+}
+
 void DirectCommandPanel::onCommandEntered()
 {
     QString cmd = input_->text();
@@ -162,6 +172,8 @@ void DirectCommandPanel::showOutputContextMenu(const QPoint &pos)
 void DirectCommandPanel::clearOutput()
 {
     output_->clear();
+    markerPos_ = -1;
+    promptLabel_->setText(tr(">"));
 }
 
 void DirectCommandPanel::saveOutput()

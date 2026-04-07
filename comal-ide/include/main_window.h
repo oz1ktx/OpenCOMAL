@@ -14,8 +14,10 @@ class DebugPanel;
 class FileBrowserPanel;
 class HelpPanel;
 class RunWorker;
+class QtIO;
 
 namespace comal::graphics { class Scene; }
+namespace comal::runtime { class Interpreter; }
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -53,6 +55,12 @@ private:
 
     // Runtime worker
     RunWorker *worker_{nullptr};
+    bool lastActionWasDirectCommand_{false};
+
+    // Persistent interpreter and I/O backend shared across all worker executions
+    // This allows PROCs defined in one run to be callable from direct commands
+    QtIO *persistentIO_{nullptr};
+    std::shared_ptr<comal::runtime::Interpreter> persistentInterp_;
 
     // Persistent graphics scene (shared across direct commands)
     std::unique_ptr<comal::graphics::Scene> persistentScene_;
