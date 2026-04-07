@@ -294,7 +294,7 @@ static const std::vector<std::pair<std::string, std::string>>& keywordDocEntries
         {"FALSE",    "Boolean false constant."},
         {"EOD",      "End-of-DATA indicator."},
         {"EOF",      "End-of-file indicator/function."},
-        {"EOR",      "End-of-record indicator."},
+        {"EOR",      "Logical exclusive OR."},
         {"ERR",      "Current runtime error code."},
         {"ERRLINE",  "Line number of the current runtime error."},
         {"ERRTEXT$", "Text message for the current runtime error."},

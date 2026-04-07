@@ -1,6 +1,6 @@
 # OpenCOMAL Modernization — Project Status
 
-**Last Updated:** 10 March 2026
+**Last Updated:** 7 April 2026
 
 ---
 
@@ -116,6 +116,27 @@ New sound backend providing `TONE` and a start of `PLAY` support. Key points:
   (`QTimer::singleShot`, `deleteLater`) and a `startToneOnQtThread`
   helper was added for clean dispatching.
 
+**Recent changes (7 April 2026) — IDE Usability & PROC Persistence**
+
+### PAGEcommand behavior
+- Changed from appending `"--- PAGE ---"` marker to actually clearing the output panel
+- Direct command focus now automatically returns to input field after direct command completes (no `"--- DONE ---"` marker)
+
+### Persistent interpreter for PROC retention
+- Made the interpreter persistent and shared across all `RunWorker` instances
+- PROCs defined in a program run are now callable from direct commands (previously lost)
+- Each new program run calls `resetRunState()` on the persistent interpreter (clean slate)
+- Direct commands skip reset and inherit state from last program, allowing PROC calls
+
+### QtIO backend persistence
+- Created persistent `QtIO` instance owned by `MainWindow`
+- Configured on the persistent interpreter so I/O signals work correctly
+- PROC output (PRINT statements) now appears in the IDE output panel instead of stdout
+- Avoids duplicate signal connections by checking if worker uses persistent I/O
+
+### Documentation fix
+- Corrected EOR docstring from "End-of-record indicator" to "Exclusive OR (bitwise operator)"
+
 
 ### LSP Server (`comal-lsp/`) — ~1000 lines
 
@@ -148,19 +169,22 @@ Language Server Protocol v3.17 implementation.
 | Syntax highlighting | Custom `QsciLexerComal`: keywords (bold blue), builtins (teal), strings (red), numbers (green), comments (green), operators (purple), variable suffixes (brown) |
 | File operations | New, Open, Save, Save As, Close |
 | Edit operations | Undo, Redo, Cut, Copy, Paste |
-| Run / Stop | QThread worker with interrupt support |
+| Run / Stop | QThread worker with interrupt support; persistent interpreter for PROC retention |
 | Format Source | Keyword uppercasing, `=`→`:=` fixing, block indentation |
 | Line number stripping | Strips COMAL line numbers on open |
 | Error highlighting | Red background marker on error line |
-| PRINT / INPUT I/O | Output panel with prompt line, context menu |
+| PRINT / INPUT I/O | Output panel with prompt line, context menu; PAGE clears output; direct commands get input focus on completion |
 | File browser | QTreeView of .lst/.prl/.prc files |
 | Graphics panel | QGraphicsView rendering of DRAW commands (line, rect, circle, ellipse, styles, groups, transforms). Save as PNG/SVG. |
 | Status bar | Line/col, run state, current file |
+| Persistent PROC context | PROCs defined in a program are callable from direct commands (same interpreter state) |
 
 ### Architecture
 
-- **`RunWorker`** — QThread subclass owning an `Interpreter` + `QtIO`
+- **`RunWorker`** — QThread subclass that can use either an internal Interpreter + QtIO or an external (persistent) shared interpreter
 - **`QtIO`** — signal/slot I/O bridge with `QWaitCondition` for blocking INPUT
+- **Persistent interpreter** (7 April 2026 addition) — `MainWindow` owns and maintains a single `Interpreter` shared across all `RunWorker` instances via `setExternalInterpreter()`. Allows PROCs defined in one run to be callable from direct commands. Each new program run calls `resetRunState()` (clean execution context) but direct commands skip reset to preserve PROC definitions.
+- **Persistent QtIO** — `MainWindow` creates one `QtIO` for the persistent interpreter; its signals are connected once to the output panel, avoiding duplicate connections
 - **`GraphicsPanel`** — renders `Scene` graph to `QGraphicsScene` items
 - **Persistent scene** — survives between program runs
 - **Scene-changed callback** → Qt signal (queued connection) → GUI re-render
@@ -224,6 +248,43 @@ The debug panel is now wired end-to-end with the runtime: the IDE can pause exec
 - Add step-over / step-out / continue-to-cursor support in the runtime.
 - Improve scope hierarchy display and allow variable editing.
 - Expand call stack details (parameters, return values, etc.).
+
+---
+
+## Next Steps & Known Limitations (7 April 2026)
+
+### IDE Enhancements Completed
+✅ PAGE command clears output panel  
+✅ Direct command completion (input focus, no DONE marker)  
+✅ Persistent interpreter for PROC retention across runs  
+✅ QtIO configured per persistent interpreter  
+✅ EOR docstring corrected  
+
+### IDE Features Still TODO
+- [ ] Help panel: static reference table → contextual docs per keyword (no hover implemented yet)
+- [ ] Find/Replace dialog
+- [ ] Settings/preferences
+- [ ] LSP integration in editor (live diagnostics, completion hover)
+- [ ] Step-over / step-out debugging commands
+- [ ] Conditional breakpoints
+- [ ] Call stack scope hierarchy
+- [ ] Variable value editing
+
+### Known Limitations
+1. **Persistent interpreter state** — PROCs survive, but global variables defined in one program run persist into direct commands. A "Clear Globals" button in the IDE might be useful.
+2. **Input during program execution** — INPUT blocks the Qt event loop (handled via `QWaitCondition` but could be improved with async input callback).
+3. **Error recovery** — A runtime error stops all execution; no partial recovery or rollback.
+4. **Graphics** — Scene model is basic; no advanced effects, clipping, or text rendering yet.
+
+### Maintenance Notes for Next Session
+- **Files recently modified:**
+  - `comal-ide/include/run_worker.h`, `src/run_worker.cpp` — persistent interpreter support
+  - `comal-ide/include/main_window.h`, `src/main_window.cpp` — persistent I/O and interpreter wiring
+  - `comal-ide/include/direct_command_panel.h`, `src/direct_command_panel.cpp` — public clear + focus methods
+  - `comal-lsp/src/lsp_server.cpp` — EOR docstring fix
+  
+- **Last build status:** ✅ comal-ide compiles successfully as of 7 April 2026, 10:17 UTC
+- **Last test run:** 127/133 pass (as of 26 March; test count unchanged)
 
 ---
 
