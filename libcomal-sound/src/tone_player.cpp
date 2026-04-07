@@ -9,6 +9,7 @@
 #include <QCoreApplication>
 #include <QThread>
 #include <QMediaDevices>
+#include <QMetaObject>
 
 #include <cmath>
 #include <algorithm>
@@ -70,45 +71,63 @@ private:
     qint64 totalSamplesWritten{0};
 };
 
-void Engine::stop() {
+void Engine::stopActiveImpl() {
     // If Qt's QCoreApplication has already been destroyed (static
     // teardown ordering), avoid calling into Qt multimedia APIs as
     // they may access torn-down global state and crash. In that
     // case just join background threads and clear bookkeeping.
     if (!QCoreApplication::instance()) {
+        std::unordered_map<std::uint64_t, PlaybackEntry> pending;
         std::unique_lock<std::mutex> lk(play_mutex_);
-        for (auto *b : active_buffers_) {
-            if (b) {
-                QIODevice* dev = reinterpret_cast<QIODevice*>(b);
+        pending.swap(active_playbacks_);
+        lk.unlock();
+
+        for (auto &kv : pending) {
+            QIODevice* dev = reinterpret_cast<QIODevice*>(kv.second.device);
+            if (dev) {
                 if (dev->isOpen()) dev->close();
-                dev->deleteLater();
+                delete dev;
+            }
+            if (kv.second.completion) {
+                try { kv.second.completion->set_value(); } catch (...) {}
             }
         }
-        active_buffers_.clear();
         return;
     }
 
+    std::unordered_map<std::uint64_t, PlaybackEntry> pending;
     std::unique_lock<std::mutex> lk(play_mutex_);
-    for (auto *b : active_buffers_) {
-        if (b) {
-            QIODevice* dev = reinterpret_cast<QIODevice*>(b);
+    pending.swap(active_playbacks_);
+    lk.unlock();
+
+    for (auto &kv : pending) {
+        QIODevice* dev = reinterpret_cast<QIODevice*>(kv.second.device);
+        if (dev) {
             if (dev->isOpen()) dev->close();
             dev->deleteLater();
         }
+        if (kv.second.completion) {
+            try { kv.second.completion->set_value(); } catch (...) {}
+        }
     }
+
     if (persistent_audio_) {
         QAudioSink* sink = reinterpret_cast<QAudioSink*>(persistent_audio_);
         sink->stop();
+    }
+}
+
+void Engine::stopImpl() {
+    stopActiveImpl();
+    std::unique_lock<std::mutex> lk(play_mutex_);
+    if (persistent_audio_) {
+        QAudioSink* sink = reinterpret_cast<QAudioSink*>(persistent_audio_);
         delete sink;
         persistent_audio_ = nullptr;
     }
-    lk.unlock();
-
-    std::unique_lock<std::mutex> lk2(play_mutex_);
-    active_buffers_.clear();
 }
 
-void Engine::init() {
+void Engine::initImpl() {
     if (!QCoreApplication::instance()) {
         static int argc = 1;
         static char arg0[] = "comal-sound";
@@ -131,7 +150,7 @@ void Engine::init() {
     }
 }
 
-std::shared_ptr<std::shared_future<void>> Engine::play(const PlaySpec& spec) {
+std::shared_ptr<std::shared_future<void>> Engine::playImpl(const PlaySpec& spec) {
     auto prom = std::make_shared<std::promise<void>>();
     auto fut = std::make_shared<std::shared_future<void>>(prom->get_future().share());
 
@@ -218,47 +237,68 @@ void Engine::startToneOnQtThread(int freq, int sampleCount, int sampleRate, doub
     sink->stop();
     sink->start(tone);
 
+    const std::uint64_t playbackId = next_playback_id_.fetch_add(1);
+    {
+        std::unique_lock<std::mutex> lk(play_mutex_);
+        active_playbacks_[playbackId] = PlaybackEntry{reinterpret_cast<void*>(tone), completion};
+    }
+
     int wait_ms = static_cast<int>(std::lround(dur_ms)) + 50;
-    // Use a background thread to wait and then post cleanup to the Qt event loop.
-    std::thread([this, tone, wait_ms, completion]() {
+    // Wait on a helper thread, then complete cleanup by playback id.
+    std::thread([this, playbackId, wait_ms]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
+
+        auto cleanupOnQtThread = [this, playbackId]() {
+            QIODevice* dev = nullptr;
+            std::shared_ptr<std::promise<void>> done;
+            {
+                std::unique_lock<std::mutex> lk(play_mutex_);
+                auto it = active_playbacks_.find(playbackId);
+                if (it == active_playbacks_.end())
+                    return;
+                dev = reinterpret_cast<QIODevice*>(it->second.device);
+                done = it->second.completion;
+                active_playbacks_.erase(it);
+            }
+
+            if (dev) {
+                dev->close();
+                if (QCoreApplication::instance()) dev->deleteLater();
+                else delete dev;
+            }
+            if (done) {
+                try { done->set_value(); } catch (...) {}
+            }
+        };
+
         bool queued = false;
         if (QCoreApplication::instance()) {
-            // Try to post cleanup to Qt event loop to safely manipulate QObjects.
-            // If the event loop isn't running the queued call may never execute; therefore
-            // we still set the completion promise here so callers don't block indefinitely.
-            queued = QMetaObject::invokeMethod(QCoreApplication::instance(), [this, tone]() {
-                tone->close();
-                tone->deleteLater();
-                std::unique_lock<std::mutex> lk(play_mutex_);
-                auto it = std::find(active_buffers_.begin(), active_buffers_.end(), reinterpret_cast<void*>(tone));
-                if (it != active_buffers_.end()) active_buffers_.erase(it);
-            }, Qt::QueuedConnection);
+            queued = QMetaObject::invokeMethod(QCoreApplication::instance(), cleanupOnQtThread, Qt::QueuedConnection);
         }
 
         if (!queued) {
-            // No event loop or invokeMethod failed — perform cleanup here.
-            try {
-                tone->close();
-            } catch(...){}
-            try {
-                delete tone;
-            } catch(...){}
-            std::unique_lock<std::mutex> lk(play_mutex_);
-            auto it = std::find(active_buffers_.begin(), active_buffers_.end(), reinterpret_cast<void*>(tone));
-            if (it != active_buffers_.end()) active_buffers_.erase(it);
-            lk.unlock();
-        }
+            // No event loop available: resolve safely in this thread by id.
+            QIODevice* dev = nullptr;
+            std::shared_ptr<std::promise<void>> done;
+            {
+                std::unique_lock<std::mutex> lk(play_mutex_);
+                auto it = active_playbacks_.find(playbackId);
+                if (it == active_playbacks_.end())
+                    return;
+                dev = reinterpret_cast<QIODevice*>(it->second.device);
+                done = it->second.completion;
+                active_playbacks_.erase(it);
+            }
 
-        if (completion) {
-            try { completion->set_value(); } catch (...) {}
+            if (dev) {
+                try { dev->close(); } catch (...) {}
+                try { delete dev; } catch (...) {}
+            }
+            if (done) {
+                try { done->set_value(); } catch (...) {}
+            }
         }
     }).detach();
-
-    {
-        std::unique_lock<std::mutex> lk(play_mutex_);
-        active_buffers_.push_back(reinterpret_cast<void*>(tone));
-    }
 }
 
 } // namespace comal::sound

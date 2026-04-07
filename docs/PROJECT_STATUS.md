@@ -11,7 +11,7 @@
 | Parser Library (libcomal-parser) | ✅ Complete | ~4500 |
 | Runtime Library (libcomal-runtime) | ✅ Complete | ~4500 |
 | Graphics Library (libcomal-graphics) | ✅ Complete | ~690 |
-| Sound Library (libcomal-sound) | ✅ Implemented (partial) | ~120 |
+| Sound Library (libcomal-sound) | ✅ Implemented (partial, stabilized) | ~300 |
 | LSP Server (comal-lsp) | ✅ Complete | ~1000 |
 | Qt6 GUI IDE (comal-ide) | 🔧 In Progress | ~2200 |
 | Test Suite | ✅ 127/133 pass | 133 programs |
@@ -102,6 +102,22 @@ New sound backend providing `TONE` and a start of `PLAY` support. Key points:
 - **PLAY**: minimal runtime support implemented (volume control via `PLAY "VOL=nn"`). Full PLAY MML parsing and MIDI translation are TODO.
 - **Shutdown**: Engine now tracks playback threads and performs graceful stop/join on destruction to avoid leaked threads and dangling audio sinks.
 - **Tests**: basic integration test added (`tests/programs/tone_play_test.lst` + `tests/test_tone_play.sh`).
+
+**Recent changes (7 April 2026) — In-process Sound Service & Stop Semantics**
+
+- `Engine` now runs as an in-process service with a dedicated command queue + worker thread.
+- Service command handling now includes queued `Play` and `StopAll` operations.
+- Added `Engine::stopActive()` for stopping active playback without shutting down the service thread.
+- `PLAY "STOP"` is now supported in runtime and routes to `stopActive()`.
+- Runtime now uses a single shared registered sound engine instance for `TONE` and `PLAY`.
+- Playback lifecycle race in Qt tone cleanup was fixed by using stable playback IDs and guarded ownership map.
+- Added deterministic GUI-host cleanup by calling `shutdownAllEngines()` in IDE main-window teardown.
+
+Validation done for this change set:
+
+- Full build succeeds.
+- Sound-focused tests pass: `sound_commands`, `sound_engine`, `abc_parser`.
+- Manual runtime verification: `PLAY "STOP"` accepted and executes without runtime errors.
 
 **Recent changes (26 March 2026)**
 

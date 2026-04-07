@@ -29,6 +29,7 @@ Behavior & implementation notes
 - Engine API: `PlaySpec` will include fields for `format`, `source`, `volume`, `sf2Path`, `loop`, `durationMs`, and `async` (bool).
 - Blocking implementation: the interpreter will wait on a condition variable or future which the sound engine signals at playback end.
 - Async implementation: `PLAY` schedules playback and returns immediately. Multiple async plays are allowed; `STOP` will stop active playback (recommendation: `STOP` stops all active playback instances).
+- Implemented runtime shortcut: `PLAY "STOP"` stops active playback through the in-process sound service.
 - ABC → MIDI: conversion is required. Options:
   - Prefer an embedded ABC→MIDI converter (if available).
   - Fallback: call `abc2midi` externally.
@@ -62,6 +63,14 @@ Progress snapshot (2026-03-30)
 - FluidSynth backend: added a FluidSynth-based midi player wrapper (src/midi_player.cpp) and CMake detection for FluidSynth; `Engine::play` is wired to call FluidSynth for ABC strings in fallback and Qt builds when FluidSynth is available. (done)
 - Packaging: CPack metadata updated to recommend `fluid-soundfont-gm` and depend on `fluidsynth` where appropriate. (done)
 
+Progress snapshot (2026-04-07)
+
+- Sound engine refactored to an in-process service-thread model (command queue + worker loop). (done)
+- Added queued `StopAll` command semantics via `Engine::stopActive()`. (done)
+- Runtime `PLAY` now supports `PLAY "STOP"` and routes to `stopActive()`. (done)
+- Runtime sound usage unified to one shared engine instance (consistent volume/control/shutdown). (done)
+- Qt tone playback cleanup race hardened using playback IDs with synchronized ownership. (done)
+
 What worked during testing
 
 - CLI FluidSynth (`fluidsynth`) loads the system SF2 and plays notes when connected to an audible sink.
@@ -72,6 +81,7 @@ Outstanding follow-ups (next session)
 - Add `SF2=` parameter parsing in `execPlay` so callers can select a SoundFont per `PLAY` call. (planned)
 - Add verbose FluidSynth logs and an environment override `COMAL_FLUIDSYNTH_DRIVER` to force the audio driver (`pulseaudio`, `alsa`, etc.). (planned)
 - Improve scheduling: replace sleep-based note scheduling with a proper event scheduler and add polyphony/mixer. (planned)
+- Extend stop control from global stop to per-playback handle stop (queue command by playback id). (planned)
 - Optionally include a default SF2 in `packaging/` (requires license confirmation) and wire packaging to install it under `/usr/share/soundfonts/`. (planned)
 - Add automated tests (CI-friendly) that exercise the ABC parser and verify `Engine::play` behavior using the fallback ready-future in headless builds. (planned)
 
@@ -79,5 +89,5 @@ If you want to pick up from here next time, recommended first actions:
 
 1. Implement `SF2=` support in `execPlay` and a small runtime test program under `tests/programs/`.
 2. Add `COMAL_FLUIDSYNTH_DRIVER` support and verbose logging so in-process playback is diagnosable across audio backends.
-3. Add one or two small polyphony/mixer unit tests and then refactor the `tone_player` to use a mixer `QIODevice`.
+3. Implement per-playback stop command support (ID-based), then add one or two small polyphony/mixer unit tests.
 
