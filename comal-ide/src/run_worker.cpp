@@ -55,8 +55,10 @@ RunWorker::RunWorker(QObject *parent)
 
 RunWorker::~RunWorker()
 {
-    requestStop();
-    wait();
+    if (isRunning()) {
+        requestStop();
+        wait();
+    }
 }
 
 void RunWorker::setExternalInterpreter(std::shared_ptr<comal::runtime::Interpreter> interp)

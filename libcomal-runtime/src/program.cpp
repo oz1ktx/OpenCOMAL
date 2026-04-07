@@ -517,6 +517,10 @@ void Interpreter::resetRunState() {
     trace = false;
     curline = nullptr;
 
+    // A previous run or worker shutdown may have requested an interrupt.
+    // Clear it here so each fresh run starts from a clean cancellation state.
+    interrupt_.reset();
+
     // Reset breakpoint tracking (line-based breakpoints persist but should
     // only trigger once per line visit).
     lastBreakpointLine_ = 0;
