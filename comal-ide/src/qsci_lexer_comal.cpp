@@ -41,6 +41,22 @@ static const QSet<QString> &comalBuiltins()
     return bf;
 }
 
+static const QSet<QString> &comalGraphicsCommands()
+{
+    // Graphics subcommands for DRAW statements (libcomal-graphics)
+    static const QSet<QString> gc {
+        // Shape commands (exactly as in libcomal-graphics)
+        "line", "rect", "circle", "ellipse", "text",
+        // Style commands
+        "stroke", "fill", "noFill", "noStroke", "lineWidth", "fontSize",
+        // Canvas commands
+        "background", "clear",
+        // Transform commands
+        "translate", "rotate", "scale",
+    };
+    return gc;
+}
+
 // ── Constructor ─────────────────────────────────────────────────────────
 
 QsciLexerComal::QsciLexerComal(QObject *parent)
@@ -56,29 +72,31 @@ const char *QsciLexerComal::language() const
 QString QsciLexerComal::description(int style) const
 {
     switch (style) {
-    case Default:   return tr("Default");
-    case Keyword:   return tr("Keyword");
-    case Builtin:   return tr("Built-in function");
-    case String:    return tr("String");
-    case Number:    return tr("Number");
-    case Comment:   return tr("Comment");
-    case Operator:  return tr("Operator");
-    case VarSuffix: return tr("String/integer variable");
-    default:        return {};
+    case Default:      return tr("Default");
+    case Keyword:      return tr("Keyword");
+    case Builtin:      return tr("Built-in function");
+    case String:       return tr("String");
+    case Number:       return tr("Number");
+    case Comment:      return tr("Comment");
+    case Operator:     return tr("Operator");
+    case VarSuffix:    return tr("String/integer variable");
+    case GraphicsCmd:  return tr("Graphics command");
+    default:           return {};
     }
 }
 
 QColor QsciLexerComal::defaultColor(int style) const
 {
     switch (style) {
-    case Keyword:   return QColor(0, 0, 180);       // dark blue
-    case Builtin:   return QColor(0, 128, 128);      // teal
-    case String:    return QColor(163, 21, 21);       // dark red
-    case Number:    return QColor(9, 134, 88);        // green
-    case Comment:   return QColor(0, 128, 0);         // green
-    case Operator:  return QColor(128, 0, 128);       // purple
-    case VarSuffix: return QColor(120, 73, 42);       // brown
-    default:        return QColor(0, 0, 0);           // black
+    case Keyword:      return QColor(0, 0, 180);       // dark blue
+    case Builtin:      return QColor(0, 128, 128);      // teal
+    case String:       return QColor(163, 21, 21);      // dark red
+    case Number:       return QColor(9, 134, 88);       // green
+    case Comment:      return QColor(0, 128, 0);        // green
+    case Operator:     return QColor(128, 0, 128);      // purple
+    case VarSuffix:    return QColor(120, 73, 42);      // brown
+    case GraphicsCmd:  return QColor(200, 0, 128);      // dark magenta
+    default:           return QColor(0, 0, 0);          // black
     }
 }
 
@@ -102,6 +120,18 @@ bool QsciLexerComal::isBuiltin(const QString &word)
     return comalBuiltins().contains(word.toUpper());
 }
 
+static bool isGraphicsCommand(const QString &word)
+{
+    // Case-insensitive check since graphics commands are stored in original case
+    const auto& commands = comalGraphicsCommands();
+    for (const auto& cmd : commands) {
+        if (cmd.compare(word, Qt::CaseInsensitive) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // ── styleText — the main lexer entry point ──────────────────────────────
 
 void QsciLexerComal::styleText(int start, int end)
@@ -109,15 +139,28 @@ void QsciLexerComal::styleText(int start, int end)
     if (!editor())
         return;
 
-    // Get the text to style.
-    QString text = editor()->text(start, end);
+    Q_UNUSED(start);
+    Q_UNUSED(end);
+
+    // Style the whole document on each pass. This avoids partial-range UTF-8
+    // boundary issues that can cause stray underlines/artifacts.
+    const QString text = editor()->text();
     if (text.isEmpty())
         return;
 
-    startStyling(start);
+    startStyling(0);
 
     int i = 0;
     int len = text.length();
+
+    auto setStylingForChars = [&](int charStart, int charEnd, int style) {
+        const int charCount = charEnd - charStart;
+        if (charCount <= 0)
+            return;
+        const int byteCount = text.mid(charStart, charCount).toUtf8().size();
+        if (byteCount > 0)
+            setStyling(byteCount, style);
+    };
 
     while (i < len) {
         QChar ch = text[i];
@@ -127,7 +170,7 @@ void QsciLexerComal::styleText(int start, int end)
             int commentStart = i;
             while (i < len && text[i] != '\n')
                 ++i;
-            setStyling(i - commentStart, Comment);
+            setStylingForChars(commentStart, i, Comment);
             continue;
         }
 
@@ -139,7 +182,7 @@ void QsciLexerComal::styleText(int start, int end)
                 ++i;
             if (i < len && text[i] == '"')
                 ++i;   // skip closing quote
-            setStyling(i - strStart, String);
+            setStylingForChars(strStart, i, String);
             continue;
         }
 
@@ -156,7 +199,7 @@ void QsciLexerComal::styleText(int start, int end)
                 while (i < len && text[i].isDigit())
                     ++i;
             }
-            setStyling(i - numStart, Number);
+            setStylingForChars(numStart, i, Number);
             continue;
         }
 
@@ -176,15 +219,17 @@ void QsciLexerComal::styleText(int start, int end)
             if (hasSuffix) {
                 // Check if it's a builtin like CHR$, STR$, etc.
                 if (isBuiltin(word))
-                    setStyling(i - wordStart, Builtin);
+                    setStylingForChars(wordStart, i, Builtin);
                 else
-                    setStyling(i - wordStart, VarSuffix);
+                    setStylingForChars(wordStart, i, VarSuffix);
             } else if (isKeyword(word)) {
-                setStyling(i - wordStart, Keyword);
+                setStylingForChars(wordStart, i, Keyword);
             } else if (isBuiltin(word)) {
-                setStyling(i - wordStart, Builtin);
+                setStylingForChars(wordStart, i, Builtin);
+            } else if (isGraphicsCommand(word)) {
+                setStylingForChars(wordStart, i, GraphicsCmd);
             } else {
-                setStyling(i - wordStart, Default);
+                setStylingForChars(wordStart, i, Default);
             }
             continue;
         }

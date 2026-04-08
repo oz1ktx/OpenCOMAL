@@ -13,19 +13,21 @@
 ///   5 — Comments (// …)
 ///   6 — Operators (:=, +, -, *, /, ^, <>, <=, >=)
 ///   7 — Variable suffixes (identifiers ending in $ or #)
+///   8 — Graphics commands (DRAW subcommands: circle, rect, text, …)
 class QsciLexerComal : public QsciLexerCustom {
     Q_OBJECT
 
 public:
     enum Style {
-        Default   = 0,
-        Keyword   = 1,
-        Builtin   = 2,
-        String    = 3,
-        Number    = 4,
-        Comment   = 5,
-        Operator  = 6,
-        VarSuffix = 7,
+        Default        = 0,
+        Keyword        = 1,
+        Builtin        = 2,
+        String         = 3,
+        Number         = 4,
+        Comment        = 5,
+        Operator       = 6,
+        VarSuffix      = 7,
+        GraphicsCmd    = 8,
     };
 
     explicit QsciLexerComal(QObject *parent = nullptr);
