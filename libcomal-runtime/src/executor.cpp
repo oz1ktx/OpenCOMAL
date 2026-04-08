@@ -1652,21 +1652,44 @@ static void execDraw(Interpreter& interp, ComalLine* line) {
     //   DRAW "circle 100 200 50"              — full command as single string
     //   DRAW "circle", 100, 200, 50           — command name + separate args
     //   DRAW "Spaceship.rect", x, y, w, h     — grouped, with variables
+    //   DRAW text, x, y, label$              — text command with string arg
     //
-    // In the multi-arg form, all expressions are evaluated and joined
-    // into a single command string for parsing.
+    // In the single-string form, the value is passed verbatim as the full
+    // command line.  In the multi-arg form, numeric values are appended as-is
+    // and string values are double-quoted so they survive the parseLine tokenizer
+    // (this preserves spaces inside string variables like label$).
     auto* elist = std::get_if<ExpList*>(&line->contents());
     if (!elist || !*elist) return;
 
     auto& scene = interp.graphicsScene();
     const auto& registry = interp.graphicsRegistry();
 
+    // Count args so we can detect the single-string form
+    int numArgs = 0;
+    for (auto* n = *elist; n; n = n->next()) ++numArgs;
+    bool singleStringArg = (numArgs == 1);
+
     // Build command string by joining all expression values
     std::string cmdStr;
     for (auto* node = *elist; node; node = node->next()) {
         Value v = evaluate(interp, node->exp());
         if (!cmdStr.empty()) cmdStr += ' ';
-        cmdStr += v.printStr();
+        if (!singleStringArg && v.isString()) {
+            // Quote string values in multi-arg form so spaces are preserved
+            const std::string& s = v.asString();
+            std::string quoted;
+            quoted.reserve(s.size() + 2);
+            quoted += '"';
+            for (char c : s) {
+                if (c == '"')  { quoted += "\\\""; }
+                else if (c == '\\') { quoted += "\\\\"; }
+                else { quoted += c; }
+            }
+            quoted += '"';
+            cmdStr += quoted;
+        } else {
+            cmdStr += v.printStr();
+        }
     }
 
     comal::graphics::ParsedCommand cmd;

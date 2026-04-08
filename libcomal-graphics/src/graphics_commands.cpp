@@ -48,6 +48,13 @@ CommandRegistry::CommandRegistry() {
          "Rotate a group (degrees).", "angle"},
         {"scale",      1, 2, CommandKind::Transform,
          "Scale a group.", "sx [sy]"},
+
+        // Text
+        {"text",       2, 2, CommandKind::Shape,
+         "Draw text at a position (uses current stroke color and fontSize).",
+         "x y \"text\"", 1},
+        {"fontSize",   1, 1, CommandKind::Style,
+         "Set the font size for subsequent text commands.", "size"},
     };
 
     for (size_t i = 0; i < specs_.size(); ++i) {
@@ -69,12 +76,56 @@ const CommandSpec* CommandRegistry::find(const std::string& name) const {
 
 // ── Tokenizer ───────────────────────────────────────────────────────────
 
-static std::vector<std::string> tokenize(const std::string& line) {
-    std::vector<std::string> tokens;
-    std::istringstream iss(line);
-    std::string tok;
-    while (iss >> tok)
-        tokens.push_back(tok);
+struct Token {
+    std::string value;
+    bool isQuoted{false};
+};
+
+/// Split a line into tokens.  Quoted strings ("...") are produced as a single
+/// token with isQuoted=true and their content (escape-processed) as value.
+/// On unterminated quote, appends a sentinel token with value=":UNTERMINATED".
+static std::vector<Token> tokenize(const std::string& line) {
+    std::vector<Token> tokens;
+    size_t i = 0;
+    const size_t n = line.size();
+
+    while (i < n) {
+        // Skip whitespace
+        if (std::isspace(static_cast<unsigned char>(line[i]))) { ++i; continue; }
+
+        if (line[i] == '"') {
+            ++i; // consume opening quote
+            std::string val;
+            bool closed = false;
+            while (i < n) {
+                if (line[i] == '"') {
+                    ++i; // consume closing quote
+                    closed = true;
+                    break;
+                }
+                if (line[i] == '\\' && i + 1 < n) {
+                    ++i;
+                    if      (line[i] == '"')  val += '"';
+                    else if (line[i] == '\\') val += '\\';
+                    else { val += '\\'; val += line[i]; }
+                } else {
+                    val += line[i];
+                }
+                ++i;
+            }
+            if (!closed) {
+                tokens.push_back(Token{":UNTERMINATED", false});
+                return tokens;
+            }
+            tokens.push_back(Token{std::move(val), true});
+        } else {
+            // Unquoted token — read until whitespace
+            std::string val;
+            while (i < n && !std::isspace(static_cast<unsigned char>(line[i])))
+                val += line[i++];
+            tokens.push_back(Token{std::move(val), false});
+        }
+    }
     return tokens;
 }
 
@@ -127,8 +178,16 @@ bool parseLine(const std::string& line, int lineNo,
     if (tokens.empty())
         return true;
 
-    // First token: qualified command name
-    splitQualifiedName(tokens[0], out.groupPath, out.command);
+    // Check for unterminated-quote sentinel
+    for (const auto& tok : tokens) {
+        if (tok.value == ":UNTERMINATED" && !tok.isQuoted) {
+            error = {lineNo, "Unterminated quoted string"};
+            return false;
+        }
+    }
+
+    // First token: qualified command name (quoted or unquoted)
+    splitQualifiedName(tokens[0].value, out.groupPath, out.command);
 
     // Validate group names
     for (const auto& g : out.groupPath) {
@@ -153,23 +212,29 @@ bool parseLine(const std::string& line, int lineNo,
     // Canonicalize: use the registered name for execution dispatch
     out.command = spec->name;
 
-    // Parse numeric arguments
+    // Parse remaining tokens: unquoted → numeric arg, quoted → string arg
     for (size_t i = 1; i < tokens.size(); ++i) {
-        try {
-            size_t pos;
-            double val = std::stod(tokens[i], &pos);
-            if (pos != tokens[i].size()) {
-                error = {lineNo, "Expected number, got: '" + tokens[i] + "'"};
+        const auto& tok = tokens[i];
+        if (tok.isQuoted) {
+            out.stringArgs.push_back(tok.value);
+        } else {
+            // Try to parse as a number
+            try {
+                size_t pos;
+                double val = std::stod(tok.value, &pos);
+                if (pos != tok.value.size()) {
+                    error = {lineNo, "Expected number, got: '" + tok.value + "'"};
+                    return false;
+                }
+                out.args.push_back(val);
+            } catch (...) {
+                error = {lineNo, "Expected number, got: '" + tok.value + "'"};
                 return false;
             }
-            out.args.push_back(val);
-        } catch (...) {
-            error = {lineNo, "Expected number, got: '" + tokens[i] + "'"};
-            return false;
         }
     }
 
-    // Validate arity
+    // Validate numeric arity
     int nargs = static_cast<int>(out.args.size());
     if (nargs < spec->minArgs || nargs > spec->maxArgs) {
         std::string msg = "'" + out.command + "' expects ";
@@ -177,8 +242,21 @@ bool parseLine(const std::string& line, int lineNo,
             msg += std::to_string(spec->minArgs);
         else
             msg += std::to_string(spec->minArgs) + "-" + std::to_string(spec->maxArgs);
-        msg += " args, got " + std::to_string(nargs);
+        msg += " numeric arg(s), got " + std::to_string(nargs);
         error = {lineNo, msg};
+        return false;
+    }
+
+    // Validate string arity
+    int nsargs = static_cast<int>(out.stringArgs.size());
+    if (nsargs != spec->numStringArgs) {
+        if (spec->numStringArgs == 0 && nsargs > 0) {
+            error = {lineNo, "'" + out.command + "' does not accept string arguments"};
+        } else {
+            error = {lineNo, "'" + out.command + "' expects " +
+                     std::to_string(spec->numStringArgs) + " string arg(s), got " +
+                     std::to_string(nsargs)};
+        }
         return false;
     }
 

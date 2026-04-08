@@ -1,4 +1,7 @@
 PAGE
 PRINT "Close encounters"
+SLEEP 1000
 PLAY "L:1  D E C C, G, "
+SLEEP 1000
 PRINT "Done"
+SLEEP 1000

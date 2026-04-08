@@ -87,6 +87,12 @@ std::string executeCommand(Scene& scene, const ParsedCommand& cmd) {
         scene.lineWidth = a[0];
         return {};
     }
+    if (name == "fontSize") {
+        if (a[0] <= 0)
+            return "fontSize: size must be positive";
+        scene.fontSize = a[0];
+        return {};
+    }
 
     // ── Shapes ──────────────────────────────────────────────────────────
     if (name == "line") {
@@ -107,6 +113,14 @@ std::string executeCommand(Scene& scene, const ParsedCommand& cmd) {
     if (name == "ellipse") {
         target->shapes.push_back(
             scene.makeShape(EllipseShape{a[0], a[1], a[2], a[3]}));
+        return {};
+    }
+    if (name == "text") {
+        const auto& sa = cmd.stringArgs;
+        if (sa.empty())
+            return "text: missing text argument";
+        target->shapes.push_back(
+            scene.makeShape(TextShape{a[0], a[1], sa[0], scene.fontSize}));
         return {};
     }
 

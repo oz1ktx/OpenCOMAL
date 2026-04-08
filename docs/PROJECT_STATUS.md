@@ -86,10 +86,18 @@ Complete batch execution engine for COMAL programs.
 
 Self-contained scene model and command parser for 2D drawing.
 
-- **13 commands**: line, rect, circle, ellipse, stroke, fill, noFill,
-  noStroke, lineWidth, background, clear, translate, rotate, scale
+- **16 commands**: line, rect, circle, ellipse, stroke, fill, noFill,
+  noStroke, lineWidth, fontSize, background, clear, translate, rotate, scale,
+  **text** *(new)*
+- **text command**: `DRAW text, x, y, "string"` — draws text at (x, y) using
+  the current stroke color and `fontSize` style value
+- **fontSize style command**: `DRAW fontSize, n` — sets font size (pt) for
+  subsequent text commands; stateful like `lineWidth` (default 12.0)
+- **Quote-aware parser**: string arguments in double quotes survive round-trip
+  through `parseLine`; escape sequences `\"` and `\\` supported
 - **Scene model**: tree of Group nodes with shapes, transforms, style state
-- **Command registry**: name→spec mapping with arity validation
+- **Command registry**: name→spec mapping with arity validation (separate
+  numeric and string arg counts)
 - **Group nesting**: dot-notation paths (`Spaceship.Engine.rect …`),
   auto-created on first use
 - **Unit tests**: command parsing and scene execution

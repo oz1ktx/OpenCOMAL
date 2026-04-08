@@ -51,6 +51,17 @@ static ParsedCommand makeCmd(const std::string& cmd,
     return pc;
 }
 
+static ParsedCommand makeTextCmd(double x, double y, const std::string& text,
+                                 std::vector<std::string> group = {}) {
+    ParsedCommand pc;
+    pc.command = "text";
+    pc.args = {x, y};
+    pc.stringArgs = {text};
+    pc.groupPath = std::move(group);
+    pc.lineNo = 1;
+    return pc;
+}
+
 // ── Group tests ─────────────────────────────────────────────────────────
 
 static void test_group_find_or_create() {
@@ -404,6 +415,98 @@ static void test_multiple_shapes() {
     PASS();
 }
 
+// ── fontSize style command ─────────────────────────────────────────────
+
+static void test_exec_fontSize() {
+    TEST(exec_fontSize);
+    Scene scene;
+    auto err = executeCommand(scene, makeCmd("fontSize", {24.0}));
+    ASSERT(err.empty(), err);
+    ASSERT(NEAR(scene.fontSize, 24.0), "fontSize updated");
+    PASS();
+}
+
+static void test_exec_fontSize_invalid() {
+    TEST(exec_fontSize_invalid);
+    Scene scene;
+    auto err = executeCommand(scene, makeCmd("fontSize", {0.0}));
+    ASSERT(!err.empty(), "should reject size 0");
+    auto err2 = executeCommand(scene, makeCmd("fontSize", {-5.0}));
+    ASSERT(!err2.empty(), "should reject negative size");
+    PASS();
+}
+
+// ── text shape command ─────────────────────────────────────────────────
+
+static void test_exec_text_basic() {
+    TEST(exec_text_basic);
+    Scene scene;
+    auto err = executeCommand(scene, makeTextCmd(100.0, 200.0, "Hello"));
+    ASSERT(err.empty(), err);
+    ASSERT(scene.root().shapes.size() == 1, "one shape");
+    auto& shape = scene.root().shapes[0];
+    ASSERT(std::holds_alternative<TextShape>(shape.data), "should be TextShape");
+    auto& t = std::get<TextShape>(shape.data);
+    ASSERT(NEAR(t.x, 100.0) && NEAR(t.y, 200.0), "coords");
+    ASSERT(t.text == "Hello", "text content");
+    ASSERT(NEAR(t.fontSize, 12.0), "default fontSize snapshot");
+    PASS();
+}
+
+static void test_exec_text_fontSize_snapshot() {
+    TEST(exec_text_fontSize_snapshot);
+    Scene scene;
+    executeCommand(scene, makeCmd("fontSize", {20.0}));
+    executeCommand(scene, makeTextCmd(0.0, 0.0, "Big"));
+
+    executeCommand(scene, makeCmd("fontSize", {8.0}));
+    executeCommand(scene, makeTextCmd(0.0, 0.0, "Small"));
+
+    ASSERT(scene.root().shapes.size() == 2, "two text shapes");
+    ASSERT(NEAR(std::get<TextShape>(scene.root().shapes[0].data).fontSize, 20.0),
+           "first text snapshots fontSize=20");
+    ASSERT(NEAR(std::get<TextShape>(scene.root().shapes[1].data).fontSize, 8.0),
+           "second text snapshots fontSize=8");
+    PASS();
+}
+
+static void test_exec_text_inherits_stroke() {
+    TEST(exec_text_inherits_stroke);
+    Scene scene;
+    executeCommand(scene, makeCmd("stroke", {255, 0, 0}));
+    executeCommand(scene, makeTextCmd(10.0, 10.0, "Red text"));
+
+    auto& shape = scene.root().shapes[0];
+    ASSERT(shape.strokeColor == Color(255, 0, 0), "stroke color snapshot");
+    PASS();
+}
+
+static void test_exec_text_in_group() {
+    TEST(exec_text_in_group);
+    Scene scene;
+    auto err = executeCommand(scene, makeTextCmd(5.0, 10.0, "Label", {"HUD"}));
+    ASSERT(err.empty(), err);
+    ASSERT(scene.root().shapes.empty(), "nothing in root");
+    Group* hud = scene.root().findChild("HUD");
+    ASSERT(hud != nullptr, "HUD group created");
+    ASSERT(hud->shapes.size() == 1, "one shape in HUD");
+    ASSERT(std::holds_alternative<TextShape>(hud->shapes[0].data), "is TextShape");
+    PASS();
+}
+
+static void test_exec_text_missing_string_arg() {
+    TEST(exec_text_missing_string_arg);
+    Scene scene;
+    // Call without stringArgs — executeCommand guards against this
+    ParsedCommand pc;
+    pc.command = "text";
+    pc.args = {10.0, 20.0};
+    // no stringArgs
+    auto err = executeCommand(scene, pc);
+    ASSERT(!err.empty(), "should return error for missing string arg");
+    PASS();
+}
+
 // ── main ────────────────────────────────────────────────────────────────
 
 int main() {
@@ -449,6 +552,17 @@ int main() {
     std::cout << "\n=== Style & accumulation ===\n";
     test_style_snapshot();
     test_multiple_shapes();
+
+    std::cout << "\n=== fontSize command ===\n";
+    test_exec_fontSize();
+    test_exec_fontSize_invalid();
+
+    std::cout << "\n=== text command ===\n";
+    test_exec_text_basic();
+    test_exec_text_fontSize_snapshot();
+    test_exec_text_inherits_stroke();
+    test_exec_text_in_group();
+    test_exec_text_missing_string_arg();
 
     std::cout << "\n--- Results: " << tests_passed << " passed, "
               << tests_failed << " failed ---\n";

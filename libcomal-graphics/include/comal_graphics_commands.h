@@ -23,6 +23,7 @@ struct ParsedCommand {
     std::vector<std::string> groupPath;   // e.g. {"Spaceship", "Engine"}
     std::string command;                  // e.g. "circle"
     std::vector<double> args;             // numeric arguments
+    std::vector<std::string> stringArgs;  // string arguments (e.g. text content)
     int lineNo{0};                        // source line number (1-based)
 };
 
@@ -37,11 +38,12 @@ enum class CommandKind {
 
 struct CommandSpec {
     std::string name;
-    int minArgs;
-    int maxArgs;
+    int minArgs;                   // minimum numeric arguments
+    int maxArgs;                   // maximum numeric arguments
     CommandKind kind;
     std::string description;       // One-line description (for hover)
     std::string argDescription;    // Argument synopsis (e.g. "x1 y1 x2 y2")
+    int numStringArgs{0};          // number of required string arguments (0 for most commands)
 };
 
 // ── Parse errors ────────────────────────────────────────────────────────

@@ -148,6 +148,17 @@ void GraphicsPanel::renderGroup(const Group& group,
             scene_->addEllipse(gx + ell->x, gy + ell->y,
                               ell->w, ell->h, pen, brush);
         }
+        else if (auto* txt = std::get_if<TextShape>(&shape.data)) {
+            QFont font;
+            font.setPointSizeF(txt->fontSize);
+            auto* item = scene_->addText(QString::fromStdString(txt->text), font);
+            item->setPos(gx + txt->x, gy + txt->y);
+            // Use stroke color as text color; fall back to black if stroke disabled
+            QColor textColor = shape.hasStroke
+                ? toQt(shape.strokeColor)
+                : QColor(0, 0, 0, 255);
+            item->setDefaultTextColor(textColor);
+        }
     }
 
     // Recurse into child groups

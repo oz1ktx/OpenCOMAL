@@ -45,7 +45,8 @@ static void test_registry_known_commands() {
         "line", "rect", "circle", "ellipse",
         "stroke", "fill", "noFill", "noStroke", "lineWidth",
         "background", "clear",
-        "translate", "rotate", "scale"
+        "translate", "rotate", "scale",
+        "text", "fontSize"
     };
 
     for (auto* name : names) {
@@ -65,7 +66,7 @@ static void test_registry_unknown_command() {
 static void test_registry_all_count() {
     TEST(registry_all_count);
     CommandRegistry reg;
-    ASSERT(reg.all().size() == 14, "expected 14 registered commands");
+    ASSERT(reg.all().size() == 16, "expected 16 registered commands");
     PASS();
 }
 
@@ -87,6 +88,14 @@ static void test_registry_arity() {
 
     auto* stroke = reg.find("stroke");
     ASSERT(stroke && stroke->minArgs == 3 && stroke->maxArgs == 4, "stroke takes 3-4 args");
+
+    auto* text = reg.find("text");
+    ASSERT(text && text->minArgs == 2 && text->maxArgs == 2, "text takes 2 numeric args");
+    ASSERT(text && text->numStringArgs == 1, "text takes 1 string arg");
+
+    auto* fontSize = reg.find("fontSize");
+    ASSERT(fontSize && fontSize->minArgs == 1 && fontSize->maxArgs == 1, "fontSize takes 1 arg");
+    ASSERT(fontSize && fontSize->numStringArgs == 0, "fontSize has no string args");
 
     PASS();
 }
@@ -262,6 +271,111 @@ static void test_parse_invalid_group_name() {
     PASS();
 }
 
+// ── text / fontSize parse tests ─────────────────────────────────────────
+
+static void test_parse_text_basic() {
+    TEST(parse_text_basic);
+    CommandRegistry reg;
+    ParsedCommand cmd;
+    ParseError err;
+
+    bool ok = parseLine("text 100 200 \"Hello\"", 1, reg, cmd, err);
+    ASSERT(ok, err.message);
+    ASSERT(cmd.command == "text", "command");
+    ASSERT(cmd.args.size() == 2, "2 numeric args");
+    ASSERT(cmd.args[0] == 100.0 && cmd.args[1] == 200.0, "coords");
+    ASSERT(cmd.stringArgs.size() == 1, "1 string arg");
+    ASSERT(cmd.stringArgs[0] == "Hello", "text content");
+    PASS();
+}
+
+static void test_parse_text_with_spaces() {
+    TEST(parse_text_with_spaces);
+    CommandRegistry reg;
+    ParsedCommand cmd;
+    ParseError err;
+
+    bool ok = parseLine("text 50 75 \"Hello World\"", 1, reg, cmd, err);
+    ASSERT(ok, err.message);
+    ASSERT(cmd.stringArgs.size() == 1, "1 string arg");
+    ASSERT(cmd.stringArgs[0] == "Hello World", "text with spaces preserved");
+    PASS();
+}
+
+static void test_parse_text_escaped_quote() {
+    TEST(parse_text_escaped_quote);
+    CommandRegistry reg;
+    ParsedCommand cmd;
+    ParseError err;
+
+    bool ok = parseLine("text 10 20 \"say \\\"hi\\\"\"", 1, reg, cmd, err);
+    ASSERT(ok, err.message);
+    ASSERT(cmd.stringArgs[0] == "say \"hi\"", "escaped quotes preserved");
+    PASS();
+}
+
+static void test_parse_text_grouped() {
+    TEST(parse_text_grouped);
+    CommandRegistry reg;
+    ParsedCommand cmd;
+    ParseError err;
+
+    bool ok = parseLine("Label.text 30 40 \"Score\"", 1, reg, cmd, err);
+    ASSERT(ok, err.message);
+    ASSERT(cmd.groupPath.size() == 1 && cmd.groupPath[0] == "Label", "group path");
+    ASSERT(cmd.command == "text", "command");
+    ASSERT(cmd.stringArgs[0] == "Score", "string arg");
+    PASS();
+}
+
+static void test_parse_text_missing_string_arg() {
+    TEST(parse_text_missing_string_arg);
+    CommandRegistry reg;
+    ParsedCommand cmd;
+    ParseError err;
+
+    bool ok = parseLine("text 100 200", 1, reg, cmd, err);
+    ASSERT(!ok, "should fail: text requires a string arg");
+    PASS();
+}
+
+static void test_parse_text_unterminated_quote() {
+    TEST(parse_text_unterminated_quote);
+    CommandRegistry reg;
+    ParsedCommand cmd;
+    ParseError err;
+
+    bool ok = parseLine("text 100 200 \"oops", 1, reg, cmd, err);
+    ASSERT(!ok, "should fail: unterminated quote");
+    PASS();
+}
+
+static void test_parse_fontSize_valid() {
+    TEST(parse_fontSize_valid);
+    CommandRegistry reg;
+    ParsedCommand cmd;
+    ParseError err;
+
+    bool ok = parseLine("fontSize 18", 1, reg, cmd, err);
+    ASSERT(ok, err.message);
+    ASSERT(cmd.command == "fontSize", "command");
+    ASSERT(cmd.args.size() == 1, "1 numeric arg");
+    ASSERT(cmd.args[0] == 18.0, "size value");
+    PASS();
+}
+
+static void test_parse_fontSize_string_rejected() {
+    TEST(parse_fontSize_string_rejected);
+    CommandRegistry reg;
+    ParsedCommand cmd;
+    ParseError err;
+
+    // fontSize must not accept a string arg
+    bool ok = parseLine("fontSize \"big\"", 1, reg, cmd, err);
+    ASSERT(!ok, "should fail: fontSize takes no string args");
+    PASS();
+}
+
 // ── parseProgram tests ──────────────────────────────────────────────────
 
 static void test_parse_program_multi() {
@@ -344,6 +458,16 @@ int main() {
     test_parse_blank_line();
     test_parse_comment_line();
     test_parse_invalid_group_name();
+
+    std::cout << "\n=== text / fontSize tests ===\n";
+    test_parse_text_basic();
+    test_parse_text_with_spaces();
+    test_parse_text_escaped_quote();
+    test_parse_text_grouped();
+    test_parse_text_missing_string_arg();
+    test_parse_text_unterminated_quote();
+    test_parse_fontSize_valid();
+    test_parse_fontSize_string_rejected();
 
     std::cout << "\n=== parseProgram tests ===\n";
     test_parse_program_multi();

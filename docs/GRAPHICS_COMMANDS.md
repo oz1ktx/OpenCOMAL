@@ -119,6 +119,41 @@ ellipse x y w h
 DRAW ellipse, 100, 300, 120, 60
 ```
 
+### text
+
+Draw a text string at a position.  The text uses the current stroke color
+and the current `fontSize` (see Style Commands).  The position is the
+**top-left corner** of the text bounding box, consistent with `rect` and
+`ellipse`.
+
+```
+text x y "string"
+```
+
+| Arg | Description |
+|-----|-------------|
+| x, y | Top-left position |
+| "string" | The text to draw (must be quoted if it contains spaces) |
+
+The text color is taken from the current stroke color.  The font size is
+taken from the current `fontSize` style (default 12 pt).
+
+```comal
+DRAW text, 100, 50, "Hello World"
+
+// Variable string
+label$ := "Score: " + STR$(score)
+DRAW text, 10, 10, label$
+
+// Grouped text
+DRAW "HUD.text", 5, 5, "Lives: 3"
+```
+
+**Future extensions:** optional trailing rotation angle (degrees) will be
+added as a trailing argument in a later version.  Font family and style
+are set via the separate `font` style command, which is not yet
+implemented.
+
 ---
 
 ## Style Commands
@@ -189,6 +224,33 @@ lineWidth w
 ```comal
 DRAW lineWidth, 3
 ```
+
+### fontSize
+
+Set the font size (in points) for subsequent `text` commands.  Acts like
+`lineWidth` — stateful, affects all text drawn after this call until
+changed again.
+
+```
+fontSize size
+```
+
+| Arg | Description |
+|-----|-------------|
+| size | Font size in points (must be positive) |
+
+Default is 12.0 pt.
+
+```comal
+DRAW fontSize, 24          // big heading
+DRAW text, 100, 50, "Title"
+
+DRAW fontSize, 12          // back to normal
+DRAW text, 100, 100, "Body text"
+```
+
+**Future extension:** a `font` style command (not yet implemented) will
+allow selecting the font family and style (bold, italic).
 
 ---
 
@@ -324,6 +386,7 @@ When the scene is first created (or after `clear`), the defaults are:
 | Fill color | White (255, 255, 255, 255) |
 | Fill enabled | Yes |
 | Line width | 1.0 |
+| Font size | 12.0 |
 | Background color | (240, 240, 255, 255) |
 
 ---
