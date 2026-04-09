@@ -375,11 +375,13 @@ void MainWindow::onRun()
     // Clear scene for full program runs
     persistentScene_->clear();
     graphics_->clearCanvas();
-    // Create a fresh worker each run
+    // Create a fresh worker each run. Do NOT reuse persistentInterp_ here:
+    // it retains the previously loaded program and loadSource() will not
+    // overwrite progroot, causing the wrong program to run.
+    // persistentInterp_ is used only for direct commands.
     delete worker_;
     worker_ = new RunWorker(this);
     worker_->setGraphicsScene(persistentScene_.get());
-    worker_->setExternalInterpreter(persistentInterp_);
     worker_->setSource(source);
     {
         auto bps = codeEditor_->breakpointsForCurrentFile();
@@ -518,11 +520,10 @@ void MainWindow::startSingleStepRun(const QString &title)
     // Clear scene for full program runs
     persistentScene_->clear();
     graphics_->clearCanvas();
-    // Create a fresh worker each run
+    // Create a fresh worker each run (no persistentInterp_ — see onRun() comment).
     delete worker_;
     worker_ = new RunWorker(this);
     worker_->setGraphicsScene(persistentScene_.get());
-    worker_->setExternalInterpreter(persistentInterp_);
     worker_->setSource(source);
     {
         auto bps = codeEditor_->breakpointsForCurrentFile();

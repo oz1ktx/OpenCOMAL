@@ -24,6 +24,14 @@ Group* Scene::resolveGroup(const std::vector<std::string>& path) {
 
 void Scene::clear() {
     root_.clear();
+    // Reset all style state to defaults so each run starts consistently.
+    strokeColor = Color{0, 0, 0, 255};
+    hasStroke = true;
+    fillColor = Color{255, 255, 255, 255};
+    hasFill = true;
+    lineWidth = 1.0;
+    fontSize = 12.0;
+    backgroundColor = Color{240, 240, 255, 255};
 }
 
 Shape Scene::makeShape(ShapeData data) const {

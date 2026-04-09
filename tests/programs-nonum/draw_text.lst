@@ -3,8 +3,9 @@
 
 DRAW background, 0, 0, 0
 
-// Default fontSize (12) — draw a label
+// Default fontSize (12) — draw a label (white stroke so text is visible on black background)
 label$ := "Hello World"
+DRAW stroke, 255, 255, 255
 DRAW text, 50, 30, label$
 
 // Change fontSize and draw another label
