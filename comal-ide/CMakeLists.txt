@@ -64,6 +64,7 @@ add_executable(comal-ide
 
 target_include_directories(comal-ide PRIVATE
     include
+    ${CMAKE_SOURCE_DIR}/comal-lsp/include
     ${QSCINTILLA_INCLUDE_DIR}
 )
 

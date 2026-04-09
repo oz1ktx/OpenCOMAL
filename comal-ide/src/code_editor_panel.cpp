@@ -233,22 +233,34 @@ void CodeEditorPanel::openFile(const QString &filePath)
     QString content = stream.readAll();
 
     // Strip COMAL line numbers (leading digits + optional space)
-    // e.g. "0010 PRINT ..." → "PRINT ..."
-    QString stripped;
-    const auto lines = content.split('\n');
-    for (const auto &line : lines) {
-        auto trimmed = line.trimmed();
+    // e.g. "0010 PRINT ..." -> "PRINT ..."
+    const bool hadTerminalNewline = content.endsWith('\n');
+    QStringList strippedLines;
+    const auto lines = content.split('\n', Qt::KeepEmptyParts);
+    const int limit = hadTerminalNewline ? lines.size() - 1 : lines.size();
+    strippedLines.reserve(limit);
+
+    for (int i = 0; i < limit; ++i) {
+        QString line = lines[i];
+        if (line.endsWith('\r'))
+            line.chop(1);
+
+        QString trimmed = line.trimmed();
         // Match optional leading digits followed by space (or end of line)
         int pos = 0;
         while (pos < trimmed.size() && trimmed[pos].isDigit())
             pos++;
         if (pos > 0 && pos < trimmed.size() && trimmed[pos] == ' ')
-            stripped += trimmed.mid(pos + 1) + '\n';
+            strippedLines.append(trimmed.mid(pos + 1));
         else if (pos > 0 && pos == trimmed.size())
-            stripped += '\n';  // blank numbered line (e.g. "  80 ")
+            strippedLines.append(QString()); // blank numbered line (e.g. "  80 ")
         else
-            stripped += line + '\n';
+            strippedLines.append(line);
     }
+
+    QString stripped = strippedLines.join('\n');
+    if (hadTerminalNewline)
+        stripped += '\n';
 
     auto *editor = createEditor();
     editor->setText(stripped);

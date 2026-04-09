@@ -1,5 +1,6 @@
 #include "comal_lsp_server.h"
 #include "comal_lsp_protocol.h"
+#include "comal_keyword_docs.h"
 #include "comal_graphics_commands.h"
 
 #include <iostream>
@@ -214,171 +215,6 @@ static std::string extractDrawSubcommand(const std::string& content, int line, i
     return {};
 }
 
-// Canonical COMAL keyword docs used by both hover and completion.
-static const std::vector<std::pair<std::string, std::string>>& keywordDocEntries() {
-    static const std::vector<std::pair<std::string, std::string>> entries = {
-        {"PRINT",    "Print values to the output device."},
-        {"INPUT",    "Read a value from the user."},
-        {"IF",       "Conditional execution. Use with THEN, ELSE, ENDIF."},
-        {"THEN",     "Introduces the true-branch of IF."},
-        {"ELSE",     "Introduces the false-branch of IF."},
-        {"ELIF",     "Else-if branch (IF ... ELIF ... ENDIF)."},
-        {"END",      "Terminates a program, or closes a block (END IF, END FOR, END PROC, ...)."},
-        {"ENDIF",    "Closes a multi-line IF block."},
-        {"FOR",      "Counted loop: FOR var := start TO stop [STEP inc]."},
-        {"TO",       "Upper bound in a FOR loop."},
-        {"DOWNTO",   "Descending FOR direction: FOR i := hi DOWNTO lo."},
-        {"STEP",     "Increment value in a FOR loop."},
-        {"NEXT",     "End of a FOR loop body (or ENDFOR)."},
-        {"ENDFOR",   "End of a FOR loop body."},
-        {"WHILE",    "Loop while a condition is true."},
-        {"ENDWHILE", "End of a WHILE loop body."},
-        {"REPEAT",   "Loop body that repeats UNTIL a condition is true."},
-        {"UNTIL",    "Condition that terminates a REPEAT loop."},
-        {"DO",       "Start of a DO block (used with LOOP/UNTIL forms)."},
-        {"IN",       "Membership/iteration helper keyword in selected statements."},
-        {"PROC",     "Define a procedure: PROC name[(params)] ... ENDPROC."},
-        {"ENDPROC",  "End of a PROC definition."},
-        {"FUNC",     "Define a function: FUNC name[(params)] ... ENDFUNC."},
-        {"ENDFUNC",  "End of a FUNC definition."},
-        {"RETURN",   "Return a value from a FUNC."},
-        {"LOCAL",    "Declare local variables in a PROC or FUNC."},
-        {"CLOSED",   "Mark a PROC/FUNC as closed-scope (no access to outer variables)."},
-        {"IMPORT",   "Import names into a CLOSED procedure."},
-        {"GLOBAL",   "Alias for IMPORT in CLOSED procedure declarations."},
-        {"EXPORT",   "Export names from a CLOSED procedure."},
-        {"LET",      "Assignment (optional keyword, e.g. LET x := 5)."},
-        {"DIM",      "Dimension (allocate) an array."},
-        {"READ",     "Read the next value from a DATA list."},
-        {"READ ONLY", "Open resource/file in read-only mode."},
-        {"WRITE",    "Write values to a file stream or device."},
-        {"DATA",     "Define inline data for READ statements."},
-        {"RESTORE",  "Reset the DATA pointer."},
-        {"STOP",     "Halt program execution."},
-        {"TRAP",     "Set up an error/escape handler: TRAP ESC/ERR."},
-        {"ESC",      "Escape condition keyword used with TRAP."},
-        {"ESCAPE",   "Equivalent to pressing the escape key."},
-        {"HANDLER",  "Error/escape handler block."},
-        {"ENDTRAP",  "End of a TRAP block."},
-        {"RETRY",    "Retry after handling an error/escape in a TRAP handler."},
-        {"CASE",     "Multi-way branch: CASE expr OF ... ENDCASE."},
-        {"WHEN",     "Branch inside a CASE block."},
-        {"OTHERWISE","Default branch inside a CASE block."},
-        {"ENDCASE",  "End of a CASE block."},
-        {"EXEC",     "Execute a procedure call."},
-        {"OPEN",     "Open a file handle for INPUT/OUTPUT/READ/WRITE."},
-        {"CLOSE",    "Close an open file handle."},
-        {"FILE",     "File-channel designator keyword (often used with #)."},
-        {"APPEND",   "Open/write mode that appends to an existing file."},
-        {"SELECT INPUT",  "Select default input channel/device."},
-        {"SELECT OUTPUT", "Select default output channel/device."},
-        {"ZONE",     "Set the print zone width."},
-        {"PAGE",     "Clear the screen."},
-        {"CURSOR",   "Position the cursor: CURSOR row, col."},
-        {"OF",       "Part of CASE ... OF."},
-        {"SELECT",   "Select output device."},
-        {"DRAW",     "Execute a graphics command: DRAW subcommand args."},
-        {"TONE",     "Play a simple sine tone: TONE frequency duration (ms)."},
-        {"PLAY",     "Play a melody or instrument sequence (MML/MIDI-like string)."},
-        {"SLEEP",    "Pause execution for a number of milliseconds."},
-        {"USING",    "Formatted output: PRINT USING format$ ; values."},
-        {"EXIT",     "Exit a loop early."},
-        {"LOOP",     "Infinite loop (LOOP ... ENDLOOP / EXIT WHEN)."},
-        {"ENDLOOP",  "End of a LOOP block."},
-        {"NULL",     "No-operation statement."},
-        {"DELETE",   "Delete program lines."},
-        {"RANDOM",   "Randomize the random number generator."},
-        {"RND",      "Random number function."},
-        {"PI",       "Mathematical constant pi."},
-        {"TRUE",     "Boolean true constant."},
-        {"FALSE",    "Boolean false constant."},
-        {"EOD",      "End-of-DATA indicator."},
-        {"EOF",      "End-of-file indicator/function."},
-        {"EOR",      "Logical exclusive OR."},
-        {"ERR",      "Current runtime error code."},
-        {"ERRLINE",  "Line number of the current runtime error."},
-        {"ERRTEXT$", "Text message for the current runtime error."},
-        {"SPC",      "Output a number of spaces."},
-        {"SPC$",     "String-valued spacing function."},
-        {"TAB",      "Move to a specific column."},
-        {"KEY$",     "Last key input as a string."},
-        {"INKEY$",   "Non-blocking single-character input."},
-        {"LOWER$",   "Convert a string to lowercase."},
-        {"UPPER$",   "Convert a string to uppercase."},
-        {"CHR$",     "Character corresponding to an ASCII code."},
-        {"STR$",     "String representation of a number."},
-        {"VAL",      "Numeric value of a string."},
-        {"INT",      "Convert to integer (truncate toward zero)."},
-        {"ABS",      "Absolute value."},
-        {"SGN",      "Sign of a numeric expression (-1, 0, 1)."},
-        {"ROUND",    "Round to nearest integer/value."},
-        {"FRAC",     "Fractional part of a number."},
-        {"SIN",      "Sine function."},
-        {"COS",      "Cosine function."},
-        {"TAN",      "Tangent function."},
-        {"ATN",      "Arc tangent function."},
-        {"ASN",      "Arc sine function."},
-        {"ACS",      "Arc cosine function."},
-        {"EXP",      "Exponential function e^x."},
-        {"LOG",      "Natural logarithm."},
-        {"LN",       "Natural logarithm (alias)."},
-        {"RAD",      "Convert degrees to radians mode/value."},
-        {"DEG",      "Convert radians to degrees mode/value."},
-        {"SQR",      "Square root."},
-        {"DIV",      "Integer division operator."},
-        {"MOD",      "Remainder operator."},
-        {"ORD",      "Character code of a single-character string."},
-        {"UNIT",     "Current/default unit number."},
-        {"UNIT$",    "Current/default unit name/path."},
-        {"LEN",      "Length of a string, or number of elements in an array."},
-        {"LEFT$",    "Left substring: LEFT$(str, n)."},
-        {"RIGHT$",   "Right substring: RIGHT$(str, n)."},
-        {"MID$",     "Middle substring: MID$(str, start, length)."},
-        {"SPLIT$",   "Split a string into parts: SPLIT$(str, delim, index)."},
-        {"DIR",      "Directory command or listing keyword."},
-        {"DIR$",     "Directory listing/info function returning string."},
-        {"CHDIR",    "Change current directory."},
-        {"MKDIR",    "Create a directory."},
-        {"RMDIR",    "Remove a directory."},
-        {"NAME",     "Rename a file."},
-        {"REF",      "Pass-by-reference parameter qualifier."},
-        {"DYNAMIC",  "Dynamic variable/array storage attribute."},
-        {"STATIC",   "Static variable/array storage attribute."},
-        {"EXTERNAL", "Declare symbol defined in another module."},
-        {"AND",      "Logical conjunction operator."},
-        {"AND THEN", "Short-circuit logical conjunction."},
-        {"OR",       "Logical disjunction operator."},
-        {"OR THEN",  "Short-circuit logical disjunction."},
-        {"NOT",      "Logical negation operator."},
-        {"SYS",      "Execute a system command."},
-        {"SYS$",     "System information: SYS$(info)."},
-        {"OS",       "Operating-system command statement."},
-        {"PASS",     "Alias for OS command statement."},
-    };
-    return entries;
-}
-
-static const std::unordered_map<std::string, std::string>& keywordDocs() {
-    static const std::unordered_map<std::string, std::string> docs = [] {
-        std::unordered_map<std::string, std::string> result;
-        for (const auto& entry : keywordDocEntries())
-            result.emplace(entry.first, entry.second);
-        return result;
-    }();
-    return docs;
-}
-
-static const std::vector<std::string>& completionKeywords() {
-    static const std::vector<std::string> keywords = [] {
-        std::vector<std::string> result;
-        result.reserve(keywordDocEntries().size());
-        for (const auto& entry : keywordDocEntries())
-            result.push_back(entry.first);
-        return result;
-    }();
-    return keywords;
-}
-
 void LspServer::handleDefinition(const LspRequest& request) {
     LspResponse response;
     response.id = request.id;
@@ -483,7 +319,7 @@ void LspServer::handleHover(const LspRequest& request) {
     std::string upper = symbolName;
     std::transform(upper.begin(), upper.end(), upper.begin(),
                    [](unsigned char c) { return std::toupper(c); });
-    auto& docs = keywordDocs();
+    auto& docs = comal::docs::keywordDocsMap();
     auto it = docs.find(upper);
     if (it != docs.end()) {
         makeHover("**" + upper + "**\\n\\n" + it->second);
@@ -1080,7 +916,7 @@ void LspServer::handleCompletion(const LspRequest& request) {
         }
     } else {
         // Keywords (kind 14 = Keyword)
-        for (const auto& keyword : completionKeywords()) {
+        for (const auto& keyword : comal::docs::completionKeywords()) {
             if (keyword.find(upperPrefix) == 0)
                 addItem(keyword, 14 /*Keyword*/, "COMAL keyword");
         }
