@@ -1,93 +1,90 @@
-PLAY command — syntax and behavior
+PLAY and TONE in OpenCOMAL
 
-Overview
+This file is the single source of truth for current behavior and near-term design.
 
-`PLAY` plays music (MIDI/ABC/MML) through the embedded synth (libfluidsynth) by default. The default behaviour is blocking (the interpreter waits until playback finishes). Use `ASYNC`/`NOWAIT` to run playback in background.
+## What Is Implemented Now
 
-Grammar (informal)
+### Runtime commands
 
-PLAY-stmt := PLAY <format> <source> [options]
+- `TONE`:
+  - Syntax today: `TONE <freq>, <duration_ms> [, ASYNC|NOWAIT]`
+  - First two numeric args are required.
+  - `ASYNC`/`NOWAIT` can be passed as identifier or string token.
+  - Blocking is default (runtime waits for completion future).
 
-- <format> := MIDI | ABC | MML | RAW
-- <source> := quoted-string (inline data) | filepath
-- options := (VOL <0-100>) | (SF2 "<path>") | LOOP | DUR <ms> | CH <n> | INST <prog> | ASYNC | NOWAIT
+- `PLAY`:
+  - Syntax today: `PLAY <string> [, options...]`
+  - First argument must be a string.
+  - Special command: `PLAY "STOP"` stops active playback.
+  - Options currently recognized:
+    - `ASYNC` or `NOWAIT`
+    - `VOL=<n>` (string option) or `VOL, <n>` (identifier + numeric)
+    - `DUR=<ms>` (string option) or `DUR, <ms>` (identifier + numeric)
+  - Additional numeric args are forwarded in `PlaySpec.params`.
+  - Blocking is default unless async option is present.
 
-Examples
+### Engine behavior
 
-- Blocking play a MIDI file (default):
-  PLAY MIDI "songs/theme.mid" VOL 90 SF2 "/usr/share/sounds/GeneralUser.sf2"
+- Engine uses an internal service thread and command queue.
+- `Engine::play(...)` returns a shared completion future.
+- `Engine::stopActive()` enqueues a stop-all command and waits for completion.
+- Runtime and IDE shut down engines via `shutdownAllEngines()` on exit.
 
-- Play ABC inline, block until end:
-  PLAY ABC "X:1\nT:Title\nK:C\nCDEF GABc" VOL 80
+### Backend behavior by build configuration
 
-- Non-blocking (background) play:
-  PLAY MIDI "loop.mid" ASYNC
+- Qt Multimedia enabled:
+  - `TONE` uses generated audio (`ToneIODevice`) through `QAudioSink`.
+  - Non-`tone` `PLAY` inputs are:
+    - routed to FluidSynth when `USE_FLUIDSYNTH` is enabled
+    - otherwise completed as unsupported/no-op
 
-Behavior & implementation notes
+- Qt Multimedia disabled:
+  - Fallback engine returns a ready future (no audio) unless FluidSynth path is enabled.
 
-- Default: blocking. The interpreter waits for playback to complete unless `ASYNC` or `NOWAIT` is specified.
-- Engine API: `PlaySpec` will include fields for `format`, `source`, `volume`, `sf2Path`, `loop`, `durationMs`, and `async` (bool).
-- Blocking implementation: the interpreter will wait on a condition variable or future which the sound engine signals at playback end.
-- Async implementation: `PLAY` schedules playback and returns immediately. Multiple async plays are allowed; `STOP` will stop active playback (recommendation: `STOP` stops all active playback instances).
-- Implemented runtime shortcut: `PLAY "STOP"` stops active playback through the in-process sound service.
-- ABC → MIDI: conversion is required. Options:
-  - Prefer an embedded ABC→MIDI converter (if available).
-  - Fallback: call `abc2midi` externally.
-- FluidSynth integration (embedded path): link `libfluidsynth`, load SF2, render into a buffer (`fluid_synth_write_float` or similar) and stream into `QAudioSink` via a `QIODevice` for consistent Qt audio handling.
-- SoundFonts: require an SF2 file. If none provided, prefer a bundled default SF2 or surface a runtime error for blocking `PLAY`.
-- Threading: perform audio rendering on a dedicated audio thread. Synchronize control operations (load/unload SF2, program changes).
-- Packaging: add `libfluidsynth` to CMake dependencies and packaging manifests (LGPL — ensure packaging notes are included).
+### PLAY content currently supported
 
-Error handling
+- `PLAY` is currently treated as a string payload.
+- With FluidSynth enabled, payload is parsed through the lightweight ABC parser (`parseABCToTones`) and rendered as note events.
+- This is not yet a full ABC standard implementation and not a full file-format matrix (`MIDI|ABC|MML|RAW`).
 
-- Blocking `PLAY` reports errors (missing SF2, conversion failure) as runtime errors to the interpreter.
-- Async `PLAY` should emit a warning or runtime message via the IO subsystem if playback fails.
+## Minimal Mental Model
 
-Notes for follow-up implementation
+1. Runtime builds a `PlaySpec` from command args.
+2. Runtime submits to shared `Engine`.
+3. Engine queues work on service thread.
+4. Runtime waits on future unless async was requested.
+5. `PLAY "STOP"` stops active playback.
 
-- Parser: accept `ASYNC`/`NOWAIT` token in `PLAY` production and populate `PlaySpec.async`.
-- Executor: if `PlaySpec.async == false`, wait on engine completion; otherwise return immediately.
-- Engine: expose a mechanism to wait for playback completion and to cancel playback on `STOP`.
+## Planned Features (Not Implemented Yet)
 
-References
+### Waveform support
 
-- FluidSynth: https://www.fluidsynth.org/ (link for packaging/build configuration)
-- abcmidi / abc2midi (for ABC→MIDI conversion)
+- Goal: let `TONE` use named custom waveforms, not only sine.
+- Proposed direction:
+  - `WAVEFORM name, [v0, v1, ...]` to register one-cycle data
+  - `TONE f, d, WAVEFORM=name`
+- Implementation sketch:
+  - add waveform registry to sound engine
+  - generate samples via phase accumulator + interpolation
 
----
+### Sample playback
 
-Progress snapshot (2026-03-30)
+- Goal: play PCM sample data and short files.
+- Proposed direction:
+  - `SAMPLE name, "file.wav"` (start with PCM WAV)
+  - later allow in-memory sample registration
+- Implementation sketch:
+  - sample loader + streaming source
+  - optional mixer for overlap/polyphony
 
-- ABC parser: added a lightweight, token-based ABC→ToneEvent parser (libcomal-sound/include/comal_abc.h, src/abc_parser.cpp) and unit test. (done)
-- `TONE` implemented in the Qt engine and routes to a Qt-based `ToneIODevice`. (existing)
-- FluidSynth backend: added a FluidSynth-based midi player wrapper (src/midi_player.cpp) and CMake detection for FluidSynth; `Engine::play` is wired to call FluidSynth for ABC strings in fallback and Qt builds when FluidSynth is available. (done)
-- Packaging: CPack metadata updated to recommend `fluid-soundfont-gm` and depend on `fluidsynth` where appropriate. (done)
+### PLAY evolution
 
-Progress snapshot (2026-04-07)
+- Improve ABC subset coverage and diagnostics.
+- Consider richer scheduling/polyphony instead of sleep-based sequencing.
+- Optional SF2/per-playback controls and backend diagnostics.
 
-- Sound engine refactored to an in-process service-thread model (command queue + worker loop). (done)
-- Added queued `StopAll` command semantics via `Engine::stopActive()`. (done)
-- Runtime `PLAY` now supports `PLAY "STOP"` and routes to `stopActive()`. (done)
-- Runtime sound usage unified to one shared engine instance (consistent volume/control/shutdown). (done)
-- Qt tone playback cleanup race hardened using playback IDs with synchronized ownership. (done)
+## Notes
 
-What worked during testing
-
-- CLI FluidSynth (`fluidsynth`) loads the system SF2 and plays notes when connected to an audible sink.
-- The IDE (comal-ide) can emit note events via the in-process FluidSynth when the system sink routing allowed audio to the speakers. The lack of sound earlier was due to sink routing (USB headset vs built-in speakers).
-
-Outstanding follow-ups (next session)
-
-- Add `SF2=` parameter parsing in `execPlay` so callers can select a SoundFont per `PLAY` call. (planned)
-- Add verbose FluidSynth logs and an environment override `COMAL_FLUIDSYNTH_DRIVER` to force the audio driver (`pulseaudio`, `alsa`, etc.). (planned)
-- Improve scheduling: replace sleep-based note scheduling with a proper event scheduler and add polyphony/mixer. (planned)
-- Extend stop control from global stop to per-playback handle stop (queue command by playback id). (planned)
-- Optionally include a default SF2 in `packaging/` (requires license confirmation) and wire packaging to install it under `/usr/share/soundfonts/`. (planned)
-- Add automated tests (CI-friendly) that exercise the ABC parser and verify `Engine::play` behavior using the fallback ready-future in headless builds. (planned)
-
-If you want to pick up from here next time, recommended first actions:
-
-1. Implement `SF2=` support in `execPlay` and a small runtime test program under `tests/programs/`.
-2. Add `COMAL_FLUIDSYNTH_DRIVER` support and verbose logging so in-process playback is diagnosable across audio backends.
-3. Implement per-playback stop command support (ID-based), then add one or two small polyphony/mixer unit tests.
+- This document intentionally describes actual behavior first, then roadmap.
+- Keep design details here; avoid duplicating in other PLAY docs.
 
