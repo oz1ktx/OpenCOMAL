@@ -7,12 +7,15 @@ This project is a fork of OpenCOMAL from Darren Bane https://github.com/poldy/Op
 
 ## Status
 
-This version of COMAL is built for Linux using the Qt GUI components. You get an IDE with all the usual features: An editor with syntax highlighting, a debug panel to watch variables and the stack, and breakpoints. You also get a graphical panel where the COMAL program can draw using simple commands.
+This version of COMAL is built for Linux using the Qt6 GUI components. You get an IDE with all the usual features: An editor with syntax highlighting, a debug panel to watch variables and the stack, and breakpoints. You also get a graphical panel where the COMAL program can draw using simple commands.
 
 
 ### Missing features
 
-The CURSOR command (placing text on a coordinate on the text screen) is not implemented. There is no draw *text* command yet. 
+The CURSOR command (placing text on a coordinate on the text screen) is not implemented.
+Debugging does not support modifying variables.
+The GUI could be prettier.
+Menus are not all functional yet.
 
 
 ## Building
@@ -21,7 +24,7 @@ In order to build OpenCOMAL on Linux, do the following
 
 Before building, you need to install the following
 
-C++20, GCC 15, CMake 3.16+, cpack, Qt6, QScintilla for Qt6, libncurses-dev, libreadline-dev, qt6-base-dev, qt6-svg-dev, libqscintilla2-qt6-dev
+GCC 15, CMake 3.16+, cpack, Qt6, QScintilla for Qt6, libncurses-dev, libreadline-dev, qt6-base-dev, qt6-svg-dev, libqscintilla2-qt6-dev
 
 If you use Fedora, the packages are named -devel instead of -dev
 
