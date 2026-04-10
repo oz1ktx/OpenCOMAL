@@ -1,0 +1,36 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake g++ libncurses-dev libreadline-dev qt6-base-dev libqscintilla2-qt6-dev qt6-multimedia-dev libfluidsynth-dev
+
+    - name: Build with CMake
+      run: |
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        cmake --build build --config Release -j$(nproc)
+
+    - name: Run test suite
+      run: |
+        bash tests/run_tests.sh ./build/libcomal-runtime/comal-run
+      working-directory: ${{ github.workspace }}
+
+    - name: Run CTest
+      run: |
+        cd build
+        ctest --output-on-failure

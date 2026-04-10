@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Check for security updates in GitHub Actions
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:00"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "ci: "
+      include: "scope"
+
+  # Check for security updates in git submodules (if any)
+  - package-ecosystem: gitsubmodule
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:00"
+    open-pull-requests-limit: 5
