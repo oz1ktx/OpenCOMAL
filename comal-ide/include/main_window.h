@@ -15,6 +15,7 @@ class FileBrowserPanel;
 class HelpPanel;
 class RunWorker;
 class QtIO;
+class SettingsDialog;
 
 namespace comal::graphics { class Scene; }
 namespace comal::runtime { class Interpreter; }
@@ -26,6 +27,9 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+protected:
+    void closeEvent(QCloseEvent *event) override;
+
 private:
     ComalLspClient *lspClient_ = nullptr;
     void createMenus();
@@ -36,6 +40,11 @@ private:
     void connectRunWorker();
 
     void startSingleStepRun(const QString &title);
+    
+    // Settings persistence
+    void saveWindowState();
+    void restoreWindowState();
+    void applyFontSettingsFromDialog(SettingsDialog *dialog);
 
     // Central widget
     CodeEditorPanel *codeEditor_;
@@ -88,4 +97,5 @@ private slots:
     void onExecutionPaused(int lineNumber);
     void onDirectCommand(const QString &command);
     void updateCursorPos(int line, int col);
+    void onSettings();
 };

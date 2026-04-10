@@ -33,6 +33,9 @@ public:
     void toggleBreakpointAtCurrentLine();
     QVector<int> breakpointsForCurrentFile() const;
 
+    /// Apply font to all editor tabs
+    void applyFontToAllEditors(const QFont &font);
+
 signals:
     void cursorPositionChanged(int line, int col);
     void currentFileChanged(const QString &filePath);

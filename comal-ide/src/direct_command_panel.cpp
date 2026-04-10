@@ -187,3 +187,9 @@ void DirectCommandPanel::saveOutput()
         file.write(output_->toPlainText().toUtf8());
     }
 }
+
+void DirectCommandPanel::applyFont(const QFont &font)
+{
+    output_->setFont(font);
+    input_->setFont(font);
+}

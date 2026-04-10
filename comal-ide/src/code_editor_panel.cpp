@@ -9,6 +9,7 @@
 #include <QMessageBox>
 #include <QSet>
 #include <QRegularExpression>
+#include <QSettings>
 
 #include <Qsci/qsciscintilla.h>
 #include "qsci_lexer_comal.h"
@@ -137,6 +138,19 @@ QsciScintilla *CodeEditorPanel::createEditor()
     // Syntax highlighting
     auto *lexer = new QsciLexerComal(editor);
     editor->setLexer(lexer);
+
+    // Apply persisted editor font to freshly created tabs.
+    QSettings settings("OpenCOMAL", "IDE");
+    QString editorFontFamily = settings.value("EditorFont/Family", "Monospace").toString();
+    int editorFontSize = settings.value("EditorFont/Size", 11).toInt();
+    QFont persistedFont(editorFontFamily, editorFontSize);
+    editor->setFont(persistedFont);
+    for (int style = QsciLexerComal::Default; style <= QsciLexerComal::GraphicsCmd; ++style) {
+        QFont styleFont = persistedFont;
+        if (style == QsciLexerComal::Keyword)
+            styleFont.setBold(true);
+        lexer->setFont(styleFont, style);
+    }
 
     connectEditorSignals(editor);
     return editor;
@@ -761,4 +775,25 @@ QVector<int> CodeEditorPanel::breakpointsForFile(const QString &filePath) const
 QVector<int> CodeEditorPanel::breakpointsForCurrentFile() const
 {
     return breakpointsForFile(currentFilePath());
+}
+
+void CodeEditorPanel::applyFontToAllEditors(const QFont &font)
+{
+    for (int i = 0; i < tabs_->count(); ++i) {
+        if (auto *editor = qobject_cast<QsciScintilla*>(tabs_->widget(i))) {
+            editor->setFont(font);
+
+            // Apply per-style fonts on the COMAL lexer; otherwise startup can keep old style sizes.
+            if (auto *lexer = qobject_cast<QsciLexerComal*>(editor->lexer())) {
+                for (int style = QsciLexerComal::Default; style <= QsciLexerComal::GraphicsCmd; ++style) {
+                    QFont styleFont = font;
+                    if (style == QsciLexerComal::Keyword)
+                        styleFont.setBold(true);
+                    lexer->setFont(styleFont, style);
+                }
+            } else if (auto *lexer = editor->lexer()) {
+                lexer->setFont(font);
+            }
+        }
+    }
 }

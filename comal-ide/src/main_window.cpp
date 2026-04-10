@@ -7,6 +7,7 @@
 #include "help_panel.h"
 #include "run_worker.h"
 #include "qt_io.h"
+#include "settings_dialog.h"
 #include "comal_scene_model.h"
 #include "comal_interpreter.h"
 #include "comal_sound.h"
@@ -19,6 +20,8 @@
 #include <QAction>
 #include <QKeySequence>
 #include <QFileDialog>
+#include <QSettings>
+#include <QCloseEvent>
 #include <Qsci/qsciscintilla.h>
 
 MainWindow::~MainWindow()
@@ -76,6 +79,9 @@ MainWindow::MainWindow(QWidget *parent)
     codeEditor_->setLspClient(lspClient_);
     // Start LSP server (adjust path as needed)
     lspClient_->startServer("../build/comal-lsp/comal-lsp");
+
+    // Restore window state and settings from previous session
+    restoreWindowState();
 }
 
 // ── Menus ───────────────────────────────────────────────────────────
@@ -150,7 +156,8 @@ void MainWindow::createMenus()
 
     // Settings
     auto *settingsMenu = menuBar()->addMenu(tr("&Settings"));
-    settingsMenu->addAction(tr("&Font && Colors..."))->setEnabled(false);
+    settingsMenu->addAction(tr("&Fonts && Colors..."), this, &MainWindow::onSettings);
+    settingsMenu->addSeparator();
     settingsMenu->addAction(tr("&Editor Preferences..."))->setEnabled(false);
     settingsMenu->addAction(tr("&Key Bindings..."))->setEnabled(false);
 
@@ -578,4 +585,112 @@ void MainWindow::onContinue()
         worker_->requestContinue();
         stateLabel_->setText(tr("Running"));
     }
+}
+
+// ── Settings & Persistence ──────────────────────────────────────────
+
+void MainWindow::onSettings()
+{
+    auto *dialog = new SettingsDialog(this);
+
+    connect(dialog, &SettingsDialog::fontsApplied, this,
+            [this](const QFont &editorFont, const QFont &outputFont) {
+        if (codeEditor_)
+            codeEditor_->applyFontToAllEditors(editorFont);
+        if (directCommand_)
+            directCommand_->applyFont(outputFont);
+    });
+
+    if (dialog->exec() == QDialog::Accepted) {
+        applyFontSettingsFromDialog(dialog);
+    }
+    delete dialog;
+}
+
+void MainWindow::saveWindowState()
+{
+    QSettings settings("OpenCOMAL", "IDE");
+
+    // Save window geometry (position and size)
+    settings.setValue("MainWindow/Geometry", saveGeometry());
+    settings.setValue("MainWindow/WindowState", saveState());
+
+    // Save dock visibility and positions
+    settings.setValue("Docks/DirectCommandVisible", directCommandDock_->isVisible());
+    settings.setValue("Docks/GraphicsVisible", graphicsDock_->isVisible());
+    settings.setValue("Docks/DebugVisible", debugDock_->isVisible());
+    settings.setValue("Docks/FileBrowserVisible", fileBrowserDock_->isVisible());
+    settings.setValue("Docks/HelpVisible", helpDock_->isVisible());
+
+    settings.sync();
+}
+
+void MainWindow::restoreWindowState()
+{
+    QSettings settings("OpenCOMAL", "IDE");
+
+    // Restore window geometry (position and size)
+    QByteArray geometry = settings.value("MainWindow/Geometry", QByteArray()).toByteArray();
+    if (!geometry.isEmpty()) {
+        restoreGeometry(geometry);
+    }
+
+    QByteArray windowState = settings.value("MainWindow/WindowState", QByteArray()).toByteArray();
+    if (!windowState.isEmpty()) {
+        restoreState(windowState);
+    }
+
+    // Restore dock visibility
+    bool directCommandVisible = settings.value("Docks/DirectCommandVisible", true).toBool();
+    bool graphicsVisible = settings.value("Docks/GraphicsVisible", true).toBool();
+    bool debugVisible = settings.value("Docks/DebugVisible", true).toBool();
+    bool fileBrowserVisible = settings.value("Docks/FileBrowserVisible", true).toBool();
+    bool helpVisible = settings.value("Docks/HelpVisible", false).toBool();
+
+    directCommandDock_->setVisible(directCommandVisible);
+    graphicsDock_->setVisible(graphicsVisible);
+    debugDock_->setVisible(debugVisible);
+    fileBrowserDock_->setVisible(fileBrowserVisible);
+    helpDock_->setVisible(helpVisible);
+
+    // Restore font settings and apply them
+    QSettings fontSettings("OpenCOMAL", "IDE");
+    QString editorFontFamily = fontSettings.value("EditorFont/Family", "Monospace").toString();
+    int editorFontSize = fontSettings.value("EditorFont/Size", 11).toInt();
+    QString outputFontFamily = fontSettings.value("OutputFont/Family", "Monospace").toString();
+    int outputFontSize = fontSettings.value("OutputFont/Size", 11).toInt();
+
+    // Apply editor font
+    if (codeEditor_) {
+        QFont editorFont(editorFontFamily, editorFontSize);
+        codeEditor_->applyFontToAllEditors(editorFont);
+    }
+
+    // Apply output panel font
+    if (directCommand_) {
+        QFont outputFont(outputFontFamily, outputFontSize);
+        directCommand_->applyFont(outputFont);
+    }
+}
+
+void MainWindow::applyFontSettingsFromDialog(SettingsDialog *dialog)
+{
+    QFont editorFont = dialog->editorFont();
+    QFont outputFont = dialog->outputFont();
+
+    // Apply editor font to all tabs
+    if (codeEditor_) {
+        codeEditor_->applyFontToAllEditors(editorFont);
+    }
+
+    // Apply output panel font
+    if (directCommand_) {
+        directCommand_->applyFont(outputFont);
+    }
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    saveWindowState();
+    QMainWindow::closeEvent(event);
 }

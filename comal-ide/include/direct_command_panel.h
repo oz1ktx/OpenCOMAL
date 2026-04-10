@@ -27,6 +27,9 @@ public:
     /// Echo user input into the output area (replacing the block marker).
     void echoInput(const QString &text);
 
+    /// Apply font to output panel
+    void applyFont(const QFont &font);
+
 signals:
     void lineEntered(const QString &line);
 

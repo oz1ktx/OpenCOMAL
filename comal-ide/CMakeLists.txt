@@ -49,6 +49,7 @@ add_executable(comal-ide
     src/qt_io.cpp
     src/run_worker.cpp
     src/qsci_lexer_comal.cpp
+    src/settings_dialog.cpp
     include/main_window.h
     include/code_editor_panel.h
     include/comal_lsp_client.h
@@ -60,6 +61,7 @@ add_executable(comal-ide
     include/qt_io.h
     include/run_worker.h
     include/qsci_lexer_comal.h
+    include/settings_dialog.h
 )
 
 target_include_directories(comal-ide PRIVATE
