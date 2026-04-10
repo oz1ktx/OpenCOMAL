@@ -18,7 +18,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake g++ libncurses-dev libreadline-dev qt6-base-dev libqscintilla2-qt6-dev qt6-multimedia-dev libfluidsynth-dev
+        sudo apt-get install -y cmake g++ libncurses-dev libreadline-dev qt6-base-dev qt6-svg-dev libqscintilla2-qt6-dev qt6-multimedia-dev libfluidsynth-dev
 
     - name: Build with CMake
       run: |

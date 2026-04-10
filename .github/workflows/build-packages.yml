@@ -18,7 +18,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake g++ libncurses-dev libreadline-dev qt6-base-dev libqscintilla2-qt6-dev qt6-multimedia-dev libfluidsynth-dev
+        sudo apt-get install -y cmake g++ libncurses-dev libreadline-dev qt6-base-dev qt6-svg-dev libqscintilla2-qt6-dev qt6-multimedia-dev libfluidsynth-dev
 
     - name: Build DEB package
       run: |
@@ -46,7 +46,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        dnf install -y cmake gcc-c++ ncurses-devel readline-devel qt6-qtbase-devel qscintilla-qt6-devel qt6-qtmultimedia-devel fluidsynth-devel rpm-build
+        dnf install -y cmake gcc-c++ ncurses-devel readline-devel qt6-qtbase-devel qt6-qtsvg-devel qscintilla-qt6-devel qt6-qtmultimedia-devel fluidsynth-devel rpm-build
 
     - name: Build RPM package
       run: |
