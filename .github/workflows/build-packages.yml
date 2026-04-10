@@ -46,7 +46,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        dnf install -y cmake gcc-c++ ncurses-devel readline-devel qt6-qtbase-devel qt6-qtsvg-devel qscintilla-qt6-devel qt6-qtmultimedia-devel fluidsynth-devel rpm-build
+        dnf install -y cmake gcc-c++ bison flex ncurses-devel readline-devel qt6-qtbase-devel qt6-qtsvg-devel qscintilla-qt6-devel qt6-qtmultimedia-devel fluidsynth-devel rpm-build
 
     - name: Build RPM package
       run: |
