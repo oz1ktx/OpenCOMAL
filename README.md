@@ -24,7 +24,7 @@ In order to build OpenCOMAL on Linux, do the following
 
 Before building, you need to install the following
 
-GCC 15, CMake 3.16+, cpack, Qt6, QScintilla for Qt6, libncurses-dev, libreadline-dev, qt6-base-dev, qt6-svg-dev, libqscintilla2-qt6-dev
+GCC 15, CMake 3.16+, cpack, Qt6, QScintilla for Qt6, libncurses-dev, libreadline-dev, qt6-base-dev, qt6-svg-dev, libqscintilla2-qt6-dev, qt6-qtmultimedia-dev, fluidsynth-dev
 
 If you use Fedora, the packages are named -devel instead of -dev
 
