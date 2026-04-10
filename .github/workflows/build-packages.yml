@@ -29,7 +29,7 @@ jobs:
         cpack -G DEB
 
     - name: Upload DEB artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: deb-packages
         path: build/*.deb
@@ -57,7 +57,7 @@ jobs:
         cpack -G RPM
 
     - name: Upload RPM artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: rpm-packages
         path: build/*.rpm
