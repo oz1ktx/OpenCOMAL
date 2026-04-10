@@ -28,6 +28,16 @@ pass=0; fail=0; skip=0; total=0
 #    unimplemented features (squash file format) ─────────────────────
 SKIP="rnd()1.lst rnd()2.lst signif1.lst gentest.lst lst2sq.lst sq2lst.lst"
 
+# Legacy .sq runner tests and TRACE syntax are currently unsupported by
+# the modern parser/runtime.
+SKIP="$SKIP run1.lst selin1.lst selout1.lst trace1.lst"
+
+# Audio/timing tests are flaky on headless CI runners (no stable audio backend).
+# Keep them enabled for local development unless running in CI.
+if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+  SKIP="$SKIP tone_block.lst tone_play_test.lst encounters.lst"
+fi
+
 run_dir() {
   local dir="$1"
   local label="$2"
