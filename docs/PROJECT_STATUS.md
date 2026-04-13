@@ -1,6 +1,6 @@
 # OpenCOMAL Project Status
 
-**Last Updated:** 8 April 2026
+**Last Updated:** 13 April 2026
 **Purpose:** Short, ordered snapshot of current project state and near-term work.
 
 ---
@@ -13,8 +13,8 @@
 | Runtime (`libcomal-runtime`) | Stable | Modern AST execution path in active use |
 | Graphics (`libcomal-graphics`) | Stable | DRAW command set includes `text` and style controls |
 | Sound (`libcomal-sound`) | Partial but usable | `TONE` works; `PLAY` has basic support, full MML remains TODO |
-| LSP (`comal-lsp`) | Stable | Diagnostics, completion, definition, hover |
-| IDE (`comal-ide`) | In progress | Core workflow works; polish/debug depth still ongoing |
+| LSP (`comal-lsp`) | Stable | Diagnostics, completion, definition, hover; keyword help is externalized |
+| IDE (`comal-ide`) | In progress | Core workflow works; Help panel now uses shared external keyword docs |
 | Test suite | Strong | 127 pass / 6 skip / 0 fail |
 
 ---
@@ -53,6 +53,14 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
 
 - Unified test runner in `tests/run_tests.sh`.
 - Current aggregate result: **127 pass, 6 skip, 0 fail**.
+
+### 5. Help and discoverability
+
+- Keyword and built-in help text is now sourced from `docs/comal-keyword-docs.tsv`.
+- Packaged installs include this file at `/usr/share/doc/opencomal/comal-keyword-docs.tsv`.
+- LSP hover and IDE Help panel use the same shared documentation source.
+- `DRAW` hovers now support grouped command forms (e.g. `HUD.line`, `Ship.Engine.rect`).
+- `PLAY` documentation now reflects the currently implemented ABC subset.
 
 ---
 
@@ -131,3 +139,5 @@ This is intentionally scheduled for later and is not part of immediate delivery 
 - `docs/AST_USAGE.md`
 - `docs/COMAL_LSP_USAGE.md`
 - `docs/GRAPHICS_COMMANDS.md`
+- `docs/PLAY_COMMAND.md`
+- `docs/comal-keyword-docs.tsv`

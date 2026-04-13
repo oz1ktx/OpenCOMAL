@@ -1,5 +1,11 @@
 #pragma once
 
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -7,13 +13,56 @@
 namespace comal::docs {
 
 struct KeywordDocEntry {
-    const char* keyword;
-    const char* category;
-    const char* description;
+    std::string keyword;
+    std::string category;
+    std::string description;
 };
 
-inline const std::vector<KeywordDocEntry>& keywordDocEntries() {
-    static const std::vector<KeywordDocEntry> entries = {
+inline std::string trimCopy(const std::string& s) {
+    const auto begin = s.find_first_not_of(" \t\r\n");
+    if (begin == std::string::npos) {
+        return {};
+    }
+    const auto end = s.find_last_not_of(" \t\r\n");
+    return s.substr(begin, end - begin + 1);
+}
+
+inline std::string toUpperCopy(const std::string& s) {
+    std::string out = s;
+    std::transform(out.begin(), out.end(), out.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+    return out;
+}
+
+inline std::string unescapeHelpText(const std::string& text) {
+    std::string out;
+    out.reserve(text.size());
+    for (size_t i = 0; i < text.size(); ++i) {
+        if (text[i] == '\\' && i + 1 < text.size()) {
+            const char n = text[i + 1];
+            if (n == 'n') {
+                out.push_back('\n');
+                ++i;
+                continue;
+            }
+            if (n == 't') {
+                out.push_back('\t');
+                ++i;
+                continue;
+            }
+            if (n == '\\') {
+                out.push_back('\\');
+                ++i;
+                continue;
+            }
+        }
+        out.push_back(text[i]);
+    }
+    return out;
+}
+
+inline std::vector<KeywordDocEntry> defaultKeywordDocEntries() {
+    return {
         {"PRINT", "I/O and Files", "Print values to the output device."},
         {"INPUT", "I/O and Files", "Read a value from the user."},
         {"IF", "Control Flow", "Conditional execution. Use with THEN, ELSE, ENDIF."},
@@ -152,6 +201,106 @@ inline const std::vector<KeywordDocEntry>& keywordDocEntries() {
         {"OS", "System", "Operating-system command statement."},
         {"PASS", "System", "Alias for OS command statement."},
     };
+}
+
+inline std::vector<KeywordDocEntry> loadExternalKeywordDocEntries() {
+    namespace fs = std::filesystem;
+
+    std::vector<fs::path> candidates;
+    if (const char* envPath = std::getenv("OPENCOMAL_KEYWORD_DOCS")) {
+        if (*envPath != '\0') {
+            candidates.emplace_back(envPath);
+        }
+    }
+
+    candidates.emplace_back("docs/comal-keyword-docs.tsv");
+    candidates.emplace_back("../docs/comal-keyword-docs.tsv");
+    candidates.emplace_back("../../docs/comal-keyword-docs.tsv");
+    candidates.emplace_back("/usr/share/doc/opencomal/comal-keyword-docs.tsv");
+
+    // Backward-compatible fallback for pre-rename file path.
+    candidates.emplace_back("docs/keyword_docs.tsv");
+    candidates.emplace_back("../docs/keyword_docs.tsv");
+    candidates.emplace_back("../../docs/keyword_docs.tsv");
+
+    fs::path selected;
+    for (const auto& candidate : candidates) {
+        if (fs::exists(candidate) && fs::is_regular_file(candidate)) {
+            selected = candidate;
+            break;
+        }
+    }
+
+    if (selected.empty()) {
+        return {};
+    }
+
+    std::ifstream in(selected);
+    if (!in) {
+        return {};
+    }
+
+    std::vector<KeywordDocEntry> entries;
+    std::string line;
+    while (std::getline(in, line)) {
+        const std::string trimmed = trimCopy(line);
+        if (trimmed.empty() || trimmed[0] == '#') {
+            continue;
+        }
+
+        const size_t t1 = line.find('\t');
+        if (t1 == std::string::npos) {
+            continue;
+        }
+        const size_t t2 = line.find('\t', t1 + 1);
+        if (t2 == std::string::npos) {
+            continue;
+        }
+
+        std::string keyword = trimCopy(line.substr(0, t1));
+        std::string category = trimCopy(line.substr(t1 + 1, t2 - (t1 + 1)));
+        std::string description = trimCopy(line.substr(t2 + 1));
+
+        if (keyword.empty() || description.empty()) {
+            continue;
+        }
+        if (category.empty()) {
+            category = "General";
+        }
+
+        entries.push_back({
+            toUpperCopy(keyword),
+            category,
+            unescapeHelpText(description)
+        });
+    }
+
+    return entries;
+}
+
+inline const std::vector<KeywordDocEntry>& keywordDocEntries() {
+    static const std::vector<KeywordDocEntry> entries = [] {
+        std::vector<KeywordDocEntry> merged = defaultKeywordDocEntries();
+        std::unordered_map<std::string, size_t> indexByKeyword;
+        indexByKeyword.reserve(merged.size());
+
+        for (size_t i = 0; i < merged.size(); ++i) {
+            indexByKeyword.emplace(toUpperCopy(merged[i].keyword), i);
+        }
+
+        for (const auto& ext : loadExternalKeywordDocEntries()) {
+            auto it = indexByKeyword.find(ext.keyword);
+            if (it == indexByKeyword.end()) {
+                indexByKeyword.emplace(ext.keyword, merged.size());
+                merged.push_back(ext);
+                continue;
+            }
+            merged[it->second] = ext;
+        }
+
+        return merged;
+    }();
+
     return entries;
 }
 
@@ -160,7 +309,7 @@ inline const std::unordered_map<std::string, std::string>& keywordDocsMap() {
         std::unordered_map<std::string, std::string> result;
         result.reserve(keywordDocEntries().size());
         for (const auto& entry : keywordDocEntries()) {
-            result.emplace(entry.keyword, entry.description);
+            result.emplace(toUpperCopy(entry.keyword), entry.description);
         }
         return result;
     }();

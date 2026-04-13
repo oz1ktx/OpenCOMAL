@@ -290,13 +290,21 @@ void LspServer::handleHover(const LspRequest& request) {
     // 1) Check if it's a DRAW sub-command (cursor on a word inside a DRAW line)
     std::string drawSub = extractDrawSubcommand(content, line, character);
     if (!drawSub.empty()) {
+        std::string drawCommand = drawSub;
+        const auto dotPos = drawCommand.find_last_of('.');
+        if (dotPos != std::string::npos && dotPos + 1 < drawCommand.size()) {
+            drawCommand = drawCommand.substr(dotPos + 1);
+        }
+
         // Look up in graphics registry (case-insensitive)
-        const auto* spec = graphics_registry_.find(drawSub);
+        const auto* spec = graphics_registry_.find(drawCommand);
         if (spec) {
             std::string md = "**DRAW " + spec->name + "**";
             if (!spec->argDescription.empty())
                 md += " " + spec->argDescription;
             md += "\\n\\n" + spec->description;
+            md += "\\n\\nQualified form: `DRAW Group." + spec->name + ", ...`";
+            md += "\\nNested groups: `DRAW GroupA.GroupB." + spec->name + ", ...`";
             if (spec->minArgs == spec->maxArgs)
                 md += "\\n\\nArguments: " + std::to_string(spec->minArgs);
             else

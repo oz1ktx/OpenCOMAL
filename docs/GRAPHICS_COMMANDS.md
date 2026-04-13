@@ -35,6 +35,29 @@ The quoted form is required for **grouped commands** that contain a dot
 of COMAL identifier syntax.  Command names are **case-insensitive**
 (`DRAW CIRCLE`, `DRAW circle`, and `DRAW Circle` all work).
 
+### Group notation quick guide
+
+Grouped command names follow this rule:
+
+```
+Group1.Group2....command
+```
+
+- Everything before the final `.` is the group path.
+- The final token is the command name.
+
+Examples:
+
+```comal
+DRAW "HUD.text", 10, 10, "Score: 42"
+DRAW "Ship.Engine.rect", 100, 120, 40, 18
+DRAW "Ship.Engine.fill", 255, 120, 0
+```
+
+This makes it easier to organize scene elements into logical subtrees.
+In the IDE, hovering the command token in grouped form (for example
+`Ship.Engine.rect`) now resolves to the same command help as `rect`.
+
 ---
 
 ## Coordinate System

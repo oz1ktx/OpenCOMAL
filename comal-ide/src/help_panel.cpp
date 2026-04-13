@@ -22,8 +22,8 @@ static QString buildDefaultHelpHtml()
 
     QMap<QString, QStringList> grouped;
     for (const auto &entry : comal::docs::keywordDocEntries()) {
-        grouped[QString::fromUtf8(entry.category)]
-            .append(QString::fromUtf8(entry.keyword));
+        grouped[QString::fromStdString(entry.category)]
+            .append(QString::fromStdString(entry.keyword));
     }
 
     QString html;
@@ -83,13 +83,15 @@ void HelpPanel::showKeywordHelp(const QString &keyword)
 
     const auto &docs = comal::docs::keywordDocsMap();
     const auto it = docs.find(upper.toStdString());
-    const QString doc = it != docs.end()
+    const QString docText = it != docs.end()
         ? QString::fromStdString(it->second)
         : QStringLiteral("No dedicated documentation text yet for this keyword.");
+    QString docHtml = docText.toHtmlEscaped();
+    docHtml.replace("\n", "<br/>");
 
     browser_->setHtml(
         "<h3>" + upper + "</h3>"
-        "<p>" + doc + "</p>"
+        "<p>" + docHtml + "</p>"
         "<p><i>Tip: keep cursor on a keyword in the editor to update this panel.</i></p>"
     );
 }

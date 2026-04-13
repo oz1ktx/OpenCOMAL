@@ -13,3 +13,8 @@ Files
 - debian/postinst.tpl: post-installation script template for DEB packages
 - debian/prerm.tpl: pre-removal script template for DEB packages
 - rpm/postinstall.tpl: post-installation script template for RPM packages
+
+Installed documentation data
+- External keyword help file: `docs/comal-keyword-docs.tsv`
+- Installed by CMake/CPack to: `/usr/share/doc/opencomal/comal-keyword-docs.tsv`
+- Runtime override environment variable: `OPENCOMAL_KEYWORD_DOCS`

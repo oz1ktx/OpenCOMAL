@@ -47,6 +47,34 @@ This file is the single source of truth for current behavior and near-term desig
 - With FluidSynth enabled, payload is parsed through the lightweight ABC parser (`parseABCToTones`) and rendered as note events.
 - This is not yet a full ABC standard implementation and not a full file-format matrix (`MIDI|ABC|MML|RAW`).
 
+### Current ABC subset (implemented)
+
+- Notes: `A B C D E F G`
+- Accidentals prefix: `^` (sharp), `_` (flat), `=` (natural marker)
+- Rests: `z` or `Z`
+- Directives:
+  - `L=<beats>` or `L:<beats>` default note length
+  - `Q=<bpm>` tempo in beats per minute
+- Octave handling:
+  - lowercase note letter raises by one octave (`c` vs `C`)
+  - `,` lowers one octave per symbol (`C,`)
+  - `'` raises one octave per symbol (`c'`)
+  - explicit octave digits override shifts (`C5`, `C3`)
+- Length suffixes:
+  - `A2` explicit beat length
+  - `A/2` fraction of default length
+  - `A/` shorthand for half default length
+
+Example:
+
+```comal
+PLAY "L=1 Q=120 C D E F G A B z C2 C/2 c C, c' C5"
+```
+
+User-facing hover/help text for `PLAY` and other keywords is maintained in:
+
+- `docs/comal-keyword-docs.tsv`
+
 ## Minimal Mental Model
 
 1. Runtime builds a `PlaySpec` from command args.

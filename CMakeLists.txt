@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(OpenCOMAL LANGUAGES CXX)
 
+include(GNUInstallDirs)
+
 enable_testing()
 
 add_subdirectory(libcomal-parser)
@@ -22,6 +24,13 @@ add_test(
 )
 set_tests_properties(comal_programs PROPERTIES TIMEOUT 300)
 
+# Validate human-editable keyword docs file syntax (tab-separated format).
+add_test(
+  NAME keyword_docs_format
+  COMMAND bash ${CMAKE_SOURCE_DIR}/tests/validate_comal_keyword_docs.sh
+          ${CMAKE_SOURCE_DIR}/docs/comal-keyword-docs.tsv
+)
+
 # Install built executables so CPack can produce DEB/RPM packages
 install(TARGETS comal-run
   RUNTIME DESTINATION bin
@@ -42,6 +51,11 @@ install(FILES ${CMAKE_SOURCE_DIR}/packaging/desktop/comal-ide.desktop
 )
 install(FILES ${CMAKE_SOURCE_DIR}/packaging/icons/comal-ide.svg
   DESTINATION share/icons/hicolor/scalable/apps
+)
+
+# Install externally editable keyword help docs for packaged environments.
+install(FILES ${CMAKE_SOURCE_DIR}/docs/comal-keyword-docs.tsv
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/opencomal
 )
 
 # CPack packaging configuration: DEB and RPM
