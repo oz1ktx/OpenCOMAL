@@ -4,6 +4,7 @@
 #include <cmath>
 #include <optional>
 #include <cstdlib>
+#include <algorithm>
 
 namespace comal::sound::abc {
 
@@ -25,11 +26,56 @@ static double midiToFreq(int midi) {
     return 440.0 * std::pow(2.0, (midi - 69) / 12.0);
 }
 
+static std::optional<double> parsePositiveNumberOrFraction(const std::string& text) {
+    if (text.empty()) return std::nullopt;
+
+    const auto slash = text.find('/');
+    if (slash == std::string::npos) {
+        try {
+            const double value = std::stod(text);
+            if (value > 0.0) return value;
+        } catch (...) {
+        }
+        return std::nullopt;
+    }
+
+    const std::string num = text.substr(0, slash);
+    const std::string den = text.substr(slash + 1);
+    try {
+        const double numerator = num.empty() ? 1.0 : std::stod(num);
+        const double denominator = den.empty() ? 2.0 : std::stod(den);
+        if (numerator > 0.0 && denominator > 0.0) {
+            return numerator / denominator;
+        }
+    } catch (...) {
+    }
+    return std::nullopt;
+}
+
+static bool isBarSeparatorToken(const std::string& token) {
+    if (token.empty()) return false;
+    return std::all_of(token.begin(), token.end(), [](unsigned char c) {
+        return c == '|' || c == '[' || c == ']';
+    });
+}
+
 std::vector<ToneEvent> parseABCToTones(const std::string& abc,
                                        double defaultTempoBpm,
                                        double defaultLengthBeats) {
     std::vector<ToneEvent> out;
-    std::istringstream ss(abc);
+    
+    // Pre-process: remove comments and tokenize
+    std::string processed;
+    for (size_t i = 0; i < abc.size(); ++i) {
+        if (abc[i] == '%') {
+            while (i < abc.size() && abc[i] != '\n') ++i;
+            if (i < abc.size()) processed += '\n';
+        } else {
+            processed += abc[i];
+        }
+    }
+    
+    std::istringstream ss(processed);
     std::string tok;
     double tempo = defaultTempoBpm;
     double defaultLen = defaultLengthBeats; // in beats
@@ -74,20 +120,12 @@ std::vector<ToneEvent> parseABCToTones(const std::string& abc,
             if (oct != 0) midi = noteBaseMidi(letter) + (oct - 4) * 12;
         }
 
-        // Parse optional length (integer multiplier or /n fraction)
+        // Parse optional length (integer multiplier or fraction)
         double lengthBeats = defaultLen;
         if (pos < tok.size()) {
-            if (tok[pos] == '/') {
-                pos++;
-                if (pos < tok.size() && std::isdigit(static_cast<unsigned char>(tok[pos]))) {
-                    int denom = std::atoi(tok.c_str()+pos);
-                    if (denom > 0) lengthBeats = defaultLen / denom;
-                } else {
-                    lengthBeats = defaultLen / 2.0;
-                }
-            } else if (std::isdigit(static_cast<unsigned char>(tok[pos]))) {
-                int mult = std::atoi(tok.c_str()+pos);
-                if (mult > 0) lengthBeats = static_cast<double>(mult);
+            const auto maybeLen = parsePositiveNumberOrFraction(tok.substr(pos));
+            if (maybeLen) {
+                lengthBeats = defaultLen * *maybeLen;
             }
         }
 
@@ -99,24 +137,49 @@ std::vector<ToneEvent> parseABCToTones(const std::string& abc,
 
     while (ss >> tok) {
         if (tok.empty()) continue;
-        // Uppercase copy for directive matching
+
+        // Ignore note-tie connector (ties join note durations, not important for simple playback)
+        if (tok == "-") {
+            continue;
+        }
+
+        if (isBarSeparatorToken(tok)) {
+            continue;
+        }
+
+        // Uppercase copy for directive matching (handles both uppercase and lowercase input)
         std::string t = tok;
         for (auto &c : t) c = std::toupper(static_cast<unsigned char>(c));
 
         if ((t.rfind("L=", 0) == 0) || (t.rfind("L:", 0) == 0)) {
-            std::string val = t.substr(2);
-            try { defaultLen = std::stod(val); } catch(...) {}
+            std::string val = tok.substr(2);
+            if (auto parsed = parsePositiveNumberOrFraction(val)) {
+                defaultLen = *parsed;
+            }
             continue;
         }
-        if (t.rfind("Q=", 0) == 0) {
-            std::string val = t.substr(2);
-            try { tempo = std::stod(val); } catch(...) {}
+        if ((t.rfind("Q=", 0) == 0) || (t.rfind("Q:", 0) == 0)) {
+            std::string val = tok.substr(2);
+            if (auto parsed = parsePositiveNumberOrFraction(val)) {
+                tempo = *parsed;
+            }
             continue;
         }
 
-        // Rest token (z/Z)
-        if (t == "Z") {
-            ToneEvent e; e.frequencyHz = 0.0; e.durationMs = (60000.0 / tempo) * defaultLen; out.push_back(e); continue;
+        // Rest token (z/Z) with optional length suffix.
+        if (!t.empty() && t[0] == 'Z') {
+            double lengthBeats = defaultLen;
+            if (tok.size() > 1) {
+                if (auto parsed = parsePositiveNumberOrFraction(tok.substr(1))) {
+                    lengthBeats = defaultLen * *parsed;
+                }
+            }
+            ToneEvent e;
+            e.frequencyHz = 0.0;
+            e.midiNote = -1;
+            e.durationMs = (60000.0 / tempo) * lengthBeats;
+            out.push_back(e);
+            continue;
         }
 
         auto maybe = parseNoteToken(tok);

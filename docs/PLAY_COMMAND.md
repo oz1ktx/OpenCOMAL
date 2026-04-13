@@ -54,7 +54,7 @@ This file is the single source of truth for current behavior and near-term desig
 - Rests: `z` or `Z`
 - Directives:
   - `L=<beats>` or `L:<beats>` default note length
-  - `Q=<bpm>` tempo in beats per minute
+  - `Q=<bpm>` or `Q:<bpm>` tempo in beats per minute
 - Octave handling:
   - lowercase note letter raises by one octave (`c` vs `C`)
   - `,` lowers one octave per symbol (`C,`)
@@ -64,6 +64,14 @@ This file is the single source of truth for current behavior and near-term desig
   - `A2` explicit beat length
   - `A/2` fraction of default length
   - `A/` shorthand for half default length
+- Rest lengths:
+  - `z2`, `z/2`, `z/` use the same length rules as notes
+- Common bar separators are ignored:
+  - `|`, `||`, `|]`, `[|`
+- Comments (ignored to end of line):
+  - `% This is a comment`
+- Note ties (ignored):
+  - `-` joins notes, not needed for simple playback
 
 Example:
 
