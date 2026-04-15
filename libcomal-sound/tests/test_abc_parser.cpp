@@ -14,9 +14,9 @@ int main() {
         std::cerr << "Unexpected C frequency: " << cFreq << "\n";
         return 2;
     }
-    // Additional octave tests: lowercase and explicit octave numbers
-    auto oev = comal::sound::abc::parseABCToTones("L=1 Q=120 c C, c' C5 C3", 120.0, 1.0);
-    // Expect 6 tokens: L=,Q= are directives so 5 notes (c, C,, c', C5, C3)
+    // Additional octave tests: lowercase plus ABC octave markers (, and ').
+    auto oev = comal::sound::abc::parseABCToTones("L=1 Q=120 c C, c' C'' C,,", 120.0, 1.0);
+    // Expect 6 tokens: L=,Q= are directives so 5 notes (c, C,, c', C'', C,,)
     if (oev.size() != 5) {
         std::cerr << "Unexpected octave parse count: " << oev.size() << "\n";
         return 3;
@@ -28,10 +28,10 @@ int main() {
     if (oev[1].midiNote != 48) { std::cerr << "Expected midi 48 for C, got " << oev[1].midiNote << "\n"; return 5; }
     // "c'" -> lowercase 72 + apostrophe +12 = 84
     if (oev[2].midiNote != 84) { std::cerr << "Expected midi 84 for c' got " << oev[2].midiNote << "\n"; return 6; }
-    // C5 -> explicit octave 5 -> 60 + 12 = 72
-    if (oev[3].midiNote != 72) { std::cerr << "Expected midi 72 for C5 got " << oev[3].midiNote << "\n"; return 7; }
-    // C3 -> explicit octave 3 -> 60 - 12 = 48
-    if (oev[4].midiNote != 48) { std::cerr << "Expected midi 48 for C3 got " << oev[4].midiNote << "\n"; return 8; }
+    // C'' -> two apostrophes => 60 + 24 = 84
+    if (oev[3].midiNote != 84) { std::cerr << "Expected midi 84 for C'' got " << oev[3].midiNote << "\n"; return 7; }
+    // C,, -> two commas => 60 - 24 = 36
+    if (oev[4].midiNote != 36) { std::cerr << "Expected midi 36 for C,, got " << oev[4].midiNote << "\n"; return 8; }
 
     // Rest lengths + directive aliases + bar separators
     auto rev = comal::sound::abc::parseABCToTones("L=1/2 Q:120 C z2 | D z/2 || E [| F |]", 120.0, 1.0);
@@ -40,18 +40,18 @@ int main() {
         std::cerr << "Unexpected rest/bar parse count: " << rev.size() << "\n";
         return 9;
     }
-    // C with L=1/2 at Q=120 => 250ms
-    if (!(rev[0].durationMs > 240.0 && rev[0].durationMs < 260.0)) {
+    // C with L=1/2 at Q:120 (quarter-note beat unit) => 1000ms
+    if (!(rev[0].durationMs > 990.0 && rev[0].durationMs < 1010.0)) {
         std::cerr << "Unexpected C duration: " << rev[0].durationMs << "\n";
         return 10;
     }
-    // z2 => 2 * defaultLen => 500ms
-    if (!(rev[1].durationMs > 490.0 && rev[1].durationMs < 510.0)) {
+    // z2 => 2 * defaultLen => 2000ms
+    if (!(rev[1].durationMs > 1990.0 && rev[1].durationMs < 2010.0)) {
         std::cerr << "Unexpected z2 duration: " << rev[1].durationMs << "\n";
         return 11;
     }
-    // z/2 => 0.5 * defaultLen => 125ms
-    if (!(rev[3].durationMs > 120.0 && rev[3].durationMs < 130.0)) {
+    // z/2 => 0.5 * defaultLen => 500ms
+    if (!(rev[3].durationMs > 490.0 && rev[3].durationMs < 510.0)) {
         std::cerr << "Unexpected z/2 duration: " << rev[3].durationMs << "\n";
         return 12;
     }
@@ -186,8 +186,8 @@ int main() {
         // Resetting state brings back to defaults
         st = ABCState{};
         auto r = parseABCToTones("z4", st);
-        // Default: L=1.0 Q=120 beatUnit=1.0 => (60000/120)*1*4 = 2000ms
-        if (!(r[0].durationMs > 1990.0 && r[0].durationMs < 2010.0)) {
+        // Default: L=1.0 Q=120 beatUnit=0.25 => (60000/120)*(1/0.25)*4 = 8000ms
+        if (!(r[0].durationMs > 7990.0 && r[0].durationMs < 8010.0)) {
             std::cerr << "After reset z4 duration wrong: " << r[0].durationMs << "\n";
             return 27;
         }
