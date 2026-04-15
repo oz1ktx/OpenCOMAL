@@ -38,6 +38,9 @@ if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
   SKIP="$SKIP tone_block.lst tone_play_test.lst encounters.lst"
 fi
 
+# Long-form audio demos (runtime exceeds test timeout; run manually)
+SKIP="$SKIP pinkpanther_play.lst"
+
 run_dir() {
   local dir="$1"
   local label="$2"

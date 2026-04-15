@@ -161,6 +161,52 @@ void FileTable::writeValue(int64_t fno, const Value& val) {
     }
     default: break;
     }
+    
+    // Flush to ensure data is written (important for RANDOM file mode)
+    std::fflush(f.fp);
+}
+
+// ── printText / printNewline / readTextLine ────────────────────────────
+
+void FileTable::printText(int64_t fno, const std::string& text) {
+    auto& f = get(fno);
+    if (!f.fp || f.read_only)
+        throw ComalError(ErrorCode::Write,
+            "File #" + std::to_string(fno) + " not writable");
+    if (!text.empty() && std::fputs(text.c_str(), f.fp) == EOF)
+        throw ComalError(ErrorCode::Write,
+            "Write error on file #" + std::to_string(fno));
+}
+
+void FileTable::printNewline(int64_t fno) {
+    auto& f = get(fno);
+    if (!f.fp || f.read_only)
+        throw ComalError(ErrorCode::Write,
+            "File #" + std::to_string(fno) + " not writable");
+    if (std::fputc('\n', f.fp) == EOF)
+        throw ComalError(ErrorCode::Write,
+            "Write error on file #" + std::to_string(fno));
+}
+
+std::string FileTable::readTextLine(int64_t fno) {
+    auto& f = get(fno);
+    if (!f.fp)
+        throw ComalError(ErrorCode::Read,
+            "File #" + std::to_string(fno) + " not readable");
+    std::string line;
+    int c;
+    bool got_char = false;
+    while ((c = std::fgetc(f.fp)) != EOF && c != '\n') {
+        line += static_cast<char>(c);
+        got_char = true;
+    }
+    if (c == EOF && !got_char)
+        throw ComalError(ErrorCode::Eof,
+            "End of file on #" + std::to_string(fno));
+    // Strip trailing CR for Windows-format files
+    if (!line.empty() && line.back() == '\r')
+        line.pop_back();
+    return line;
 }
 
 // ── seek ────────────────────────────────────────────────────────────────

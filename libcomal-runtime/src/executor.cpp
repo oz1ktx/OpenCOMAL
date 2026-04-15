@@ -8,6 +8,7 @@
 #include "comal_ast.h"           // full definitions: id_rec, string, VAL_TYPE, etc.
 #include "comal_ast_modern.h"
 #include "comal_functions.h"
+#include "comal_file_io.h"       // FileMode enum
 #include "comal_parser_api.h"    // statement_type_name()
 #include "parser.tab.h"          // token constants
 #include "comal_graphics_commands.h"
@@ -500,14 +501,17 @@ static void readFileLval(Interpreter& interp, int64_t fno, const Expression* lva
 
 // ── PRINT ───────────────────────────────────────────────────────────────
 
-// PRINT FILE — binary write to file (same format as WRITE FILE)
+// PRINT FILE — text write for sequential files; binary (same as WRITE FILE) for RANDOM files.
 static void printFile(Interpreter& interp, const TwoExp& te,
-                      const PrintList* printroot) {
+                      const PrintList* printroot, int pr_sep) {
     int64_t fno = evaluate(interp, te.exp1).toInt();
     if (te.exp2) {
         int64_t pos = evaluate(interp, te.exp2).toInt();
         interp.files.seek(fno, pos);
     }
+
+    // RANDOM-mode files use binary I/O (fixed-length records)
+    const bool is_random = (interp.files.get(fno).mode == FileMode::Random);
 
     for (auto* node = printroot; node; node = node->next()) {
         if (node->exp()) {
@@ -530,8 +534,31 @@ static void printFile(Interpreter& interp, const TwoExp& te,
                 throw ComalError(ErrorCode::Array,
                     "Missing string array indices on " + varname);
             }
-            interp.files.writeValue(fno, val);
+
+            if (is_random) {
+                // RANDOM files always use binary format
+                interp.files.writeValue(fno, val);
+            } else {
+                // Sequential files: text format with separators
+                int sep = node->separator();
+                if (sep == commaSYM)
+                    interp.files.printText(fno, "\t");
+                // semicolonSYM: no separator (concatenate, same as terminal PRINT)
+                interp.files.printText(fno, val.printStr());
+            }
+        } else if (!is_random) {
+            int sep = node->separator();
+            if (sep == commaSYM)
+                interp.files.printText(fno, "\t");
         }
+    }
+
+    // Sequential files: write newline unless trailing separator (like terminal PRINT)
+    if (!is_random) {
+        if (pr_sep == 0)
+            interp.files.printNewline(fno);
+        else if (pr_sep == commaSYM)
+            interp.files.printText(fno, "\t");
     }
 }
 
@@ -589,7 +616,7 @@ static void execPrint(Interpreter& interp, ComalLine* line) {
     if (pr.modifier) {
         if (pr.modifier->type == fileSYM) {
             if (auto* te = std::get_if<TwoExp>(&pr.modifier->data)) {
-                printFile(interp, *te, pr.printroot);
+                printFile(interp, *te, pr.printroot, pr.pr_sep);
                 return;
             }
         } else if (pr.modifier->type == usingSYM) {
@@ -630,13 +657,116 @@ static void execPrint(Interpreter& interp, ComalLine* line) {
 static void execInput(Interpreter& interp, ComalLine* line) {
     const auto& inp = line->asInput();
 
-    // Check for INPUT FILE modifier — binary read, same as READ FILE
+    // Check for INPUT FILE modifier
     if (inp.modifier) {
         if (auto* te = std::get_if<TwoExp>(&inp.modifier->data)) {
             int64_t fno = evaluate(interp, te->exp1).toInt();
 
+            // For RANDOM files, use binary readValue (same as READ FILE).
+            // For sequential files, use text readTextLine (line-oriented INPUT semantics).
+            const FileEntry& fentry = interp.files.get(fno);
+            if (fentry.mode == FileMode::Random) {
+                // Binary READ FILE semantics — read typed values
+                for (auto* node = inp.lvalroot; node; node = node->next()) {
+                    const Expression* lval = node->exp();
+                    
+                    // Determine expected type from the lvalue
+                    const Expression* inner = lval;
+                    while (inner && (inner->opType() == OpType::ExpIsNum ||
+                                     inner->opType() == OpType::ExpIsString))
+                        inner = inner->asExp();
+
+                    Value::Type expected = Value::Type::Int;
+                    if (inner->opType() == OpType::Sid || inner->opType() == OpType::Sarray)
+                        expected = Value::Type::String;
+                    else if (inner->opType() == OpType::Id) {
+                        const auto& eid = std::get<ExpId>(inner->data());
+                        if (eid.id && eid.id->type == V_STRING)
+                            expected = Value::Type::String;
+                        else if (eid.id && eid.id->type == V_FLOAT)
+                            expected = Value::Type::Float;
+                    }
+
+                    Value val = interp.files.readValue(fno, expected);
+                    assignToLval(interp, lval, val, becomesSYM);
+                }
+                return;
+            }
+
+            // Sequential file: text INPUT FILE — read one line, then parse fields
+            std::string input_line = interp.files.readTextLine(fno);
+            size_t pos = 0;
+
             for (auto* node = inp.lvalroot; node; node = node->next()) {
-                readFileLval(interp, fno, node->exp());
+                const Expression* lval = node->exp();
+
+                // Skip leading whitespace
+                while (pos < input_line.size() &&
+                       (input_line[pos] == ' ' || input_line[pos] == '\t'))
+                    pos++;
+
+                // Determine target type from the lvalue
+                bool is_string = false;
+                if (lval->opType() == OpType::Sid ||
+                    lval->opType() == OpType::Sarray)
+                    is_string = true;
+                else if (lval->opType() == OpType::Id) {
+                    const auto& eid = std::get<ExpId>(lval->data());
+                    if (eid.id && eid.id->type == V_STRING)
+                        is_string = true;
+                }
+
+                Value val;
+                if (is_string) {
+                    std::string field;
+                    if (pos < input_line.size() && input_line[pos] == '"') {
+                        pos++;  // skip opening quote
+                        while (pos < input_line.size() && input_line[pos] != '"')
+                            field += input_line[pos++];
+                        if (pos < input_line.size()) pos++;  // skip closing quote
+                    } else {
+                        size_t start = pos;
+                        while (pos < input_line.size() && input_line[pos] != ',')
+                            pos++;
+                        field = input_line.substr(start, pos - start);
+                        while (!field.empty() &&
+                               (field.back() == ' ' || field.back() == '\t'))
+                            field.pop_back();
+                    }
+                    val = Value(std::move(field));
+                } else {
+                    size_t start = pos;
+                    while (pos < input_line.size() && input_line[pos] != ',')
+                        pos++;
+                    std::string numstr = input_line.substr(start, pos - start);
+                    while (!numstr.empty() &&
+                           (numstr.back() == ' ' || numstr.back() == '\t'))
+                        numstr.pop_back();
+                    size_t fpos = numstr.find_first_not_of(" \t");
+                    if (fpos != std::string::npos) numstr = numstr.substr(fpos);
+                    try {
+                        size_t ppos;
+                        long long ll = std::stoll(numstr, &ppos);
+                        if (ppos == numstr.size()) {
+                            val = Value(static_cast<int64_t>(ll));
+                        } else {
+                            double d = std::stod(numstr, &ppos);
+                            val = Value(d);
+                        }
+                    } catch (...) {
+                        throw ComalError(ErrorCode::Input,
+                            "Cannot parse '" + numstr + "' as a number");
+                    }
+                }
+
+                // Skip comma separator between fields
+                while (pos < input_line.size() &&
+                       (input_line[pos] == ' ' || input_line[pos] == '\t'))
+                    pos++;
+                if (pos < input_line.size() && input_line[pos] == ',')
+                    pos++;
+
+                assignToLval(interp, lval, val, becomesSYM);
             }
             return;
         }
@@ -1394,6 +1524,11 @@ static void execRead(Interpreter& interp, ComalLine* line) {
     if (rr.modifier) {
         // File READ — uses binary format with type tags
         int64_t fno = evalInt(interp, rr.modifier->exp1);
+        // Optional record position
+        if (rr.modifier->exp2) {
+            int64_t pos = evalInt(interp, rr.modifier->exp2);
+            interp.files.seek(fno, pos);
+        }
         for (auto* node = rr.lvalroot; node; node = node->next()) {
             readFileLval(interp, fno, node->exp());
         }

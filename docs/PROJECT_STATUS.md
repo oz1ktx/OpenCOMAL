@@ -1,6 +1,6 @@
 # OpenCOMAL Project Status
 
-**Last Updated:** 13 April 2026
+**Last Updated:** 15 April 2026
 **Purpose:** Short, ordered snapshot of current project state and near-term work.
 
 ---
@@ -41,6 +41,12 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
 - Core statement execution is stable (loops, conditionals, PROC/FUNC, assignment, I/O).
 - Expression evaluation and value model are stable.
 - Interrupt and stop behavior is integrated for CLI and IDE usage.
+- **File I/O semantics correctly implement COMAL 80 spec:**
+  - `PRINT FILE` / `INPUT FILE` use plain text format (human-readable, line-oriented).
+  - `WRITE FILE` / `READ FILE` use binary format with type tags (compatible with legacy OpenCOMAL).
+  - `RANDOM` files always use binary fixed-record format.
+  - Record positioning (e.g., `READ FILE 1,pos:`) now correctly seeks before reading.
+  - Extensible architecture supports future stream/queue I/O additions.
 
 ### 3. IDE core workflow
 
@@ -61,6 +67,8 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
 - LSP hover and IDE Help panel use the same shared documentation source.
 - `DRAW` hovers now support grouped command forms (e.g. `HUD.line`, `Ship.Engine.rect`).
 - `PLAY` documentation now reflects the currently implemented ABC subset.
+- ABC parser beat-unit fix: `Q:1/4=123` now correctly applies the beat unit fraction;
+  prior to this, all `Q:<unit>=BPM` files (e.g. Pink Panther at `Q:1/4=123`) played 4× too fast.
 
 ---
 
@@ -76,7 +84,9 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
 ### Sound roadmap
 
 - `TONE` is functional.
-- `PLAY` supports only a minimal subset; full MML interpretation is still pending.
+- `PLAY` ABC subset now handles `Q:<unit>=BPM` beat timing correctly.
+- Known remaining ABC gaps: tuplet compression, tied-note duration extension, chord notation.
+- Full MML interpretation and polyphony are still pending.
 
 ### Architecture transition
 

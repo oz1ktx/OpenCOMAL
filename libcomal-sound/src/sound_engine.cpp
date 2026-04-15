@@ -197,6 +197,10 @@ void Engine::initImpl() {
 
 void Engine::stopActiveImpl() {
     // nothing to do when multimedia unavailable
+#ifdef USE_FLUIDSYNTH
+    extern void resetABCPlayerState();
+    resetABCPlayerState();
+#endif
 }
 
 std::shared_ptr<std::shared_future<void>> Engine::playImpl(const PlaySpec& spec) {

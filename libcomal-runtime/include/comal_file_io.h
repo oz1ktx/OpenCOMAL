@@ -58,6 +58,11 @@ public:
     Value readValue(int64_t fno, Value::Type expected_type);
     void writeValue(int64_t fno, const Value& val);
 
+    /// PRINT FILE / INPUT FILE text I/O
+    void printText(int64_t fno, const std::string& text);
+    void printNewline(int64_t fno);
+    std::string readTextLine(int64_t fno);
+
     /// Position a random-access file
     void seek(int64_t fno, int64_t recno);
 

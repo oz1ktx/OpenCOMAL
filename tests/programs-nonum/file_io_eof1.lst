@@ -1,0 +1,25 @@
+// File I/O test: write two text lines, read back with INPUT FILE until EOF
+TRAP
+  DELETE "ofile_nonum_eof1"
+ENDTRAP
+
+OPEN FILE 1, "ofile_nonum_eof1", WRITE
+PRINT FILE 1: "first line has multiple words"
+PRINT FILE 1: "second line also has many words"
+CLOSE FILE 1
+
+OPEN FILE 1, "ofile_nonum_eof1", READ
+count:=0
+WHILE NOT(EOF(1)) DO
+  INPUT FILE 1: line$
+  count:=count+1
+  PRINT "read"; count; ": "; line$
+  IF count=1 AND line$<>"first line has multiple words" THEN STOP
+  IF count=2 AND line$<>"second line also has many words" THEN STOP
+ENDWHILE
+
+IF count<>2 THEN STOP
+IF NOT(EOF(1)) THEN STOP
+CLOSE FILE 1
+
+PRINT "file test ok"

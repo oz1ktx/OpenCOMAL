@@ -54,7 +54,9 @@ This file is the single source of truth for current behavior and near-term desig
 - Rests: `z` or `Z`
 - Directives:
   - `L=<beats>` or `L:<beats>` default note length
-  - `Q=<bpm>` or `Q:<bpm>` tempo in beats per minute
+  - `Q=<bpm>` or `Q:<bpm>` tempo in beats per minute (plain integer, e.g. `Q:120`)
+  - `Q:<unit>=<bpm>` beat-unit form, e.g. `Q:1/4=123` means 123 quarter-note beats per minute
+    — beat unit is parsed and applied correctly; omit it and `beatUnit` defaults to 1
 - Octave handling:
   - lowercase note letter raises by one octave (`c` vs `C`)
   - `,` lowers one octave per symbol (`C,`)
@@ -72,12 +74,41 @@ This file is the single source of truth for current behavior and near-term desig
   - `% This is a comment`
 - Note ties (ignored):
   - `-` joins notes, not needed for simple playback
+- Input style tolerance:
+  - Supports compact body text without spaces between events (for example `E/2z^E/2`).
+  - Accepts multiline pasted snippets with common ABC headers (`X:`, `T:`, `M:`, `L:`, `Q:`, `K:`); unknown headers are ignored.
+  - Tuplet markers like `(3` are tolerated (marker is skipped, notes still parsed).
 
 Example:
 
 ```comal
 PLAY "L=1 Q=120 C D E F G A B z C2 C/2 c C, c' C5"
 ```
+
+Full COMAL DATA/READ example (multiline ABC pasted as DATA rows):
+
+- `tests/programs-nonum/abc_data_play.lst` — simple 3-line scale demo, confirmed working
+- `tests/programs-nonum/pinkpanther_play.lst` — Pink Panther theme (9 DATA lines); plays at
+  correct tempo after beat-unit fix. Minor timing issues remain in some dense passages
+  (e.g. multi-tuplet and tied-note sequences). Not included in automated test suite
+  (runtime ~3 min); run manually.
+
+### DATA/READ + PLAY pattern
+
+The sound engine keeps `ABCState` (tempo `Q:`, note length `L:`, beat unit) across
+successive `PLAY` calls. Send the header once; body lines inherit the state:
+
+```comal
+PLAY "L:1/8 Q:1/4=123"   // set state once
+FOR i := 1 TO n
+  READ line$
+  PLAY line$              // uses inherited L:1/8 Q:1/4=123
+NEXT i
+```
+
+`PLAY "STOP"` resets the state to defaults (L=1 beat, Q=120 BPM) in addition to
+stopping active playback. Directives embedded in a body line update the state for
+that call and all subsequent ones (standard ABC behaviour).
 
 User-facing hover/help text for `PLAY` and other keywords is maintained in:
 
@@ -115,6 +146,15 @@ User-facing hover/help text for `PLAY` and other keywords is maintained in:
 
 ### PLAY evolution
 
+- **Beat unit (`Q:X/Y=BPM`) now parsed correctly** (2026-04-13). Prior to this fix all
+  `Q:1/4=BPM`-style ABC files played 4× too fast because the beat-unit fraction was dropped.
+- Remaining known gaps in complex ABC:
+  - Tuplet timing (triplets `(3`, quintuplets `(5`) — markers currently skipped, notes play
+    at unmodified durations rather than compressed time values.
+  - Tied notes (`-`) across bar lines are silently dropped; this is correct for simple cases
+    but note durations for tied chords are not extended.
+  - Chord notation `[CEG]` is not yet supported; notes inside `[` ... `]` are parsed
+    individually and played sequentially rather than together.
 - Improve ABC subset coverage and diagnostics.
 - Consider richer scheduling/polyphony instead of sleep-based sequencing.
 - Optional SF2/per-playback controls and backend diagnostics.

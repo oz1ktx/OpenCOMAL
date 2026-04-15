@@ -1,0 +1,12 @@
+// ABC via DATA/READ: read each ABC line and PLAY it in turn
+PRINT "ABC DATA/READ PLAY demo"
+FOR i:=1 TO 3
+  READ line$
+  PRINT "line"; i; ": "; line$
+  PLAY line$, "NOWAIT"
+  SLEEP 1200
+NEXT i
+PRINT "done"
+DATA "L:1/4 Q:110 C D E F"
+DATA "L:1/4 Q:110 G A B c"
+DATA "L:1/4 Q:110 c B A G"

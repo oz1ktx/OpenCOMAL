@@ -1,5 +1,6 @@
 #ifdef USE_QTMULTIMEDIA
 #include "comal_sound.h"
+#include "comal_abc.h"
 
 #include <QAudioFormat>
 #include <QAudioSink>
@@ -15,13 +16,29 @@
 #include <algorithm>
 #include <memory>
 #include <future>
+#include <thread>
+#include <chrono>
 
 namespace comal::sound {
 
 #ifdef USE_FLUIDSYNTH
 // Forward declaration of fluidsynth wrapper implemented in midi_player.cpp
 std::shared_ptr<std::shared_future<void>> playABCWithSynth(const std::string& abc);
+void resetABCPlayerState();
+bool isABCWithSynthAvailable();
 #endif
+
+namespace {
+std::mutex& fallbackABCStateMutex() {
+    static std::mutex m;
+    return m;
+}
+
+comal::sound::abc::ABCState& fallbackABCState() {
+    static comal::sound::abc::ABCState st;
+    return st;
+}
+}
 
 
 // A QIODevice that generates a sine wave on demand. Generates interleaved
@@ -92,6 +109,13 @@ void Engine::stopActiveImpl() {
                 try { kv.second.completion->set_value(); } catch (...) {}
             }
         }
+#ifdef USE_FLUIDSYNTH
+        resetABCPlayerState();
+#endif
+    {
+        std::lock_guard<std::mutex> lk(fallbackABCStateMutex());
+        fallbackABCState() = comal::sound::abc::ABCState{};
+    }
         return;
     }
 
@@ -114,6 +138,13 @@ void Engine::stopActiveImpl() {
     if (persistent_audio_) {
         QAudioSink* sink = reinterpret_cast<QAudioSink*>(persistent_audio_);
         sink->stop();
+    }
+#ifdef USE_FLUIDSYNTH
+    resetABCPlayerState();
+#endif
+    {
+        std::lock_guard<std::mutex> lk(fallbackABCStateMutex());
+        fallbackABCState() = comal::sound::abc::ABCState{};
     }
 }
 
@@ -156,13 +187,46 @@ std::shared_ptr<std::shared_future<void>> Engine::playImpl(const PlaySpec& spec)
 
 #ifdef USE_FLUIDSYNTH
     if (spec.name != "tone") {
-        // If FluidSynth is available, forward ABC/MML strings to the synth
-        try {
-            return playABCWithSynth(spec.name);
-        } catch (...) {
-            try { prom->set_value(); } catch (...) {}
-            return fut;
+        // Prefer FluidSynth when usable.
+        if (isABCWithSynthAvailable()) {
+            try {
+                return playABCWithSynth(spec.name);
+            } catch (...) {
+                // Fall through to Qt fallback below.
+            }
         }
+
+        // Safe fallback: parse ABC and play as sine tones via Qt audio.
+        std::vector<comal::sound::abc::ToneEvent> events;
+        {
+            std::lock_guard<std::mutex> lk(fallbackABCStateMutex());
+            events = comal::sound::abc::parseABCToTones(spec.name, fallbackABCState());
+        }
+
+        std::thread([this, events = std::move(events), prom]() mutable {
+            try {
+                for (const auto& ev : events) {
+                    const int durMs = std::max(1, static_cast<int>(std::lround(ev.durationMs)));
+                    if (ev.midiNote >= 0 && ev.frequencyHz > 0.0) {
+                        comal::sound::PlaySpec toneSpec;
+                        toneSpec.name = "tone";
+                        toneSpec.duration = static_cast<double>(durMs);
+                        toneSpec.params.push_back(ev.frequencyHz);
+                        toneSpec.params.push_back(static_cast<double>(durMs));
+                        auto tfut = this->playImpl(toneSpec);
+                        if (tfut) {
+                            try { tfut->wait(); } catch (...) {}
+                        }
+                    } else {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(durMs));
+                    }
+                }
+            } catch (...) {
+            }
+            try { prom->set_value(); } catch (...) {}
+        }).detach();
+
+        return fut;
     }
 #else
     if (spec.name != "tone") {

@@ -1,0 +1,20 @@
+// RANDOM file test with FOR loop like random_write
+OPEN FILE 1, "test_random_loop.dat", RANDOM 20
+FOR i:=1 TO 3 DO
+  WRITE FILE 1,i: i*10, i*20
+ENDFOR
+CLOSE FILE 1
+
+OPEN FILE 1, "test_random_loop.dat", RANDOM 20
+FOR i:=1 TO 3 DO
+  READ FILE 1,i: x
+  PRINT USING "###": x;
+  IF x<>i*10 THEN
+    PRINT " ERROR"
+    STOP
+  ENDIF
+ENDFOR
+CLOSE FILE 1
+
+PRINT
+PRINT "All ok"

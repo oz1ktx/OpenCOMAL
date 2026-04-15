@@ -1,0 +1,14 @@
+// Simple RANDOM file test - no DELETE statement
+OPEN FILE 1, "simple_random.dat", RANDOM 20
+WRITE FILE 1,1: 100, 200
+CLOSE FILE 1
+
+OPEN FILE 1, "simple_random.dat", RANDOM 20
+READ FILE 1,1: x
+PRINT "Read value:"; x
+IF x<>100 THEN
+  PRINT "ERROR: Expected 100, got"; x
+  STOP
+ENDIF
+CLOSE FILE 1
+PRINT "OK"

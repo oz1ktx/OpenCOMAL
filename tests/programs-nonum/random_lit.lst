@@ -1,0 +1,22 @@
+// RANDOM file test with literal record numbers
+OPEN FILE 1, "test_random_lit.dat", RANDOM 20
+WRITE FILE 1,1: 100
+WRITE FILE 1,2: 200
+WRITE FILE 1,3: 300
+CLOSE FILE 1
+
+OPEN FILE 1, "test_random_lit.dat", RANDOM 20
+READ FILE 1,1: x
+PRINT "Record 1:"; x
+IF x<>100 THEN STOP
+
+READ FILE 1,2: y
+PRINT "Record 2:"; y
+IF y<>200 THEN STOP
+
+READ FILE 1,3: z
+PRINT "Record 3:"; z
+IF z<>300 THEN STOP
+
+CLOSE FILE 1
+PRINT "OK"
