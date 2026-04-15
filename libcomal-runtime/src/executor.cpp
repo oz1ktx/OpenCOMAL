@@ -510,8 +510,41 @@ static void printFile(Interpreter& interp, const TwoExp& te,
         interp.files.seek(fno, pos);
     }
 
+    const FileEntry& fentry = interp.files.get(fno);
+    if (fentry.mode == FileMode::QueueWrite) {
+        // Queue semantics: one PRINT statement produces one queue message.
+        std::string message;
+        for (auto* node = printroot; node; node = node->next()) {
+            if (node->exp()) {
+                Value val = evaluate(interp, node->exp());
+                if (val.isArray()) {
+                    throw ComalError(ErrorCode::Array,
+                        "Missing array indices in PRINT FILE queue message");
+                }
+
+                int sep = node->separator();
+                if (sep == commaSYM)
+                    message += "\t";
+                message += val.printStr();
+            } else {
+                int sep = node->separator();
+                if (sep == commaSYM)
+                    message += "\t";
+            }
+        }
+        if (pr_sep == commaSYM)
+            message += "\t";
+
+        interp.files.writeQueueMessage(fno, message);
+        return;
+    }
+    if (fentry.mode == FileMode::QueueRead) {
+        throw ComalError(ErrorCode::Write,
+            "Cannot PRINT FILE to queue #" + std::to_string(fno) + " opened for READ");
+    }
+
     // RANDOM-mode files use binary I/O (fixed-length records)
-    const bool is_random = (interp.files.get(fno).mode == FileMode::Random);
+    const bool is_random = (fentry.mode == FileMode::Random);
 
     for (auto* node = printroot; node; node = node->next()) {
         if (node->exp()) {
@@ -1486,6 +1519,8 @@ static void execOpen(Interpreter& interp, ComalLine* line) {
     case writeSYM:  mode = FileMode::Write; break;
     case appendSYM: mode = FileMode::Append; break;
     case randomSYM: mode = FileMode::Random; break;
+    case qreadSYM:  mode = FileMode::QueueRead; break;
+    case qwriteSYM: mode = FileMode::QueueWrite; break;
     default:        mode = FileMode::Read; break;
     }
 

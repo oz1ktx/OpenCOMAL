@@ -20,7 +20,9 @@ enum class FileMode {
     Read,
     Write,
     Append,
-    Random
+    Random,
+    QueueRead,
+    QueueWrite
 };
 
 /// One open file descriptor
@@ -31,6 +33,7 @@ struct FileEntry {
     bool read_only{false};
     int64_t reclen{0};       // record length for RANDOM files
     std::string filename;    // for diagnostics
+    std::string queue_name;  // queue name for QUEUE mode
 };
 
 /// Manages all open COMAL files.
@@ -62,6 +65,10 @@ public:
     void printText(int64_t fno, const std::string& text);
     void printNewline(int64_t fno);
     std::string readTextLine(int64_t fno);
+
+    /// Queue message I/O (blocking dequeue for reads)
+    void writeQueueMessage(int64_t fno, const std::string& text);
+    std::string readQueueMessage(int64_t fno);
 
     /// Position a random-access file
     void seek(int64_t fno, int64_t recno);

@@ -103,6 +103,7 @@ PRIVATE struct {
 	tnrnSYM, _EXP, "EXP"}, {
 	rnSYM, _FALSE, "FALSE"}, {
 	fileSYM, 0, "FILE"}, {
+	queueSYM, 0, "QUEUE"}, {
 	forSYM, 0, "FOR"}, {
 	tnrnSYM, _FRAC, "FRAC"}, {
 	funcSYM, 0, "FUNC"}, {

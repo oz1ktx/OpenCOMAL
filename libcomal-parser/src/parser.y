@@ -112,6 +112,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	exitSYM
 %token	externalSYM
 %token	fileSYM
+%token	queueSYM
 %token	forSYM 
 %token	funcSYM 
 %token	geqSYM 
@@ -172,6 +173,8 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	whenSYM 
 %token	whileSYM 
 %token	writeSYM
+%token  qreadSYM
+%token  qwriteSYM
 
 %token	<inum>		rnSYM rsSYM tnrnSYM tnrsSYM tsrnSYM tonrsSYM tsrsSYM tsrsnSYM lenSYM
 %token	<dubbel>	floatnumSYM
@@ -195,7 +198,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %type	<exp>		exp numexp stringexp xid numexp2 stringexp2 opt_stringexp
 %type	<exp>		string_factor strlvalue2 optnumlvalue opt_arg
 %type	<extptr>	opt_external
-%type	<twoexp>	file_designator substr_spec substr_spec2
+%type	<twoexp>	file_designator io_designator substr_spec substr_spec2
 %type	<twoexpp>	optfile
 %type	<inum>		optclosed optread_only relop pr_sep optpr_sep 
 %type	<inum>		todownto nassign sassign assign1 assign2 plusorminus
@@ -205,6 +208,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %type	<importptr>	import_list
 %type	<oneparm>	oneparm
 %type	<openrec>	open_type
+%type	<openrec>	queue_type
 %type	<whenptr>	when_list when_numitem when_stritem when_numlist 
 %type	<whenptr>	when_strlist
 %type	<assignptr>	assign_list assign_item
@@ -791,7 +795,7 @@ input_stat	:	inputSYM input_modifier lval_list
 			}
 		;
 		
-input_modifier	:	file_designator
+input_modifier	:	io_designator
 			{
 				$$=PARS_ALLOC(struct input_modifier);
 				$$->type=fileSYM;
@@ -816,25 +820,52 @@ open_stat	:	openSYM fileSYM numexp commaSYM stringexp commaSYM open_type
 				$$.lc.openrec.filenum=$3;
 				$$.lc.openrec.filename=$5;
 			}
+		|	openSYM queueSYM numexp commaSYM stringexp commaSYM queue_type
+			{
+				$$.cmd=openSYM;
+				$$.lc.openrec=$7;
+				$$.lc.openrec.filenum=$3;
+				$$.lc.openrec.filename=$5;
+			}
 		;
 		
 open_type	:	readSYM
 			{
 				$$.type=readSYM;
+				$$.reclen=NULL;
+				$$.read_only=0;
 			}
 		|	writeSYM
 			{
 				$$.type=writeSYM;
+				$$.reclen=NULL;
+				$$.read_only=0;
 			}
 		|	appendSYM
 			{
 				$$.type=appendSYM;
+				$$.reclen=NULL;
+				$$.read_only=0;
 			}
 		|	randomSYM numexp optread_only
 			{
 				$$.type=randomSYM;
 				$$.reclen=$2;
 				$$.read_only=$3;
+			}
+		;
+
+queue_type	:	readSYM
+			{
+				$$.type=qreadSYM;
+				$$.reclen=NULL;
+				$$.read_only=0;
+			}
+		|	writeSYM
+			{
+				$$.type=qwriteSYM;
+				$$.reclen=NULL;
+				$$.read_only=0;
 			}
 		;
 
@@ -868,7 +899,7 @@ print_stat	:	printi
 				$$.lc.printrec.printroot=PARS_REVERSE(struct print_list, $5);
 				$$.lc.printrec.pr_sep=$6;
 			}
-		|	printi file_designator print_list
+		|	printi io_designator print_list
 			{
 				$$.cmd=printSYM;
 				$$.lc.printrec.modifier=PARS_ALLOC(struct print_modifier);
@@ -1497,6 +1528,7 @@ optfile		:	file_designator
 		;
 
 optfileS	:	fileSYM
+		|	queueSYM
 		|	/* epsilon */
 		;
 				
@@ -1571,6 +1603,28 @@ file_designator	:	fileSYM numexp colonSYM
 				$$.exp2=NULL;
 			}
 		|	fileSYM numexp commaSYM numexp colonSYM
+			{
+				$$.exp1=$2;
+				$$.exp2=$4;
+			}
+		;
+
+io_designator	:	fileSYM numexp colonSYM
+			{
+				$$.exp1=$2;
+				$$.exp2=NULL;
+			}
+		|	fileSYM numexp commaSYM numexp colonSYM
+			{
+				$$.exp1=$2;
+				$$.exp2=$4;
+			}
+		|	queueSYM numexp colonSYM
+			{
+				$$.exp1=$2;
+				$$.exp2=NULL;
+			}
+		|	queueSYM numexp commaSYM numexp colonSYM
 			{
 				$$.exp1=$2;
 				$$.exp2=$4;

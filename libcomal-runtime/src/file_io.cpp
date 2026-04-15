@@ -5,8 +5,45 @@
 
 #include <cstring>
 #include <cstdint>
+#include <condition_variable>
+#include <deque>
+#include <memory>
+#include <mutex>
 
 namespace comal::runtime {
+
+namespace {
+
+struct QueueState {
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::deque<std::string> messages;
+};
+
+class QueueRegistry {
+public:
+    std::shared_ptr<QueueState> getOrCreate(const std::string& name) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = queues_.find(name);
+        if (it != queues_.end()) {
+            return it->second;
+        }
+        auto q = std::make_shared<QueueState>();
+        queues_[name] = q;
+        return q;
+    }
+
+    static QueueRegistry& instance() {
+        static QueueRegistry registry;
+        return registry;
+    }
+
+private:
+    std::mutex mutex_;
+    std::unordered_map<std::string, std::shared_ptr<QueueState>> queues_;
+};
+
+} // namespace
 
 // ── FileTable destructor ────────────────────────────────────────────────
 
@@ -22,12 +59,23 @@ void FileTable::open(int64_t fno, const std::string& filename,
         throw ComalError(ErrorCode::Open,
             "File #" + std::to_string(fno) + " is already open");
 
+    if (mode == FileMode::QueueRead || mode == FileMode::QueueWrite) {
+        // Ensure the named queue exists in the shared registry.
+        (void)QueueRegistry::instance().getOrCreate(filename);
+        files_[fno] = FileEntry{fno, nullptr, mode, false, 0, filename, filename};
+        return;
+    }
+
     const char* fmode;
     switch (mode) {
     case FileMode::Read:   fmode = "r"; break;
     case FileMode::Write:  fmode = "w"; break;
     case FileMode::Append: fmode = "a"; break;
     case FileMode::Random: fmode = read_only ? "rb" : "r+b"; break;
+    case FileMode::QueueRead:
+    case FileMode::QueueWrite:
+        fmode = "r";
+        break;
     }
 
     FILE* fp = std::fopen(filename.c_str(), fmode);
@@ -41,7 +89,7 @@ void FileTable::open(int64_t fno, const std::string& filename,
                 "Cannot open \"" + filename + "\"");
     }
 
-    files_[fno] = FileEntry{fno, fp, mode, read_only, reclen, filename};
+    files_[fno] = FileEntry{fno, fp, mode, read_only, reclen, filename, ""};
 }
 
 // ── close ───────────────────────────────────────────────────────────────
@@ -80,6 +128,8 @@ bool FileTable::isOpen(int64_t fno) const {
 
 bool FileTable::isEof(int64_t fno) {
     auto& f = get(fno);
+    if (f.mode == FileMode::QueueRead || f.mode == FileMode::QueueWrite)
+        return false;
     if (!f.fp) return true;
     int c = std::fgetc(f.fp);
     if (c == EOF) return true;
@@ -91,6 +141,8 @@ bool FileTable::isEof(int64_t fno) {
 
 Value FileTable::readValue(int64_t fno, Value::Type expected_type) {
     auto& f = get(fno);
+    if (f.mode == FileMode::QueueRead || f.mode == FileMode::QueueWrite)
+        throw ComalError(ErrorCode::Read, "Cannot READ FILE binary data from QUEUE file #" + std::to_string(fno));
     if (!f.fp)
         throw ComalError(ErrorCode::Read, "File #" + std::to_string(fno) + " not readable");
 
@@ -133,6 +185,8 @@ Value FileTable::readValue(int64_t fno, Value::Type expected_type) {
 
 void FileTable::writeValue(int64_t fno, const Value& val) {
     auto& f = get(fno);
+    if (f.mode == FileMode::QueueRead || f.mode == FileMode::QueueWrite)
+        throw ComalError(ErrorCode::Write, "Cannot WRITE FILE binary data to QUEUE file #" + std::to_string(fno));
     if (!f.fp || f.read_only)
         throw ComalError(ErrorCode::Write,
             "File #" + std::to_string(fno) + " not writable");
@@ -173,6 +227,9 @@ void FileTable::writeValue(int64_t fno, const Value& val) {
 
 void FileTable::printText(int64_t fno, const std::string& text) {
     auto& f = get(fno);
+    if (f.mode == FileMode::QueueRead || f.mode == FileMode::QueueWrite)
+        throw ComalError(ErrorCode::Write,
+            "Queue channels do not support streaming PRINT; use queue message writes");
     if (!f.fp || f.read_only)
         throw ComalError(ErrorCode::Write,
             "File #" + std::to_string(fno) + " not writable");
@@ -183,6 +240,9 @@ void FileTable::printText(int64_t fno, const std::string& text) {
 
 void FileTable::printNewline(int64_t fno) {
     auto& f = get(fno);
+    if (f.mode == FileMode::QueueRead || f.mode == FileMode::QueueWrite)
+        throw ComalError(ErrorCode::Write,
+            "Queue channels do not support newline writes");
     if (!f.fp || f.read_only)
         throw ComalError(ErrorCode::Write,
             "File #" + std::to_string(fno) + " not writable");
@@ -193,6 +253,11 @@ void FileTable::printNewline(int64_t fno) {
 
 std::string FileTable::readTextLine(int64_t fno) {
     auto& f = get(fno);
+    if (f.mode == FileMode::QueueRead)
+        return readQueueMessage(fno);
+    if (f.mode == FileMode::QueueWrite)
+        throw ComalError(ErrorCode::Read,
+            "Queue #" + std::to_string(fno) + " is open for WRITE");
     if (!f.fp)
         throw ComalError(ErrorCode::Read,
             "File #" + std::to_string(fno) + " not readable");
@@ -212,10 +277,40 @@ std::string FileTable::readTextLine(int64_t fno) {
     return line;
 }
 
+void FileTable::writeQueueMessage(int64_t fno, const std::string& text) {
+    auto& f = get(fno);
+    if (f.mode != FileMode::QueueWrite)
+        throw ComalError(ErrorCode::Write,
+            "File #" + std::to_string(fno) + " is not open as QUEUE WRITE");
+
+    auto queue = QueueRegistry::instance().getOrCreate(f.queue_name);
+    {
+        std::lock_guard<std::mutex> lock(queue->mutex);
+        queue->messages.push_back(text);
+    }
+    queue->cv.notify_one();
+}
+
+std::string FileTable::readQueueMessage(int64_t fno) {
+    auto& f = get(fno);
+    if (f.mode != FileMode::QueueRead)
+        throw ComalError(ErrorCode::Read,
+            "File #" + std::to_string(fno) + " is not open as QUEUE READ");
+
+    auto queue = QueueRegistry::instance().getOrCreate(f.queue_name);
+    std::unique_lock<std::mutex> lock(queue->mutex);
+    queue->cv.wait(lock, [&queue]() { return !queue->messages.empty(); });
+    std::string msg = std::move(queue->messages.front());
+    queue->messages.pop_front();
+    return msg;
+}
+
 // ── seek ────────────────────────────────────────────────────────────────
 
 void FileTable::seek(int64_t fno, int64_t recno) {
     auto& f = get(fno);
+    if (f.mode == FileMode::QueueRead || f.mode == FileMode::QueueWrite)
+        throw ComalError(ErrorCode::Pos, "Cannot seek on QUEUE file");
     if (f.mode != FileMode::Random)
         throw ComalError(ErrorCode::Pos, "Cannot seek on non-RANDOM file");
     if (f.reclen <= 0)

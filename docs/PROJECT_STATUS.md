@@ -41,12 +41,16 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
 - Core statement execution is stable (loops, conditionals, PROC/FUNC, assignment, I/O).
 - Expression evaluation and value model are stable.
 - Interrupt and stop behavior is integrated for CLI and IDE usage.
+- **Phase 1 queue message passing is implemented:**
+  - `OPEN QUEUE <n>, "name", READ|WRITE`
+  - `PRINT QUEUE <n>: ...`, `INPUT QUEUE <n>: ...`, `CLOSE QUEUE <n>`
+  - `FILE` spellings for these queue channel operations are supported as compatibility aliases.
 - **File I/O semantics correctly implement COMAL 80 spec:**
   - `PRINT FILE` / `INPUT FILE` use plain text format (human-readable, line-oriented).
   - `WRITE FILE` / `READ FILE` use binary format with type tags (compatible with legacy OpenCOMAL).
   - `RANDOM` files always use binary fixed-record format.
   - Record positioning (e.g., `READ FILE 1,pos:`) now correctly seeks before reading.
-  - Extensible architecture supports future stream/queue I/O additions.
+  - Runtime supports both file I/O and queue-based message passing.
 
 ### 3. IDE core workflow
 
