@@ -35,7 +35,7 @@ SKIP="$SKIP run1.lst selin1.lst selout1.lst trace1.lst"
 # Audio/timing tests are flaky on headless CI runners (no stable audio backend).
 # Keep them enabled for local development unless running in CI.
 if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
-  SKIP="$SKIP tone_block.lst tone_play_test.lst encounters.lst"
+  SKIP="$SKIP tone_block.lst tone_play_test.lst encounters.lst abc_data_play.lst"
 fi
 
 # Long-form audio demos (runtime exceeds test timeout; run manually)

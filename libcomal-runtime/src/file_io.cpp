@@ -4,6 +4,7 @@
 #include "comal_file_io.h"
 
 #include <cstring>
+#include <cstdint>
 
 namespace comal::runtime {
 
@@ -100,7 +101,7 @@ Value FileTable::readValue(int64_t fno, Value::Type expected_type) {
 
     switch (type_byte) {
     case 1: { // V_INT
-        long val;
+        int32_t val;
         if (std::fread(&val, sizeof(val), 1, f.fp) != 1)
             throw ComalError(ErrorCode::Read, "Read error on file #" + std::to_string(fno));
         return Value(static_cast<int64_t>(val));
@@ -112,9 +113,11 @@ Value FileTable::readValue(int64_t fno, Value::Type expected_type) {
         return Value(val);
     }
     case 3: { // V_STRING
-        long len;
+        int32_t len;
         if (std::fread(&len, sizeof(len), 1, f.fp) != 1)
             throw ComalError(ErrorCode::Read, "Read error on file #" + std::to_string(fno));
+        if (len < 0)
+            throw ComalError(ErrorCode::Read, "Negative string length in file #" + std::to_string(fno));
         std::string val(len, '\0');
         if (len > 0 && std::fread(val.data(), 1, len, f.fp) != static_cast<size_t>(len))
             throw ComalError(ErrorCode::Read, "Read error on file #" + std::to_string(fno));
@@ -139,7 +142,7 @@ void FileTable::writeValue(int64_t fno, const Value& val) {
     case Value::Type::Int: {
         char type_byte = 1; // V_INT
         std::fwrite(&type_byte, 1, 1, f.fp);
-        long v = static_cast<long>(val.asInt());
+        int32_t v = static_cast<int32_t>(val.asInt());
         std::fwrite(&v, sizeof(v), 1, f.fp);
         break;
     }
@@ -153,7 +156,7 @@ void FileTable::writeValue(int64_t fno, const Value& val) {
     case Value::Type::String: {
         char type_byte = 3; // V_STRING
         std::fwrite(&type_byte, 1, 1, f.fp);
-        long len = static_cast<long>(val.asString().size());
+        int32_t len = static_cast<int32_t>(val.asString().size());
         std::fwrite(&len, sizeof(len), 1, f.fp);
         if (len > 0)
             std::fwrite(val.asString().data(), 1, len, f.fp);
