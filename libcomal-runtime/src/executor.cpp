@@ -14,6 +14,7 @@
 #include "comal_graphics_commands.h"
 #include "comal_scene_model.h"
 #include "comal_sound.h"
+#include "comal_io.h"
 
 #include <iostream>
 #include <fstream>
@@ -23,8 +24,38 @@
 #include <filesystem>
 #include <thread>
 #include <chrono>
+#include <memory>
 
 namespace comal::runtime {
+
+namespace {
+
+class ParentForwardIO : public IOInterface {
+public:
+    explicit ParentForwardIO(Interpreter& parent)
+        : parent_(parent) {}
+
+    void print(const std::string& text) override {
+        parent_.print(text);
+    }
+
+    std::string readLine() override {
+        return parent_.readLine();
+    }
+
+    void clearScreen() override {
+        parent_.clearScreen();
+    }
+
+    void setCursor(int row, int col) override {
+        parent_.setCursor(row, col);
+    }
+
+private:
+    Interpreter& parent_;
+};
+
+} // namespace
 
 // ── Forward declarations of exec helpers ────────────────────────────────
 
@@ -46,6 +77,7 @@ static void execTrap(Interpreter& interp, ComalLine* line);
 static void execImport(Interpreter& interp, ComalLine* line);
 static void execCall(Interpreter& interp, const std::string& name,
                      const ExpList* args, bool isFunc);
+static void execSpawn(Interpreter& interp, ComalLine* line);
 static void execDraw(Interpreter& interp, ComalLine* line);
 static void execTone(Interpreter& interp, ComalLine* line);
 static void execPlay(Interpreter& interp, ComalLine* line);
@@ -240,6 +272,11 @@ void execLine(Interpreter& interp, ComalLine* line) {
         execCall(interp, eid.id->name, eid.exproot, false);
         break;
     }
+
+    // ── SPAWN (fire-and-forget call of CLOSED PROC) ─────────────────────
+    case StatementType::Spawn:
+        execSpawn(interp, line);
+        break;
 
     // ── File I/O ────────────────────────────────────────────────────────
     case StatementType::Open:
@@ -1447,6 +1484,12 @@ static void execCase(Interpreter& interp, ComalLine* line) {
 // ── DIM / LOCAL ─────────────────────────────────────────────────────────
 
 static void execDim(Interpreter& interp, ComalLine* line) {
+    Scope& cur_scope = interp.scopes.current();
+    if (cur_scope.closed && cur_scope.curproc) {
+        throw ComalError(ErrorCode::Dim,
+            "DIM/LOCAL is not allowed inside CLOSED PROC/FUNC");
+    }
+
     auto* dimlist = line->asDimList();
     bool is_local = (line->command() == StatementType::Local);
 
@@ -1503,6 +1546,57 @@ static void execDim(Interpreter& interp, ComalLine* line) {
             scope.define(name, Value(std::move(arr)));
         }
     }
+}
+
+static void execSpawn(Interpreter& interp, ComalLine* line) {
+    auto* expr = std::get_if<Expression*>(&line->contents());
+    if (!expr || !*expr)
+        throw ComalError(ErrorCode::Parm, "SPAWN requires a procedure call expression");
+
+    const Expression* target = *expr;
+    while (target && (target->opType() == OpType::ExpIsNum || target->opType() == OpType::ExpIsString)) {
+        target = target->asExp();
+    }
+    if (!target || target->opType() != OpType::Id) {
+        throw ComalError(ErrorCode::Parm, "SPAWN requires PROC name or PROC(args)");
+    }
+
+    const auto& eid = std::get<ExpId>(target->data());
+    if (!eid.id) {
+        throw ComalError(ErrorCode::Parm, "SPAWN requires a valid procedure identifier");
+    }
+
+    ComalLine* proc_line = interp.findRoutine(eid.id->name);
+    const auto& pf = proc_line->asProcFunc();
+    if (proc_line->command() != StatementType::Proc) {
+        throw ComalError(ErrorCode::Parm,
+            "SPAWN can only call PROC routines");
+    }
+    if (pf.closed == 0) {
+        throw ComalError(ErrorCode::Parm,
+            std::string("SPAWN requires target PROC to be CLOSED: ") + eid.id->name);
+    }
+
+    auto worker = std::make_shared<Interpreter>();
+    worker->progroot = interp.progroot;
+    worker->procTable = interp.procTable;
+    worker->setSpawnRestricted(true);
+    worker->setIO(std::make_unique<ParentForwardIO>(interp));
+
+    std::thread th([worker, procName = std::string(eid.id->name), args = eid.exproot]() {
+        try {
+            worker->resetRunState();
+            execCall(*worker, procName, args, false);
+        } catch (const EndSignal&) {
+        } catch (const StopSignal&) {
+        } catch (const EscapeSignal&) {
+        } catch (const ReturnSignal&) {
+        } catch (const ComalError&) {
+        }
+        worker->files.closeAll();
+    });
+
+    interp.registerSpawnWorker(worker, std::move(th));
 }
 
 // ── OPEN ────────────────────────────────────────────────────────────────
@@ -1701,6 +1795,11 @@ static void execCall(Interpreter& interp, const std::string& name,
         proc_line = interp.findRoutine(name);
     }
     const auto& pf = proc_line->asProcFunc();
+
+    if (interp.isSpawnRestricted() && pf.closed == 0) {
+        throw ComalError(ErrorCode::Parm,
+            "SPAWN worker can only call CLOSED PROC/FUNC: " + name);
+    }
 
     // EXTERNAL procs/funcs are not loadable — treat as no-op
     if (pf.external) {

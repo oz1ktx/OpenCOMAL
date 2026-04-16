@@ -24,7 +24,44 @@ Interpreter::Interpreter()
     rng.seed(rd());
 }
 
-Interpreter::~Interpreter() = default;
+Interpreter::~Interpreter() {
+    stopSpawnedWorkers();
+}
+
+void Interpreter::registerSpawnWorker(std::shared_ptr<Interpreter> worker,
+                                      std::thread thread) {
+    std::lock_guard<std::mutex> lock(spawnedWorkersMutex_);
+    spawnedWorkers_.push_back(SpawnWorker{std::move(worker), std::move(thread)});
+}
+
+void Interpreter::stopSpawnedWorkers() {
+    std::vector<SpawnWorker> workers;
+    {
+        std::lock_guard<std::mutex> lock(spawnedWorkersMutex_);
+        if (spawnedWorkers_.empty()) {
+            return;
+        }
+        workers = std::move(spawnedWorkers_);
+        spawnedWorkers_.clear();
+    }
+
+    // Wake workers that might be blocked on queue INPUT.
+    FileTable::requestQueueShutdown();
+
+    for (auto& worker : workers) {
+        if (worker.interp) {
+            worker.interp->interrupt().request();
+        }
+    }
+
+    for (auto& worker : workers) {
+        if (worker.thread.joinable()) {
+            worker.thread.join();
+        }
+    }
+
+    FileTable::clearQueueShutdown();
+}
 
 void Interpreter::suspend() {
     {
@@ -491,6 +528,8 @@ ComalLine* Interpreter::findRoutine(const std::string& name) {
 // ── resetRunState ───────────────────────────────────────────────────────
 
 void Interpreter::resetRunState() {
+    stopSpawnedWorkers();
+
     // Reset scopes (clear everything except global, then clear global)
     while (scopes.depth() > 1)
         scopes.pop();
@@ -520,6 +559,7 @@ void Interpreter::resetRunState() {
     // A previous run or worker shutdown may have requested an interrupt.
     // Clear it here so each fresh run starts from a clean cancellation state.
     interrupt_.reset();
+    FileTable::clearQueueShutdown();
 
     // Reset breakpoint tracking (line-based breakpoints persist but should
     // only trigger once per line visit).
@@ -544,6 +584,7 @@ void Interpreter::run() {
     }
 
     // Clean up
+    stopSpawnedWorkers();
     files.closeAll();
 }
 

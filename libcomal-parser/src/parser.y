@@ -161,6 +161,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	staticSYM
 %token	stepSYM 
 %token	stopSYM 
+%token	spawnSYM
 %token	sysSYM 
 %token	syssSYM
 %token	thenSYM 
@@ -224,6 +225,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %type	<cl>	select_in_stat exit_stat cursor_stat chdir_stat
 %type	<cl>	rmdir_stat mkdir_stat repeat_stat
 %type	<cl>	local_stat trap_stat dir_stat unit_stat draw_stat play_stat tone_stat sleep_stat
+%type	<cl>	spawn_stat
 
 %type	<pcl>		optsimple_stat 
 
@@ -330,6 +332,7 @@ simple_stat	:	close_stat
 		|	return_stat
 		|	rmdir_stat
 		|	sleep_stat
+		| 	spawn_stat
 		|	select_out_stat
 		|	select_in_stat
 		|	stop_stat
@@ -703,6 +706,13 @@ ifwhen		:	ifSYM
 exec_stat	:	execSYM xid
 			{
 				$$.cmd=execSYM;
+				$$.lc.exp=$2;
+			}
+		;
+
+spawn_stat	:	spawnSYM xid
+			{
+				$$.cmd=spawnSYM;
 				$$.lc.exp=$2;
 			}
 		;

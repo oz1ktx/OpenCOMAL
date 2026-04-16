@@ -9,6 +9,7 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <atomic>
 
 namespace comal::runtime {
 
@@ -38,9 +39,26 @@ public:
         return registry;
     }
 
+    void requestShutdown() {
+        shutdown_requested_.store(true, std::memory_order_release);
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto& [_, queue] : queues_) {
+            queue->cv.notify_all();
+        }
+    }
+
+    void clearShutdown() {
+        shutdown_requested_.store(false, std::memory_order_release);
+    }
+
+    bool shutdownRequested() const {
+        return shutdown_requested_.load(std::memory_order_acquire);
+    }
+
 private:
     std::mutex mutex_;
     std::unordered_map<std::string, std::shared_ptr<QueueState>> queues_;
+    std::atomic<bool> shutdown_requested_{false};
 };
 
 } // namespace
@@ -49,6 +67,14 @@ private:
 
 FileTable::~FileTable() {
     closeAll();
+}
+
+void FileTable::requestQueueShutdown() {
+    QueueRegistry::instance().requestShutdown();
+}
+
+void FileTable::clearQueueShutdown() {
+    QueueRegistry::instance().clearShutdown();
 }
 
 // ── open ────────────────────────────────────────────────────────────────
@@ -299,7 +325,12 @@ std::string FileTable::readQueueMessage(int64_t fno) {
 
     auto queue = QueueRegistry::instance().getOrCreate(f.queue_name);
     std::unique_lock<std::mutex> lock(queue->mutex);
-    queue->cv.wait(lock, [&queue]() { return !queue->messages.empty(); });
+    queue->cv.wait(lock, [&queue]() {
+        return !queue->messages.empty() || QueueRegistry::instance().shutdownRequested();
+    });
+    if (QueueRegistry::instance().shutdownRequested()) {
+        throw EscapeSignal{};
+    }
     std::string msg = std::move(queue->messages.front());
     queue->messages.pop_front();
     return msg;

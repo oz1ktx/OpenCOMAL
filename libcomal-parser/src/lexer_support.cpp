@@ -161,6 +161,7 @@ PRIVATE struct {
 	tnrnSYM, _SIN, "SIN"}, {
 	tnrnSYM, _SQR, "SQR"}, {
 	stepSYM, 0, "STEP"}, {
+	spawnSYM, 0, "SPAWN"}, {
 	stopSYM, 0, "STOP"}, {
 	tnrsSYM, _STR, "STR$"}, {
 	tnrnSYM, _TAN, "TAN"}, {

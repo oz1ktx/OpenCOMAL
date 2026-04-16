@@ -1,6 +1,6 @@
 # OpenCOMAL Project Status
 
-**Last Updated:** 15 April 2026
+**Last Updated:** 16 April 2026
 **Purpose:** Short, ordered snapshot of current project state and near-term work.
 
 ---
@@ -10,7 +10,7 @@
 | Area | Status | Notes |
 |------|--------|-------|
 | Parser (`libcomal-parser`) | Stable | Modern AST available via modern API; legacy compatibility layer still present |
-| Runtime (`libcomal-runtime`) | Stable | Modern AST execution path in active use |
+| Runtime (`libcomal-runtime`) | Stable | Modern AST execution path in active use; SPAWN v1 implemented |
 | Graphics (`libcomal-graphics`) | Stable | DRAW command set includes `text` and style controls |
 | Sound (`libcomal-sound`) | Partial but usable | `TONE` works; `PLAY` has basic support, full MML remains TODO |
 | LSP (`comal-lsp`) | Stable | Diagnostics, completion, definition, hover; keyword help is externalized |
@@ -45,6 +45,14 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
   - `OPEN QUEUE <n>, "name", READ|WRITE`
   - `PRINT QUEUE <n>: ...`, `INPUT QUEUE <n>: ...`, `CLOSE QUEUE <n>`
   - `FILE` spellings for these queue channel operations are supported as compatibility aliases.
+- **SPAWN v1 (restrictive) is implemented:**
+  - `SPAWN procName` and `SPAWN procName(args...)` run a PROC asynchronously.
+  - SPAWN target must be a `CLOSED` `PROC`.
+  - Spawned workers are fire-and-forget in this iteration (no process id and no explicit join point).
+  - Worker lifecycle is tied to the main interpreter; workers are cancelled when main execution ends.
+  - In spawned context, call graph is restricted to `CLOSED` `PROC/FUNC` only.
+  - `DIM`/`LOCAL` inside `CLOSED` `PROC/FUNC` is rejected in this restrictive mode.
+  - Spawned `PRINT`/`INPUT` now route via the parent interpreter I/O path (IDE output panel compatibility).
 - **File I/O semantics correctly implement COMAL 80 spec:**
   - `PRINT FILE` / `INPUT FILE` use plain text format (human-readable, line-oriented).
   - `WRITE FILE` / `READ FILE` use binary format with type tags (compatible with legacy OpenCOMAL).
@@ -69,6 +77,7 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
 - Keyword and built-in help text is now sourced from `docs/comal-keyword-docs.tsv`.
 - Packaged installs include this file at `/usr/share/doc/opencomal/comal-keyword-docs.tsv`.
 - LSP hover and IDE Help panel use the same shared documentation source.
+- `SPAWN` help is included in the shared keyword docs and available to both LSP hover and IDE Help.
 - `DRAW` hovers now support grouped command forms (e.g. `HUD.line`, `Ship.Engine.rect`).
 - `PLAY` documentation now reflects the currently implemented ABC subset.
 - ABC parser beat-unit fix: `Q:1/4=123` now correctly applies the beat unit fraction;

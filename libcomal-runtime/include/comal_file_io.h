@@ -41,6 +41,10 @@ class FileTable {
 public:
     ~FileTable();
 
+    /// Wake blocking QUEUE readers and make waits abort until cleared.
+    static void requestQueueShutdown();
+    static void clearQueueShutdown();
+
     /// OPEN FILE fno, filename, mode [RECLEN rlen] [READ]
     void open(int64_t fno, const std::string& filename, FileMode mode,
               int64_t reclen = 0, bool read_only = false);

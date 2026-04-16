@@ -13,3 +13,5 @@ PLAY	Graphics and Sound	Play a melody/control sequence string.\n\nForm:\nPLAY se
 TONE	Graphics and Sound	Play a sine tone.\n\nForm:\nTONE frequency, durationMs\n\nfrequency is in Hz and duration is in milliseconds.
 
 SPLIT$	Strings	Return one segment from a delimited string.\n\nForm:\nSPLIT$(text$, delimiter$, index)\n\nindex is zero-based in current runtime behavior.
+
+SPAWN	Parallel and Queue	Start a CLOSED PROC asynchronously (fire-and-forget).\n\nForm:\nSPAWN procName\nSPAWN procName(arg1, arg2, ...)\n\nRules in current implementation:\n- Target must be a PROC (not FUNC).\n- Target PROC must be declared CLOSED.\n- Spawned workers are detached from the main flow (no process id / no join).\n- When the main program ends, spawned workers are stopped.\n- A spawned CLOSED PROC can call only CLOSED PROC/FUNC routines.\n- DIM/LOCAL is not allowed inside CLOSED PROC/FUNC in this restrictive mode.

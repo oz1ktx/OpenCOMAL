@@ -21,6 +21,7 @@
 #include <unordered_set>
 #include <condition_variable>
 #include <mutex>
+#include <thread>
 
 #include "comal_value.h"
 #include "comal_scope.h"
@@ -211,6 +212,11 @@ public:
     /// If a breakpoint is hit, this suspends execution once (until resume).
     void checkBreakpoint();
 
+    /// Mark this interpreter as running in SPAWN-restricted mode.
+    /// In this mode, routine calls are limited to CLOSED PROC/FUNC routines.
+    void setSpawnRestricted(bool enabled) { spawnRestricted_ = enabled; }
+    bool isSpawnRestricted() const { return spawnRestricted_; }
+
     /// Last error info (for ERR, ERR$, ERRLINE).
     ErrorCode lastError{ErrorCode::None};
     std::string lastErrorMsg;
@@ -249,6 +255,13 @@ public:
     /// Clear all runtime state (scopes, files, DATA) for a fresh run.
     void resetRunState();
 
+    /// Register a spawned worker thread for lifecycle management.
+    void registerSpawnWorker(std::shared_ptr<Interpreter> worker,
+                             std::thread thread);
+
+    /// Request cancellation and join all spawned workers.
+    void stopSpawnedWorkers();
+
 private:
     /// Interrupt controller instance.
     InterruptController interrupt_;
@@ -260,6 +273,9 @@ private:
 
     /// Single-step mode flag.
     bool singleStep_{false};
+
+    /// True when this interpreter is a SPAWN worker.
+    bool spawnRestricted_{false};
 
     /// Breakpoints (line numbers).
     std::unordered_set<int> breakpoints_;
@@ -280,6 +296,13 @@ private:
 
     /// Called when execution is suspended (break/step).
     std::function<void()> suspendCallback_;
+
+    struct SpawnWorker {
+        std::shared_ptr<Interpreter> interp;
+        std::thread thread;
+    };
+    std::mutex spawnedWorkersMutex_;
+    std::vector<SpawnWorker> spawnedWorkers_;
 
     /// Build the global procedure table from the program.
     void buildProcTable();

@@ -14,8 +14,18 @@ This document now defines **Phase 1 only**.
 The following are **explicitly out of Phase 1** and must not be implemented without a new teaching-value review:
 
 - Non-blocking queue reads and timeout variants.
-- In-program threading via `SPAWN` (for `PROC`) and related task lifecycle APIs.
+- In-program threading lifecycle APIs beyond the current restrictive `SPAWN` v1 behavior.
 - Any broader concurrency/runtime changes not required for tab-to-tab queue communication.
+
+### Phase 1 Extension Status
+
+A restrictive `SPAWN` v1 implementation has now been added on top of this queue communication baseline:
+
+- `SPAWN` can invoke only a `CLOSED PROC`.
+- Spawned execution can call only `CLOSED PROC/FUNC`.
+- `DIM`/`LOCAL` inside `CLOSED` routines is rejected in this mode.
+- No process id / join point is exposed in v1 (fire-and-forget model).
+- Spawned workers are stopped when the main interpreter run ends.
 
 ---
 
@@ -129,7 +139,7 @@ These items are intentionally deferred until after a dedicated teaching-value re
 - Non-blocking `INPUT` queue behavior and timeout variants.
 - Broadcast/multicast queues.
 - Inter-IDE or networked queue support.
-- `SPAWN`/`PROC` threading model and task management semantics.
+- Expanded `SPAWN` lifecycle and task management semantics (process id, join/wait, cancellation controls).
 - **SLEEP function:** Allow a program to pause execution for a specified duration (useful for demonstrating waiting, pacing, or timeouts in queue operations).
 - **Sound command:** Add a command to make a sound (e.g., BEEP or SOUND), useful for signaling events or user feedback in parallel programs.
 

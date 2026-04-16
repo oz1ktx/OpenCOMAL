@@ -545,6 +545,7 @@ static StatementType map_cmd(int cmd) {
         case dataSYM:          return StatementType::Data;
         case restoreSYM:       return StatementType::Restore;
         case execSYM:          return StatementType::Exec;
+        case spawnSYM:         return StatementType::Spawn;
         case returnSYM:        return StatementType::Return;
         case stopSYM:          return StatementType::Stop;
         case endSYM:           return StatementType::End;
@@ -655,6 +656,7 @@ ComalLine* convert_comal_line(const struct comal_line* old_line) {
         // ---- Single expression (lc.exp) ----
         case caseSYM:
         case execSYM:
+        case spawnSYM:
         case delSYM:
         case chdirSYM:
         case rmdirSYM:
