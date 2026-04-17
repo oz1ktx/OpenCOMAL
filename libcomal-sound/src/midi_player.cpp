@@ -166,6 +166,15 @@ public:
         abcState_ = comal::sound::abc::ABCState{};
     }
 
+    void stopPlayback() {
+        if (synth) {
+            // Hard-interrupt all active notes on all channels (0-15)
+            for (int ch = 0; ch < 16; ++ch) {
+                fluid_synth_all_notes_off(synth, ch);
+            }
+        }
+    }
+
     bool canPlay() const {
         return synth && audioReady_ && soundfontLoaded_;
     }
@@ -182,39 +191,58 @@ private:
     comal::sound::abc::ABCState abcState_;
 };
 
-// Singleton helper
-static FluidSynthPlayer* globalSynth() {
-    static FluidSynthPlayer* inst = nullptr;
-    if (!inst) inst = new FluidSynthPlayer();
-    return inst;
+void* createSynthPlayer() {
+    return new FluidSynthPlayer();
+}
+
+void destroySynthPlayer(void* player) {
+    auto* p = static_cast<FluidSynthPlayer*>(player);
+    delete p;
 }
 
 #endif // USE_FLUIDSYNTH
 
 // Public wrapper used by Engine::play
-std::shared_ptr<std::shared_future<void>> playABCWithSynth(const std::string& abc) {
+std::shared_ptr<std::shared_future<void>> playABCWithSynth(void* player, const std::string& abc) {
 #ifdef USE_FLUIDSYNTH
-    auto g = globalSynth();
-    if (g) return g->playABC(abc);
+    auto* p = static_cast<FluidSynthPlayer*>(player);
+    if (p) return p->playABC(abc);
     // fallback ready future
     std::promise<void> pr; pr.set_value(); return std::make_shared<std::shared_future<void>>(pr.get_future().share());
 #else
+    (void)player;
+    (void)abc;
     std::promise<void> pr; pr.set_value(); return std::make_shared<std::shared_future<void>>(pr.get_future().share());
 #endif
 }
 
 // Reset persistent ABC parser state (called on PLAY "STOP").
-void resetABCPlayerState() {
+void resetABCPlayerState(void* player) {
 #ifdef USE_FLUIDSYNTH
-    if (auto g = globalSynth()) g->resetABCState();
+    auto* p = static_cast<FluidSynthPlayer*>(player);
+    if (p) p->resetABCState();
+#else
+    (void)player;
 #endif
 }
 
-bool isABCWithSynthAvailable() {
+// Hard-interrupt all active MIDI notes on the synthesizer (called on PLAY "STOP").
+void stopPlaybackWithSynth(void* player) {
 #ifdef USE_FLUIDSYNTH
-    if (auto g = globalSynth()) return g->canPlay();
+    auto* p = static_cast<FluidSynthPlayer*>(player);
+    if (p) p->stopPlayback();
+#else
+    (void)player;
+#endif
+}
+
+bool isABCWithSynthAvailable(void* player) {
+#ifdef USE_FLUIDSYNTH
+    auto* p = static_cast<FluidSynthPlayer*>(player);
+    if (p) return p->canPlay();
     return false;
 #else
+    (void)player;
     return false;
 #endif
 }

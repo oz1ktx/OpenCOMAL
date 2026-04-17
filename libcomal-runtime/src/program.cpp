@@ -5,6 +5,7 @@
 #include "comal_executor.h"
 #include "comal_evaluator.h"
 #include "comal_parser_api.h"
+#include "comal_sound.h"
 
 #include <fstream>
 #include <sstream>
@@ -26,6 +27,14 @@ Interpreter::Interpreter()
 
 Interpreter::~Interpreter() {
     stopSpawnedWorkers();
+}
+
+comal::sound::Engine& Interpreter::soundEngine() {
+    if (!soundEngine_) {
+        soundEngine_ = std::make_unique<comal::sound::Engine>();
+        soundEngine_->init();
+    }
+    return *soundEngine_;
 }
 
 void Interpreter::registerSpawnWorker(std::shared_ptr<Interpreter> worker,

@@ -1580,6 +1580,7 @@ static void execSpawn(Interpreter& interp, ComalLine* line) {
     auto worker = std::make_shared<Interpreter>();
     worker->progroot = interp.progroot;
     worker->procTable = interp.procTable;
+    worker->setGraphicsScene(&interp.graphicsScene());  // Share parent's graphics scene
     worker->setSpawnRestricted(true);
     worker->setIO(std::make_unique<ParentForwardIO>(interp));
 
@@ -1971,6 +1972,7 @@ static void execDraw(Interpreter& interp, ComalLine* line) {
     if (cmd.command.empty())
         return;  // blank or comment — skip
 
+    // executeCommand acquires the scene lock internally for thread-safe operation
     std::string execErr = comal::graphics::executeCommand(scene, cmd);
     if (!execErr.empty()) {
         throw ComalError(ErrorCode::Parm, "DRAW: " + execErr);
@@ -1980,16 +1982,6 @@ static void execDraw(Interpreter& interp, ComalLine* line) {
 }
 
 // ── TONE / PLAY (sound) ───────────────────────────────────────────────
-
-static comal::sound::Engine& runtimeSoundEngine() {
-    static comal::sound::Engine* engine = []() {
-        auto* e = new comal::sound::Engine();
-        e->init();
-        comal::sound::registerEngine(e);
-        return e;
-    }();
-    return *engine;
-}
 
 static void execTone(Interpreter& interp, ComalLine* line) {
     auto* elist = std::get_if<ExpList*>(&line->contents());
@@ -2051,7 +2043,7 @@ static void execTone(Interpreter& interp, ComalLine* line) {
     spec.duration = args[1];
     spec.async = async;
 
-    auto fut = runtimeSoundEngine().play(spec);
+    auto fut = interp.soundEngine().play(spec);
     // Blocking behaviour by default: wait on engine completion unless async requested
     if (!spec.async && fut) {
         try {
@@ -2083,7 +2075,7 @@ static void execPlay(Interpreter& interp, ComalLine* line) {
         std::string upName = spec.name;
         for (auto &c : upName) c = std::toupper(static_cast<unsigned char>(c));
         if (upName == "STOP") {
-            runtimeSoundEngine().stopActive();
+            interp.soundEngine().stopActive();
             return;
         }
     }
@@ -2102,7 +2094,7 @@ static void execPlay(Interpreter& interp, ComalLine* line) {
                 try {
                     int vnum = std::stoi(ss.substr(4));
                     // set engine volume immediately
-                    runtimeSoundEngine().setVolume(vnum);
+                    interp.soundEngine().setVolume(vnum);
                 } catch (...) {
                     throw ComalError(ErrorCode::Parm, "PLAY VOL requires an integer value");
                 }
@@ -2133,7 +2125,7 @@ static void execPlay(Interpreter& interp, ComalLine* line) {
                 if (!n->next()) throw ComalError(ErrorCode::Parm, "PLAY VOL requires a numeric value");
                 Value vv = evaluate(interp, n->next()->exp());
                 if (!vv.isNumeric()) throw ComalError(ErrorCode::Parm, "PLAY VOL requires a numeric value");
-                runtimeSoundEngine().setVolume(static_cast<int>(vv.toDouble()));
+                interp.soundEngine().setVolume(static_cast<int>(vv.toDouble()));
                 n = n->next(); // skip value
                 continue;
             }
@@ -2156,7 +2148,7 @@ static void execPlay(Interpreter& interp, ComalLine* line) {
         // Unknown parameter form — ignore or raise error; choose to ignore silently
     }
 
-    auto pfut = runtimeSoundEngine().play(spec);
+    auto pfut = interp.soundEngine().play(spec);
     if (!spec.async && pfut) {
         try { pfut->wait(); } catch (...) {}
     }

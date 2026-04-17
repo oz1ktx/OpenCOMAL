@@ -10,6 +10,10 @@
 ///   - Child groups (nested sprites)
 ///   - Style state at creation time
 ///
+/// Thread-safety: Scene uses an internal mutex to protect concurrent
+/// access from multiple interpreters (main + SPAWN workers). All public
+/// methods that modify or read style state acquire the lock.
+///
 /// The model is renderer-agnostic: the IDE's GraphicsPanel reads it
 /// to produce QGraphicsItems or QML items.
 
@@ -21,6 +25,7 @@
 #include <unordered_map>
 #include <variant>
 #include <optional>
+#include <mutex>
 
 namespace comal::graphics {
 
@@ -107,22 +112,26 @@ struct Group {
 // ── Scene ───────────────────────────────────────────────────────────────
 
 /// The complete scene: a root group plus global style state.
+/// Thread-safe: All public methods that access global state use internal locking.
 class Scene {
 public:
     Scene();
 
-    /// The root group (implicit canvas layer).
+    /// The root group (implicit canvas layer). Requires external synchronization
+    /// for modifications. Use within executeCommand or after acquiring lock.
     Group& root() { return root_; }
     const Group& root() const { return root_; }
 
     /// Resolve a group path (e.g. {"Spaceship", "Engine"}) from root.
-    /// Creates intermediate groups as needed.
+    /// Creates intermediate groups as needed. Thread-safe.
     Group* resolveGroup(const std::vector<std::string>& path);
 
-    /// Clear the entire scene (all groups and shapes).
+    /// Clear the entire scene (all groups and shapes). Thread-safe.
     void clear();
 
     // ── Current style state (set by style commands) ─────────────────────
+    // Note: Raw member access is not thread-safe. Use getters/setters or
+    // acquire lock when directly modifying within executeCommand.
 
     Color strokeColor{0, 0, 0, 255};
     bool  hasStroke{true};
@@ -133,10 +142,19 @@ public:
     Color backgroundColor{240, 240, 255, 255};
 
     /// Create a Shape record using the current style state.
+    /// Thread-safe: acquires lock while reading style state.
     Shape makeShape(ShapeData data) const;
+
+    /// Acquire the scene mutex to perform multi-step operations atomically.
+    /// Caller must ensure lock is released in RAII manner.
+    std::unique_lock<std::recursive_mutex> acquireLock() const {
+        return std::unique_lock<std::recursive_mutex>(scene_mutex_);
+    }
 
 private:
     Group root_;
+    mutable std::recursive_mutex scene_mutex_;  // Protects style state and root_ modifications
+                                                // Recursive to allow scene.clear() from executeCommand
 };
 
 // ── Command executor ────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ Scene::Scene() {
 }
 
 Group* Scene::resolveGroup(const std::vector<std::string>& path) {
+    std::lock_guard<std::recursive_mutex> lock(scene_mutex_);
     Group* current = &root_;
     for (const auto& name : path)
         current = current->findOrCreateChild(name);
@@ -23,6 +24,7 @@ Group* Scene::resolveGroup(const std::vector<std::string>& path) {
 }
 
 void Scene::clear() {
+    std::lock_guard<std::recursive_mutex> lock(scene_mutex_);
     root_.clear();
     // Reset all style state to defaults so each run starts consistently.
     strokeColor = Color{0, 0, 0, 255};
@@ -35,6 +37,7 @@ void Scene::clear() {
 }
 
 Shape Scene::makeShape(ShapeData data) const {
+    std::lock_guard<std::recursive_mutex> lock(scene_mutex_);
     Shape s;
     s.data = std::move(data);
     s.strokeColor = strokeColor;
@@ -52,6 +55,8 @@ static uint8_t clampByte(double v) {
 }
 
 std::string executeCommand(Scene& scene, const ParsedCommand& cmd) {
+    // Acquire lock for entire command execution to ensure atomic style + shape operations
+    auto lock = scene.acquireLock();
     Group* target = scene.resolveGroup(cmd.groupPath);
     const auto& a = cmd.args;
     const auto& name = cmd.command;

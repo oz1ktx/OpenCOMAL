@@ -33,6 +33,8 @@
 #include "comal_scene_model.h"
 #include "comal_graphics_commands.h"
 
+namespace comal::sound { class Engine; }
+
 namespace comal::runtime {
 
 // ── Variable info for debugging ─────────────────────────────────────────
@@ -262,6 +264,9 @@ public:
     /// Request cancellation and join all spawned workers.
     void stopSpawnedWorkers();
 
+    /// Get this interpreter's sound engine, creating it on first use.
+    comal::sound::Engine& soundEngine();
+
 private:
     /// Interrupt controller instance.
     InterruptController interrupt_;
@@ -303,6 +308,9 @@ private:
     };
     std::mutex spawnedWorkersMutex_;
     std::vector<SpawnWorker> spawnedWorkers_;
+
+    /// Interpreter-owned sound engine (lazy initialized).
+    std::unique_ptr<comal::sound::Engine> soundEngine_;
 
     /// Build the global procedure table from the program.
     void buildProcTable();

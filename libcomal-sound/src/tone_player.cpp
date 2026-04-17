@@ -23,9 +23,11 @@ namespace comal::sound {
 
 #ifdef USE_FLUIDSYNTH
 // Forward declaration of fluidsynth wrapper implemented in midi_player.cpp
-std::shared_ptr<std::shared_future<void>> playABCWithSynth(const std::string& abc);
-void resetABCPlayerState();
-bool isABCWithSynthAvailable();
+void* createSynthPlayer();
+void destroySynthPlayer(void* player);
+std::shared_ptr<std::shared_future<void>> playABCWithSynth(void* player, const std::string& abc);
+void resetABCPlayerState(void* player);
+bool isABCWithSynthAvailable(void* player);
 #endif
 
 namespace {
@@ -110,7 +112,10 @@ void Engine::stopActiveImpl() {
             }
         }
 #ifdef USE_FLUIDSYNTH
-        resetABCPlayerState();
+    extern void stopPlaybackWithSynth(void* player);
+    extern void resetABCPlayerState(void* player);
+    stopPlaybackWithSynth(synth_player_);  // Hard-interrupt synth notes
+    resetABCPlayerState(synth_player_);
 #endif
     {
         std::lock_guard<std::mutex> lk(fallbackABCStateMutex());
@@ -140,7 +145,10 @@ void Engine::stopActiveImpl() {
         sink->stop();
     }
 #ifdef USE_FLUIDSYNTH
-    resetABCPlayerState();
+    extern void stopPlaybackWithSynth(void* player);
+    extern void resetABCPlayerState(void* player);
+    stopPlaybackWithSynth(synth_player_);  // Hard-interrupt synth notes
+    resetABCPlayerState(synth_player_);
 #endif
     {
         std::lock_guard<std::mutex> lk(fallbackABCStateMutex());
@@ -156,9 +164,21 @@ void Engine::stopImpl() {
         delete sink;
         persistent_audio_ = nullptr;
     }
+#ifdef USE_FLUIDSYNTH
+    if (synth_player_) {
+        destroySynthPlayer(synth_player_);
+        synth_player_ = nullptr;
+    }
+#endif
 }
 
 void Engine::initImpl() {
+#ifdef USE_FLUIDSYNTH
+    if (!synth_player_) {
+        synth_player_ = createSynthPlayer();
+    }
+#endif
+
     if (!QCoreApplication::instance()) {
         static int argc = 1;
         static char arg0[] = "comal-sound";
@@ -188,9 +208,9 @@ std::shared_ptr<std::shared_future<void>> Engine::playImpl(const PlaySpec& spec)
 #ifdef USE_FLUIDSYNTH
     if (spec.name != "tone") {
         // Prefer FluidSynth when usable.
-        if (isABCWithSynthAvailable()) {
+        if (isABCWithSynthAvailable(synth_player_)) {
             try {
-                return playABCWithSynth(spec.name);
+                return playABCWithSynth(synth_player_, spec.name);
             } catch (...) {
                 // Fall through to Qt fallback below.
             }

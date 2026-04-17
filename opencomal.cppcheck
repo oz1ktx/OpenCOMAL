@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="1">
+    <builddir>build</builddir>
+    <analyze-all-vs-configs>false</analyze-all-vs-configs>
+    <check-headers>true</check-headers>
+    <check-unused-templates>true</check-unused-templates>
+    <inline-suppression>true</inline-suppression>
+    <max-ctu-depth>2</max-ctu-depth>
+    <max-template-recursion>100</max-template-recursion>
+    <includedir>
+        <dir name="comal-ide/include/"/>
+        <dir name="comal-lsp/include/"/>
+        <dir name="libcomal-graphics/include/"/>
+        <dir name="libcomal-parser/include/"/>
+        <dir name="libcomal-runtime/include/"/>
+        <dir name="libcomal-sound/include/"/>
+        <dir name="/usr/include/qt6/QtCore"/>
+        <dir name="/usr/include/qt6/QtWidgets/"/>
+        <dir name="/usr/include/c++/15/"/>
+    </includedir>
+    <paths>
+        <dir name="comal-ide"/>
+        <dir name="comal-lsp"/>
+        <dir name="libcomal-graphics"/>
+        <dir name="libcomal-parser"/>
+        <dir name="libcomal-runtime"/>
+        <dir name="libcomal-sound"/>
+    </paths>
+    <libraries>
+        <library>posix</library>
+        <library>qt</library>
+    </libraries>
+    <check-level-normal/>
+    <project-name>opencomal</project-name>
+</project>

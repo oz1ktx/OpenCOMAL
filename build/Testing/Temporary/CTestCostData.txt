@@ -1,0 +1,12 @@
+abc_parser 4 0.00570538
+comal_programs 0 0
+keyword_docs_format 3 0.00175895
+graphics_commands 3 0.00145167
+scene_model 3 0.00105005
+sound_commands 3 0.0932255
+sound_engine 3 0.0905665
+lsp_protocol 3 0.00546762
+lsp_server 3 0.00871594
+lsp_integration 3 0.00973907
+---
+comal_programs

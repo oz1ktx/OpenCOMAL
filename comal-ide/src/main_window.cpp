@@ -10,7 +10,6 @@
 #include "settings_dialog.h"
 #include "comal_scene_model.h"
 #include "comal_interpreter.h"
-#include "comal_sound.h"
 
 #include <QMenuBar>
 #include <QToolBar>
@@ -24,10 +23,7 @@
 #include <QCloseEvent>
 #include <Qsci/qsciscintilla.h>
 
-MainWindow::~MainWindow()
-{
-    comal::sound::shutdownAllEngines();
-}
+MainWindow::~MainWindow() = default;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)

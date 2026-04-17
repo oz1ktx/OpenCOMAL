@@ -5,40 +5,6 @@
 
 namespace comal::sound {
 
-static std::mutex& registry_mutex() {
-    static std::mutex m;
-    return m;
-}
-
-static std::vector<Engine*>& engine_registry() {
-    static std::vector<Engine*> reg;
-    return reg;
-}
-
-void registerEngine(Engine* e) {
-    if (!e) return;
-    std::lock_guard<std::mutex> lk(registry_mutex());
-    auto &r = engine_registry();
-    if (std::find(r.begin(), r.end(), e) != r.end())
-        return;
-    r.push_back(e);
-}
-
-void shutdownAllEngines() {
-    std::vector<Engine*> engines;
-    {
-        std::lock_guard<std::mutex> lk(registry_mutex());
-        auto &r = engine_registry();
-        engines.swap(r);
-    }
-
-    for (Engine* e : engines) {
-        try { e->stop(); } catch(...) {}
-        try { delete e; } catch(...) {}
-    }
-}
-
-
 Engine::Engine() = default;
 Engine::~Engine() {
     try { stop(); } catch (...) {}
@@ -188,18 +154,32 @@ void Engine::stop() {
 // when `USE_QTMULTIMEDIA` is defined.
 #ifndef USE_QTMULTIMEDIA
 void Engine::stopImpl() {
-    // nothing to do when multimedia unavailable
+#ifdef USE_FLUIDSYNTH
+    extern void destroySynthPlayer(void* player);
+    if (synth_player_) {
+        destroySynthPlayer(synth_player_);
+        synth_player_ = nullptr;
+    }
+#endif
 }
 
 void Engine::initImpl() {
+#ifdef USE_FLUIDSYNTH
+    extern void* createSynthPlayer();
+    if (!synth_player_) {
+        synth_player_ = createSynthPlayer();
+    }
+#endif
     std::cout << "[sound] init\n";
 }
 
 void Engine::stopActiveImpl() {
     // nothing to do when multimedia unavailable
 #ifdef USE_FLUIDSYNTH
-    extern void resetABCPlayerState();
-    resetABCPlayerState();
+    extern void resetABCPlayerState(void* player);
+    extern void stopPlaybackWithSynth(void* player);
+    stopPlaybackWithSynth(synth_player_);  // Hard-interrupt active notes
+    resetABCPlayerState(synth_player_);     // Reset ABC parser state
 #endif
 }
 
@@ -211,8 +191,9 @@ std::shared_ptr<std::shared_future<void>> Engine::playImpl(const PlaySpec& spec)
     // The midi player will return a future that completes when playback ends.
     // Note: this minimal path ignores spec.params and spec.duration for now.
     try {
+        extern std::shared_ptr<std::shared_future<void>> playABCWithSynth(void* player, const std::string& abc);
         // call into midi_player wrapper
-        return comal::sound::playABCWithSynth(spec.name);
+        return comal::sound::playABCWithSynth(synth_player_, spec.name);
     } catch (...) {
         std::promise<void> pr; pr.set_value(); return std::make_shared<std::shared_future<void>>(pr.get_future().share());
     }

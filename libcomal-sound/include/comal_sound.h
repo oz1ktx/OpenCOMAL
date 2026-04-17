@@ -72,6 +72,12 @@ private:
     bool service_stopping_ = false;
 
     std::atomic<int> volume_{50};
+
+#ifdef USE_FLUIDSYNTH
+    // Opaque per-engine FluidSynth backend handle.
+    void* synth_player_ = nullptr;
+#endif
+
     // Playback bookkeeping for graceful shutdown
 #ifdef USE_QTMULTIMEDIA
     std::mutex play_mutex_;
@@ -93,10 +99,5 @@ private:
     // no-op when Qt multimedia is not available
 #endif
 };
-
-// Register a created Engine so it can be shutdown on process exit.
-void registerEngine(Engine* e);
-// Stop and destroy all registered engines. Safe to call multiple times.
-void shutdownAllEngines();
 
 } // namespace comal::sound
