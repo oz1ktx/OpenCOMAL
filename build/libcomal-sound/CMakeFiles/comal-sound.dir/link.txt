@@ -1,2 +1,0 @@
-/usr/bin/ar qc libcomal-sound.a "CMakeFiles/comal-sound.dir/src/sound_commands.cpp.o" "CMakeFiles/comal-sound.dir/src/sound_engine.cpp.o" "CMakeFiles/comal-sound.dir/src/tone_player.cpp.o" "CMakeFiles/comal-sound.dir/src/abc_parser.cpp.o" "CMakeFiles/comal-sound.dir/src/midi_player.cpp.o"
-/usr/bin/ranlib libcomal-sound.a
