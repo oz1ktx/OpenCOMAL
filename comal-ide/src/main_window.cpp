@@ -74,7 +74,7 @@ MainWindow::MainWindow(QWidget *parent)
     lspClient_ = new ComalLspClient(this);
     codeEditor_->setLspClient(lspClient_);
     // Start LSP server (adjust path as needed)
-    lspClient_->startServer("../build/comal-lsp/comal-lsp");
+    lspClient_->startServer("build/comal-lsp/comal-lsp");
 
     // Restore window state and settings from previous session
     restoreWindowState();

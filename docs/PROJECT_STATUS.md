@@ -1,6 +1,6 @@
 # OpenCOMAL Project Status
 
-**Last Updated:** 16 April 2026
+**Last Updated:** 20 April 2026
 **Purpose:** Short, ordered snapshot of current project state and near-term work.
 
 ---
@@ -14,7 +14,7 @@
 | Graphics (`libcomal-graphics`) | Stable | DRAW command set includes `text` and style controls |
 | Sound (`libcomal-sound`) | Partial but usable | `TONE` works; `PLAY` has basic support, full MML remains TODO |
 | LSP (`comal-lsp`) | Stable | Diagnostics, completion, definition, hover; keyword help is externalized |
-| IDE (`comal-ide`) | In progress | Core workflow works; Help panel now uses shared external keyword docs |
+| IDE (`comal-ide`) | In progress | Core workflow works; editor now shows live LSP diagnostics in saved and unsaved tabs |
 | Test suite | Strong | 127 pass / 6 skip / 0 fail |
 
 ---
@@ -66,6 +66,11 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
 - Direct command panel and program execution are wired.
 - Graphics panel renders DRAW output.
 - Persistent interpreter flow allows calling retained PROC definitions from direct commands after a program run.
+- LSP-backed diagnostics are shown directly in the editor with markers and line annotations.
+- Saved and unsaved tabs both participate in LSP (`untitled://` URIs are used for unsaved buffers).
+- LSP client/server framing and handshake are now robust (`Content-Length` transport + initialize/initialized flow).
+- IDE shutdown now waits for LSP process exit, avoiding process-lifecycle warnings.
+- Source formatter now treats `IF ...` without `THEN` as a block opener for indentation consistency.
 
 ### 4. Tooling and testing
 
@@ -92,7 +97,7 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
 - Step-over/step-out and richer debug controls need completion.
 - Breakpoint features are basic (no conditional breakpoints yet).
 - Scope/variable presentation can be improved.
-- LSP features are not yet deeply integrated into the editor UI.
+- LSP diagnostics/hover/completion are integrated; remaining work is polish (code actions, richer inline UX, and diagnostics controls).
 
 ### Sound roadmap
 
@@ -140,7 +145,7 @@ cd build && ctest --output-on-failure
 ## Near-Term Priorities (Ordered)
 
 1. IDE debug experience polish (step controls, breakpoint UX, variable/call-stack clarity).
-2. IDE editor integration improvements (LSP-driven diagnostics/completions in UI).
+2. IDE editor integration polish (code actions, richer diagnostics UX, completion tuning).
 3. Sound feature expansion (`PLAY` compatibility beyond current minimal support).
 4. Preparation work for future legacy AST retirement (no execution yet).
 

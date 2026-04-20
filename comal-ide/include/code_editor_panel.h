@@ -1,6 +1,10 @@
 
 #pragma once
 #include <QWidget>
+#include <QHash>
+#include <QMap>
+#include <QSet>
+#include <QStringList>
 #include "comal_lsp_client.h"
 
 class QsciScintilla;
@@ -19,6 +23,7 @@ public:
     void newTab(const QString &title = "Untitled");
     void openFile(const QString &filePath);
     QString currentFilePath() const;
+    QString filePathToUri(const QString &filePath) const;  // Convert plain path to file:// URI
 
     bool saveFile();
     bool saveFileAs();
@@ -52,6 +57,11 @@ private:
     QTabWidget    *tabs_;
     QsciScintilla *createEditor();
     void connectEditorSignals(QsciScintilla *editor);
+    QString filePathForEditor(QsciScintilla *editor) const;
+    QString lspUriForEditor(QsciScintilla *editor);
+    void clearLspDiagnostics(QsciScintilla *editor);
+    void applyLspDiagnostics(QsciScintilla *editor, const QString &filePath);
+    QString diagnosticMessageForLine(const QString &filePath, int oneBasedLine) const;
     bool maybeSaveTab(int index);
     void updateTabTitle(int index);
 
@@ -66,6 +76,14 @@ private:
     static constexpr int ERROR_MARKER_ID = 1;
     static constexpr int EXEC_MARKER_ID = 2;
     static constexpr int BREAKPOINT_MARKER_ID = 3;
+    static constexpr int LSP_ERROR_MARKER_ID = 4;
+    static constexpr int LSP_WARNING_MARKER_ID = 5;
+    static constexpr int LSP_INFO_MARKER_ID = 6;
+
+    // LSP diagnostics cached by file and line (1-based line numbers).
+    QHash<QString, QMap<int, int>> lspSeverityByFile_;
+    QHash<QString, QMap<int, QStringList>> lspMessagesByFile_;
+    QHash<QsciScintilla *, QString> untitledUriByEditor_;
 
     ComalLspClient *lspClient_ = nullptr; // Added member for LSP client
 };

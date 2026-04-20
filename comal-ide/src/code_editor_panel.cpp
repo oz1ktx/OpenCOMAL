@@ -10,6 +10,9 @@
 #include <QSet>
 #include <QRegularExpression>
 #include <QSettings>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
 
 #include <Qsci/qsciscintilla.h>
 #include "qsci_lexer_comal.h"
@@ -47,6 +50,14 @@ static QString wordAtCursor(const QString &lineText, int column)
         word += lineText[end];
 
     return word;
+}
+
+static QString uriToFilePath(const QString &uri)
+{
+    if (uri.startsWith("file://")) {
+        return uri.mid(7);  // Remove "file://"
+    }
+    return uri;
 }
 
 CodeEditorPanel::CodeEditorPanel(QWidget *parent)
@@ -105,6 +116,15 @@ QsciScintilla *CodeEditorPanel::createEditor()
     editor->markerDefine(QsciScintilla::Background, EXEC_MARKER_ID);
     editor->setMarkerBackgroundColor(QColor(255, 255, 150), EXEC_MARKER_ID);
 
+    // LSP diagnostic markers.
+    editor->markerDefine(QsciScintilla::Background, LSP_ERROR_MARKER_ID);
+    editor->setMarkerBackgroundColor(QColor(255, 215, 215), LSP_ERROR_MARKER_ID);
+    editor->markerDefine(QsciScintilla::Background, LSP_WARNING_MARKER_ID);
+    editor->setMarkerBackgroundColor(QColor(255, 245, 200), LSP_WARNING_MARKER_ID);
+    editor->markerDefine(QsciScintilla::Background, LSP_INFO_MARKER_ID);
+    editor->setMarkerBackgroundColor(QColor(220, 236, 255), LSP_INFO_MARKER_ID);
+    editor->setAnnotationDisplay(QsciScintilla::AnnotationBoxed);
+
     // Click on gutter → toggle breakpoint marker
     connect(editor, &QsciScintilla::marginClicked, this, [this, editor](int margin, int line, Qt::KeyboardModifiers) {
         if (margin == 1) {
@@ -117,17 +137,19 @@ QsciScintilla *CodeEditorPanel::createEditor()
     // Connect signals for LSP integration
     connect(editor, &QsciScintilla::textChanged, this, [this, editor]{
         if (!lspClient_) return;
+        const QString uri = lspUriForEditor(editor);
+        if (uri.isEmpty()) return;
         QString text = editor->text();
-        QString filePath = currentFilePath();
-        lspClient_->sendDidChange(filePath, text);
+        lspClient_->sendDidChange(uri, text);
     });
     connect(editor, &QsciScintilla::cursorPositionChanged, this, [this, editor](int line, int col){
         emit cursorPositionChanged(line, col);
         emit keywordUnderCursorChanged(wordAtCursor(editor->text(line), col));
         if (!lspClient_) return;
-        QString filePath = currentFilePath();
-        lspClient_->requestHover(filePath, line, col);
-        lspClient_->requestCompletion(filePath, line, col);
+        const QString uri = lspUriForEditor(editor);
+        if (uri.isEmpty()) return;
+        lspClient_->requestHover(uri, line, col);
+        lspClient_->requestCompletion(uri, line, col);
     });
     editor->setIndentationWidth(2);
     editor->setTabWidth(2);
@@ -161,15 +183,35 @@ void CodeEditorPanel::setLspClient(ComalLspClient *client) {
     // Send didOpen for current tab
     if (auto *editor = currentEditor()) {
         QString text = editor->text();
-        QString filePath = currentFilePath();
-        lspClient_->sendDidOpen(filePath, text);
+        QString uri = lspUriForEditor(editor);
+        qDebug() << "Editor: Setting LSP client, current URI:" << uri;
+        if (!uri.isEmpty()) {
+            lspClient_->sendDidOpen(uri, text);
+        } else {
+            qDebug() << "  (skipped didOpen - no document URI)";
+        }
     }
 
     // Connect LSP client signals
     connect(lspClient_, &ComalLspClient::hoverReceived, this, [this](const QString &filePath, const QJsonObject &hover) {
         // Show hover tooltip if editor matches filePath
-        if (filePath == currentFilePath() && currentEditor()) {
-            QString contents = hover.value("contents").toString();
+        auto *editor = currentEditor();
+        if (!editor) {
+            return;
+        }
+        const QString currentKey = uriToFilePath(lspUriForEditor(editor));
+        const QString hoverKey = uriToFilePath(filePath);
+        if (hoverKey == currentKey) {
+            QString contents;
+            const QJsonValue contentsValue = hover.value("contents");
+            if (contentsValue.isString()) {
+                contents = contentsValue.toString();
+            } else if (contentsValue.isObject()) {
+                const QJsonObject contentsObj = contentsValue.toObject();
+                if (contentsObj.value("value").isString()) {
+                    contents = contentsObj.value("value").toString();
+                }
+            }
             if (!contents.isEmpty()) {
                 // QsciScintilla does not provide pointFromPosition; show tooltip at viewport center
                 QWidget *viewport = currentEditor()->viewport();
@@ -179,9 +221,48 @@ void CodeEditorPanel::setLspClient(ComalLspClient *client) {
         }
     });
     connect(lspClient_, &ComalLspClient::diagnosticsReceived, this, [this](const QString &filePath, const QJsonObject &diagnostics) {
-        // TODO: Display diagnostics in editor (underline errors, show markers)
-        // For now, print to console
-        qDebug() << "Diagnostics for" << filePath << diagnostics;
+        const QString diagnosticKey = uriToFilePath(filePath);
+        qDebug() << "Editor: Received diagnostics for" << diagnosticKey;
+        QMap<int, int> severityByLine;
+        QMap<int, QStringList> messagesByLine;
+
+        const QJsonArray diagArray = diagnostics.value("diagnostics").toArray();
+        qDebug() << "  Diagnostic count:" << diagArray.size();
+        for (const QJsonValue &diagValue : diagArray) {
+            if (!diagValue.isObject()) {
+                continue;
+            }
+
+            const QJsonObject diag = diagValue.toObject();
+            const QJsonObject range = diag.value("range").toObject();
+            const QJsonObject start = range.value("start").toObject();
+            const int oneBasedLine = start.value("line").toInt() + 1;
+            if (oneBasedLine <= 0) {
+                continue;
+            }
+
+            const int severity = diag.value("severity").toInt(1);
+            const QString message = diag.value("message").toString().trimmed();
+            qDebug() << "    Line" << oneBasedLine << "severity" << severity << "message:" << message;
+
+            const int existingSeverity = severityByLine.value(oneBasedLine, severity);
+            severityByLine[oneBasedLine] = qMin(existingSeverity, severity);
+
+            if (!message.isEmpty()) {
+                messagesByLine[oneBasedLine].append(message);
+            }
+        }
+
+        lspSeverityByFile_[diagnosticKey] = severityByLine;
+        lspMessagesByFile_[diagnosticKey] = messagesByLine;
+
+        auto *editor = currentEditor();
+        const QString currentKey = editor ? uriToFilePath(lspUriForEditor(editor)) : QString();
+        qDebug() << "  Current key:" << currentKey << "matches:" << (diagnosticKey == currentKey);
+        if (editor && diagnosticKey == currentKey) {
+            qDebug() << "  Applying diagnostics to current editor";
+            applyLspDiagnostics(editor, diagnosticKey);
+        }
     });
     // Completion and definition can be handled similarly
     connect(lspClient_, &ComalLspClient::completionReceived, this, [this](const QString &filePath, const QJsonObject &completion) {
@@ -282,10 +363,18 @@ void CodeEditorPanel::openFile(const QString &filePath)
     QFileInfo info(filePath);
     int idx = tabs_->addTab(editor, info.fileName());
     tabs_->setTabToolTip(idx, filePath);
+    untitledUriByEditor_.remove(editor);
     tabs_->setCurrentIndex(idx);
 
     // Apply any existing breakpoints for this file in the editor gutter.
     applyBreakpointsToEditor(editor, filePath);
+    applyLspDiagnostics(editor, filePath);
+
+    if (lspClient_) {
+        QString uri = filePathToUri(filePath);
+        qDebug() << "Editor: File opened:" << filePath << "uri:" << uri;
+        lspClient_->sendDidOpen(uri, editor->text());
+    }
 }
 
 QString CodeEditorPanel::currentFilePath() const
@@ -294,6 +383,13 @@ QString CodeEditorPanel::currentFilePath() const
     if (idx >= 0)
         return tabs_->tabToolTip(idx);
     return {};
+}
+
+QString CodeEditorPanel::filePathToUri(const QString &filePath) const
+{
+    if (filePath.isEmpty()) return {};
+    if (filePath.startsWith("file://")) return filePath;
+    return "file://" + filePath;
 }
 
 // ── File save ───────────────────────────────────────────────────────
@@ -314,6 +410,9 @@ bool CodeEditorPanel::saveFile()
     file.write(editor->text().toUtf8());
     editor->setModified(false);
     updateTabTitle(tabs_->currentIndex());
+    if (lspClient_ && !path.isEmpty()) {
+        lspClient_->sendDidOpen(filePathToUri(path), editor->text());
+    }
     return true;
 }
 
@@ -335,6 +434,7 @@ bool CodeEditorPanel::saveFileAs()
     editor->setModified(false);
 
     int idx = tabs_->currentIndex();
+    const QString oldUri = lspUriForEditor(editor);
 
     // Transfer breakpoints from old path to new path (if any)
     QString oldPath = tabs_->tabToolTip(idx);
@@ -347,8 +447,16 @@ bool CodeEditorPanel::saveFileAs()
     }
 
     tabs_->setTabToolTip(idx, path);
+    untitledUriByEditor_.remove(editor);
     updateTabTitle(idx);
     applyBreakpointsToEditor(currentEditor(), path);
+    applyLspDiagnostics(currentEditor(), path);
+    if (lspClient_) {
+        if (!oldUri.isEmpty()) {
+            lspClient_->sendDidClose(oldUri);
+        }
+        lspClient_->sendDidOpen(filePathToUri(path), editor->text());
+    }
     return true;
 }
 
@@ -382,7 +490,20 @@ void CodeEditorPanel::onTabCloseRequested(int index)
     if (!maybeSaveTab(index))
         return;
 
+    if (lspClient_) {
+        auto *editor = qobject_cast<QsciScintilla *>(tabs_->widget(index));
+        if (editor) {
+            const QString uri = lspUriForEditor(editor);
+            if (!uri.isEmpty()) {
+                lspClient_->sendDidClose(uri);
+            }
+        }
+    }
+
     QWidget *w = tabs_->widget(index);
+    if (auto *editor = qobject_cast<QsciScintilla *>(w)) {
+        untitledUriByEditor_.remove(editor);
+    }
     tabs_->removeTab(index);
     delete w;
 
@@ -400,6 +521,7 @@ void CodeEditorPanel::onCurrentTabChanged(int /*index*/)
 {
     auto *editor = currentEditor();
     if (editor) {
+        applyLspDiagnostics(editor, uriToFilePath(lspUriForEditor(editor)));
         int line, col;
         editor->getCursorPosition(&line, &col);
         emit cursorPositionChanged(line + 1, col + 1);
@@ -407,6 +529,104 @@ void CodeEditorPanel::onCurrentTabChanged(int /*index*/)
 
     // Notify listeners that the current file changed (for updating debug UI)
     emit currentFileChanged(currentFilePath());
+}
+
+QString CodeEditorPanel::filePathForEditor(QsciScintilla *editor) const
+{
+    if (!editor) {
+        return {};
+    }
+
+    const int idx = tabs_->indexOf(editor);
+    if (idx < 0) {
+        return {};
+    }
+
+    return tabs_->tabToolTip(idx);
+}
+
+QString CodeEditorPanel::lspUriForEditor(QsciScintilla *editor)
+{
+    if (!editor) {
+        return {};
+    }
+
+    const QString filePath = filePathForEditor(editor);
+    if (!filePath.isEmpty()) {
+        return filePathToUri(filePath);
+    }
+
+    auto it = untitledUriByEditor_.find(editor);
+    if (it != untitledUriByEditor_.end()) {
+        return it.value();
+    }
+
+    const QString uri = QString("untitled://opencomal/%1").arg(
+        QString::number(reinterpret_cast<quintptr>(editor), 16));
+    untitledUriByEditor_.insert(editor, uri);
+    return uri;
+}
+
+void CodeEditorPanel::clearLspDiagnostics(QsciScintilla *editor)
+{
+    if (!editor) {
+        return;
+    }
+
+    editor->markerDeleteAll(LSP_ERROR_MARKER_ID);
+    editor->markerDeleteAll(LSP_WARNING_MARKER_ID);
+    editor->markerDeleteAll(LSP_INFO_MARKER_ID);
+    editor->clearAnnotations();
+}
+
+void CodeEditorPanel::applyLspDiagnostics(QsciScintilla *editor, const QString &filePath)
+{
+    if (!editor) {
+        return;
+    }
+
+    clearLspDiagnostics(editor);
+    if (filePath.isEmpty()) {
+        return;
+    }
+
+    const auto severityIt = lspSeverityByFile_.constFind(filePath);
+    if (severityIt == lspSeverityByFile_.constEnd()) {
+        return;
+    }
+
+    const auto messagesIt = lspMessagesByFile_.constFind(filePath);
+    for (auto lineIt = severityIt->constBegin(); lineIt != severityIt->constEnd(); ++lineIt) {
+        const int line = lineIt.key();
+        const int severity = lineIt.value();
+        const int markerId = (severity <= 1)
+            ? LSP_ERROR_MARKER_ID
+            : (severity == 2 ? LSP_WARNING_MARKER_ID : LSP_INFO_MARKER_ID);
+
+        editor->markerAdd(line - 1, markerId);
+
+        if (messagesIt != lspMessagesByFile_.constEnd()) {
+            const QStringList lineMessages = messagesIt->value(line);
+            if (!lineMessages.isEmpty()) {
+                editor->annotate(line - 1, lineMessages.join("\n"), 0);
+            }
+        }
+    }
+}
+
+QString CodeEditorPanel::diagnosticMessageForLine(const QString &filePath, int oneBasedLine) const
+{
+    const auto fileIt = lspMessagesByFile_.constFind(filePath);
+    if (fileIt == lspMessagesByFile_.constEnd()) {
+        return {};
+    }
+
+    const QStringList lineMessages = fileIt->value(oneBasedLine);
+    if (lineMessages.isEmpty()) {
+        return {};
+    }
+
+    return lineMessages.join("\n");
 }
 
 // ── Error highlighting ──────────────────────────────────────────────
@@ -664,9 +884,14 @@ void CodeEditorPanel::formatSource()
             // else: text after DO → single-line form, no indent
         }
         else if (firstWord == "IF") {
-            // Block form only when line ends with THEN
-            if (upper.endsWith(" THEN"))
+            // Block form when THEN is omitted or appears at end of line.
+            // Single-line form has executable content after THEN.
+            const int thenPos = upper.indexOf(" THEN");
+            if (thenPos < 0) {
                 delta_after = step;
+            } else if (thenPos + 5 >= upper.size()) {
+                delta_after = step;
+            }
         }
         else if (firstWord == "REPEAT" || firstWord == "LOOP") {
             delta_after = step;

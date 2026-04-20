@@ -16,25 +16,48 @@ LspServer::~LspServer() = default;
 
 void LspServer::run() {
     running_ = true;
-    std::string line;
+    while (running_) {
+        std::string headerLine;
+        int contentLength = -1;
 
-    while (running_ && std::getline(std::cin, line)) {
-        if (line.empty()) continue;
+        // Read headers until blank line.
+        while (std::getline(std::cin, headerLine)) {
+            if (!headerLine.empty() && headerLine.back() == '\r') {
+                headerLine.pop_back();
+            }
 
-        // Simple Content-Length header parsing
-        if (line.find("Content-Length:") == 0) {
-            // Skip header lines
+            if (headerLine.empty()) {
+                break;
+            }
+
+            if (headerLine.rfind("Content-Length:", 0) == 0) {
+                std::string value = headerLine.substr(std::string("Content-Length:").size());
+                const auto first = value.find_first_not_of(" \t");
+                if (first != std::string::npos) {
+                    value = value.substr(first);
+                }
+                try {
+                    contentLength = std::stoi(value);
+                } catch (...) {
+                    contentLength = -1;
+                }
+            }
+        }
+
+        if (!std::cin.good()) {
+            break;
+        }
+        if (contentLength <= 0) {
             continue;
         }
 
-        // Empty line signals end of headers
-        if (line == "\r" || line == "") {
-            // Read the actual message
-            std::getline(std::cin, line);
-            if (!line.empty()) {
-                handleMessage(line);
-            }
+        std::string payload(static_cast<size_t>(contentLength), '\0');
+        std::cin.read(payload.data(), contentLength);
+        if (std::cin.gcount() != contentLength) {
+            break;
         }
+
+        handleMessage(payload);
     }
 }
 
@@ -556,8 +579,30 @@ std::vector<Diagnostic> LspServer::parseDocument(const std::string& text) {
         else if (firstWord == "LOOP")   blockStack.push_back({"LOOP", lineNumber});
         else if (firstWord == "CASE")   blockStack.push_back({"CASE", lineNumber});
         else if (firstWord == "TRAP")   blockStack.push_back({"TRAP", lineNumber});
-        else if (firstWord == "IF" && upper.find("THEN") == std::string::npos)
-            blockStack.push_back({"IF", lineNumber});  // multi-line IF only
+        else if (firstWord == "IF") {
+            // Multi-line IF forms can still include THEN on the opener line, e.g.:
+            //   IF cond THEN
+            //     ...
+            //   ENDIF
+            // Single-line IF usually has executable content after THEN.
+            const size_t thenPos = upper.find("THEN");
+            bool isBlockIf = (thenPos == std::string::npos);
+            if (!isBlockIf) {
+                std::string tail = upper.substr(thenPos + 4);
+                const size_t firstNonWs = tail.find_first_not_of(" \t");
+                if (firstNonWs == std::string::npos) {
+                    isBlockIf = true;
+                } else {
+                    tail = tail.substr(firstNonWs);
+                    if (tail.rfind("REM", 0) == 0 || tail[0] == '\'') {
+                        isBlockIf = true;
+                    }
+                }
+            }
+            if (isBlockIf) {
+                blockStack.push_back({"IF", lineNumber});
+            }
+        }
         else if (firstWord == "PROC")   blockStack.push_back({"PROC", lineNumber});
         else if (firstWord == "FUNC")   blockStack.push_back({"FUNC", lineNumber});
         // Block closers

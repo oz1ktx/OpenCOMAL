@@ -50,5 +50,14 @@
 - The OpenCOMAL IDE integrates the LSP server automatically for COMAL files.
 - No manual setup is needed; diagnostics, completion, hover, and definition are available in the editor.
 
+### 6. Current OpenCOMAL IDE Behavior
+
+- Diagnostics are rendered in-editor using markers and line annotations.
+- Diagnostics work for both saved files and unsaved tabs.
+- Unsaved tabs are tracked via stable `untitled://` document URIs, so syntax feedback appears before first save.
+- LSP transport uses proper `Content-Length` framing and standard initialize/initialized handshake.
+- The IDE now performs a cleaner LSP shutdown sequence to avoid lingering process warnings.
+- COMAL syntax note: `THEN` is optional in `IF` statements in this codebase; formatter indentation now handles both styles.
+
 ---
 For more details, see the OpenCOMAL documentation or contact the project maintainers.

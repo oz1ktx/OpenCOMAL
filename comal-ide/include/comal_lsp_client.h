@@ -2,6 +2,8 @@
 #include <QObject>
 #include <QString>
 #include <QProcess>
+#include <QByteArray>
+#include <QHash>
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QTextCursor>
@@ -40,8 +42,18 @@ private slots:
     void handleServerError();
 
 private:
+    struct PendingRequest {
+        QString method;
+        QString filePath;
+    };
+
     QProcess *lspProcess_;
     int nextRequestId_;
+    QByteArray readBuffer_;
+    QHash<int, PendingRequest> pendingRequests_;
+
+    int parseContentLength(const QByteArray &headers) const;
+    void handleMessage(const QJsonObject &message);
     void sendRequest(const QJsonObject &request);
     void sendNotification(const QJsonObject &notification);
 };
