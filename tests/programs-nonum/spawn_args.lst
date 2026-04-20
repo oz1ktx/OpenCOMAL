@@ -1,0 +1,22 @@
+PRINT "SPAWN argument passing"
+a := 7
+b$ := "TXT"
+
+SPAWN worker(a, b$)
+
+OPEN QUEUE 1, "Q_SPAWN_ARGS", READ
+INPUT QUEUE 1: result$
+CLOSE QUEUE 1
+
+IF result$ <> "OK" THEN STOP
+PRINT "All ok"
+
+PROC worker(n, t$) CLOSED
+  OPEN QUEUE 2, "Q_SPAWN_ARGS", WRITE
+  IF n = 7 AND t$ = "TXT" THEN
+    PRINT QUEUE 2: "OK"
+  ELSE
+    PRINT QUEUE 2: "BAD"
+  ENDIF
+  CLOSE QUEUE 2
+ENDPROC

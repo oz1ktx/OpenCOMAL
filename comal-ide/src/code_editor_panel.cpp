@@ -465,7 +465,7 @@ static const QSet<QString> &comalKeywords()
         "MOD", "NOT", "NULL", "OF", "OPEN", "OR", "OTHERWISE",
         "OUTPUT", "PAGE", "PRINT", "PROC", "RANDOM", "READ",
         "REF", "REPEAT", "RESTORE", "RETURN", "RUN", "SELECT",
-        "SPC", "STEP", "STOP", "TAB", "THEN", "TO", "TRAP",
+        "SPAWN", "SPC", "STEP", "STOP", "TAB", "THEN", "TO", "TRAP",
         "TRUE", "UNTIL", "USE", "USING", "WHEN", "WHILE",
         "WRITE", "ZONE",
     };

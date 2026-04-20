@@ -22,10 +22,12 @@ The following are **explicitly out of Phase 1** and must not be implemented with
 A restrictive `SPAWN` v1 implementation has now been added on top of this queue communication baseline:
 
 - `SPAWN` can invoke only a `CLOSED PROC`.
+- `SPAWN procName(arg1, arg2, ...)` binds value parameters from the caller context before the worker starts.
 - Spawned execution can call only `CLOSED PROC/FUNC`.
 - `DIM`/`LOCAL` inside `CLOSED` routines is rejected in this mode.
 - No process id / join point is exposed in v1 (fire-and-forget model).
-- Spawned workers are stopped when the main interpreter run ends.
+- On normal program completion, spawned workers are joined gracefully.
+- On interpreter reset/destruction, spawned workers are interrupted and joined.
 
 ---
 

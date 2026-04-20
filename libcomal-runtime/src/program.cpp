@@ -26,7 +26,7 @@ Interpreter::Interpreter()
 }
 
 Interpreter::~Interpreter() {
-    stopSpawnedWorkers();
+    stopSpawnedWorkers(true);
 }
 
 comal::sound::Engine& Interpreter::soundEngine() {
@@ -43,7 +43,7 @@ void Interpreter::registerSpawnWorker(std::shared_ptr<Interpreter> worker,
     spawnedWorkers_.push_back(SpawnWorker{std::move(worker), std::move(thread)});
 }
 
-void Interpreter::stopSpawnedWorkers() {
+void Interpreter::stopSpawnedWorkers(bool requestInterrupt) {
     std::vector<SpawnWorker> workers;
     {
         std::lock_guard<std::mutex> lock(spawnedWorkersMutex_);
@@ -57,9 +57,11 @@ void Interpreter::stopSpawnedWorkers() {
     // Wake workers that might be blocked on queue INPUT.
     FileTable::requestQueueShutdown();
 
-    for (auto& worker : workers) {
-        if (worker.interp) {
-            worker.interp->interrupt().request();
+    if (requestInterrupt) {
+        for (auto& worker : workers) {
+            if (worker.interp) {
+                worker.interp->interrupt().request();
+            }
         }
     }
 
@@ -537,7 +539,7 @@ ComalLine* Interpreter::findRoutine(const std::string& name) {
 // ── resetRunState ───────────────────────────────────────────────────────
 
 void Interpreter::resetRunState() {
-    stopSpawnedWorkers();
+    stopSpawnedWorkers(true);
 
     // Reset scopes (clear everything except global, then clear global)
     while (scopes.depth() > 1)
@@ -593,7 +595,7 @@ void Interpreter::run() {
     }
 
     // Clean up
-    stopSpawnedWorkers();
+    stopSpawnedWorkers(false);
     files.closeAll();
 }
 

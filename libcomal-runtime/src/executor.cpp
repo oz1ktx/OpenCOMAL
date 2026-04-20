@@ -76,7 +76,8 @@ static void execWrite(Interpreter& interp, ComalLine* line);
 static void execTrap(Interpreter& interp, ComalLine* line);
 static void execImport(Interpreter& interp, ComalLine* line);
 static void execCall(Interpreter& interp, const std::string& name,
-                     const ExpList* args, bool isFunc);
+                     const ExpList* args, bool isFunc,
+                     const std::vector<Value>* preEvaluatedArgs = nullptr);
 static void execSpawn(Interpreter& interp, ComalLine* line);
 static void execDraw(Interpreter& interp, ComalLine* line);
 static void execTone(Interpreter& interp, ComalLine* line);
@@ -1577,6 +1578,13 @@ static void execSpawn(Interpreter& interp, ComalLine* line) {
             std::string("SPAWN requires target PROC to be CLOSED: ") + eid.id->name);
     }
 
+    // Bind ordinary argument values in the parent interpreter so SPAWN calls
+    // can pass caller variables to the worker reliably.
+    std::vector<Value> evaluatedArgs;
+    for (auto* arg = eid.exproot; arg; arg = arg->next()) {
+        evaluatedArgs.push_back(evaluate(interp, arg->exp()));
+    }
+
     auto worker = std::make_shared<Interpreter>();
     worker->progroot = interp.progroot;
     worker->procTable = interp.procTable;
@@ -1584,10 +1592,13 @@ static void execSpawn(Interpreter& interp, ComalLine* line) {
     worker->setSpawnRestricted(true);
     worker->setIO(std::make_unique<ParentForwardIO>(interp));
 
-    std::thread th([worker, procName = std::string(eid.id->name), args = eid.exproot]() {
+    std::thread th([worker,
+                    procName = std::string(eid.id->name),
+                    args = eid.exproot,
+                    evaluatedArgs = std::move(evaluatedArgs)]() {
         try {
             worker->resetRunState();
-            execCall(*worker, procName, args, false);
+            execCall(*worker, procName, args, false, &evaluatedArgs);
         } catch (const EndSignal&) {
         } catch (const StopSignal&) {
         } catch (const EscapeSignal&) {
@@ -1786,7 +1797,8 @@ static void execRestore(Interpreter& interp, ComalLine* line) {
 // ── PROC/FUNC call ──────────────────────────────────────────────────────
 
 static void execCall(Interpreter& interp, const std::string& name,
-                     const ExpList* args, bool isFunc) {
+                     const ExpList* args, bool isFunc,
+                     const std::vector<Value>* preEvaluatedArgs) {
     // Check if this is a PROC/FUNC variable call
     ComalLine* proc_line = nullptr;
     Symbol* proc_sym = interp.scopes.current().find(name);
@@ -1822,6 +1834,7 @@ static void execCall(Interpreter& interp, const std::string& name,
 
     auto* parm = pf.parmroot;
     auto* arg = args;
+    size_t argIndex = 0;
     while (parm && arg) {
         BoundArg ba;
         ba.name = parm->id()->name;
@@ -1840,12 +1853,17 @@ static void execCall(Interpreter& interp, const std::string& name,
             ba.kind = BoundArg::Func;
             ba.name_expr = arg->exp();
         } else {
-            ba.val = evaluate(interp, arg->exp());
+            if (preEvaluatedArgs && argIndex < preEvaluatedArgs->size()) {
+                ba.val = (*preEvaluatedArgs)[argIndex];
+            } else {
+                ba.val = evaluate(interp, arg->exp());
+            }
         }
 
         bound.push_back(std::move(ba));
         parm = parm->next();
         arg = arg->next();
+        ++argIndex;
     }
 
     // Save caller scope for NAME thunks

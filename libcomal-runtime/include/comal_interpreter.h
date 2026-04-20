@@ -261,8 +261,12 @@ public:
     void registerSpawnWorker(std::shared_ptr<Interpreter> worker,
                              std::thread thread);
 
-    /// Request cancellation and join all spawned workers.
-    void stopSpawnedWorkers();
+    /// Join all spawned workers.
+    ///
+    /// When requestInterrupt is true, workers are first asked to cancel via
+    /// interrupt() and queue shutdown notification. Use false for graceful
+    /// shutdown at normal program completion.
+    void stopSpawnedWorkers(bool requestInterrupt = true);
 
     /// Get this interpreter's sound engine, creating it on first use.
     comal::sound::Engine& soundEngine();
