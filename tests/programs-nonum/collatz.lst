@@ -15,4 +15,3 @@ ENDPROC
 FOR i:=2 TO 10 DO
   spawn collatz(i)
 ENDFOR
-SLEEP 10000
