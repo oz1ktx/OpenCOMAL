@@ -701,6 +701,8 @@ std::vector<Diagnostic> LspServer::parseDocument(const std::string& text) {
                 if (!drawArgs.empty() && drawArgs.front() == '"') {
                     // String-based DRAW — skip validation (handled at runtime)
                 } else {
+                    // parseLine expects whitespace-separated tokens; allow COMAL comma style.
+                    std::replace(drawArgs.begin(), drawArgs.end(), ',', ' ');
                     // Parse with the graphics command registry
                     comal::graphics::ParsedCommand cmd;
                     comal::graphics::ParseError err;

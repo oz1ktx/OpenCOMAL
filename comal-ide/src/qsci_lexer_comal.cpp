@@ -18,7 +18,7 @@ static const QSet<QString> &comalKeywords()
         "FUNC", "HANDLER", "IF", "IMPORT", "IN", "INPUT", "LOOP",
         "MOD", "NOT", "NULL", "OF", "OPEN", "OR", "OTHERWISE",
         "OUTPUT", "PAGE", "PRINT", "PROC", "RANDOM", "READ",
-        "REF", "REPEAT", "RESTORE", "RETURN", "RUN", "SELECT",
+        "REF", "REPEAT", "RESTORE", "RETURN", "RUN", "SELECT", "SPAWN",
         "STEP", "STOP", "THEN", "TO", "TRAP",
         "UNTIL", "USE", "USING", "WHEN", "WHILE",
         "WRITE", "ZONE",

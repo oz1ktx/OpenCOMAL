@@ -95,3 +95,17 @@ void HelpPanel::showKeywordHelp(const QString &keyword)
         "<p><i>Tip: keep cursor on a keyword in the editor to update this panel.</i></p>"
     );
 }
+
+void HelpPanel::showLspHoverHelp(const QString &hoverText)
+{
+    const QString trimmed = hoverText.trimmed();
+    if (trimmed.isEmpty()) {
+        return;
+    }
+
+    browser_->setMarkdown(
+        trimmed +
+        "\n\n---\n"
+        "_Tip: move cursor to update contextual help. If LSP info is unavailable, keyword docs are shown._"
+    );
+}

@@ -21,7 +21,80 @@
 #include <QFileDialog>
 #include <QSettings>
 #include <QCloseEvent>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
 #include <Qsci/qsciscintilla.h>
+
+namespace {
+
+QString resolveComalLspPath()
+{
+    const QString appDir = QCoreApplication::applicationDirPath();
+    const QStringList candidates {
+        "/usr/bin/comal-lsp",
+        QDir(appDir).filePath("comal-lsp"),
+        QDir(appDir).filePath("../comal-lsp/comal-lsp"),
+    };
+
+    for (const QString &candidate : candidates) {
+        const QFileInfo info(candidate);
+        if (info.exists() && info.isFile() && info.isExecutable()) {
+            return info.absoluteFilePath();
+        }
+    }
+
+    // Keep startup resilient even when discovery fails.
+    return candidates.first();
+}
+
+QString extractHoverText(const QJsonObject &hover)
+{
+    const QJsonValue contentsValue = hover.value("contents");
+
+    if (contentsValue.isString()) {
+        return contentsValue.toString();
+    }
+
+    if (contentsValue.isObject()) {
+        const QJsonObject contentsObj = contentsValue.toObject();
+        if (contentsObj.value("value").isString()) {
+            return contentsObj.value("value").toString();
+        }
+        return {};
+    }
+
+    if (contentsValue.isArray()) {
+        QStringList parts;
+        const QJsonArray partsArray = contentsValue.toArray();
+        for (const QJsonValue &part : partsArray) {
+            if (part.isString()) {
+                const QString text = part.toString().trimmed();
+                if (!text.isEmpty()) {
+                    parts.append(text);
+                }
+                continue;
+            }
+            if (part.isObject()) {
+                const QJsonObject obj = part.toObject();
+                if (obj.value("value").isString()) {
+                    const QString text = obj.value("value").toString().trimmed();
+                    if (!text.isEmpty()) {
+                        parts.append(text);
+                    }
+                }
+            }
+        }
+        return parts.join("\n\n");
+    }
+
+    return {};
+}
+
+} // namespace
 
 MainWindow::~MainWindow() = default;
 
@@ -73,8 +146,14 @@ MainWindow::MainWindow(QWidget *parent)
     // LSP client setup
     lspClient_ = new ComalLspClient(this);
     codeEditor_->setLspClient(lspClient_);
-    // Start LSP server (adjust path as needed)
-    lspClient_->startServer("build/comal-lsp/comal-lsp");
+    connect(lspClient_, &ComalLspClient::hoverReceived, this,
+            [this](const QString &, const QJsonObject &hover) {
+                const QString hoverText = extractHoverText(hover);
+                if (!hoverText.trimmed().isEmpty()) {
+                    help_->showLspHoverHelp(hoverText);
+                }
+            });
+    lspClient_->startServer(resolveComalLspPath());
 
     // Restore window state and settings from previous session
     restoreWindowState();

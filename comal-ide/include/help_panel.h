@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QWidget>
+#include <QString>
 
 class QTextBrowser;
 
@@ -12,6 +13,7 @@ public:
     explicit HelpPanel(QWidget *parent = nullptr);
 
     void showKeywordHelp(const QString &keyword);
+    void showLspHoverHelp(const QString &hoverText);
 
 private:
     QTextBrowser *browser_;
