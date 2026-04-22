@@ -25,6 +25,7 @@
 #include <thread>
 #include <chrono>
 #include <memory>
+#include <system_error>
 
 namespace comal::runtime {
 
@@ -1592,23 +1593,48 @@ static void execSpawn(Interpreter& interp, ComalLine* line) {
     worker->setSpawnRestricted(true);
     worker->setIO(std::make_unique<ParentForwardIO>(interp));
 
-    std::thread th([worker,
-                    procName = std::string(eid.id->name),
-                    args = eid.exproot,
-                    evaluatedArgs = std::move(evaluatedArgs)]() {
-        try {
-            worker->resetRunState();
-            execCall(*worker, procName, args, false, &evaluatedArgs);
-        } catch (const EndSignal&) {
-        } catch (const StopSignal&) {
-        } catch (const EscapeSignal&) {
-        } catch (const ReturnSignal&) {
-        } catch (const ComalError&) {
-        }
-        worker->files.closeAll();
-    });
+    std::thread th;
+    try {
+        th = std::thread([worker,
+                          procName = std::string(eid.id->name),
+                          args = eid.exproot,
+                          evaluatedArgs = std::move(evaluatedArgs)]() {
+            try {
+                worker->resetRunState();
+                execCall(*worker, procName, args, false, &evaluatedArgs);
+            } catch (const EndSignal&) {
+            } catch (const StopSignal&) {
+            } catch (const EscapeSignal&) {
+            } catch (const ReturnSignal&) {
+            } catch (const ComalError&) {
+            }
+            worker->files.closeAll();
+        });
+    } catch (const std::system_error&) {
+        throw ComalError(ErrorCode::Memory,
+            "SPAWN failed: unable to create worker thread (resource limit reached)");
+    } catch (const std::bad_alloc&) {
+        throw ComalError(ErrorCode::Memory,
+            "SPAWN failed: out of memory while creating worker thread");
+    }
 
-    interp.registerSpawnWorker(worker, std::move(th));
+    try {
+        interp.registerSpawnWorker(worker, std::move(th));
+    } catch (const std::bad_alloc&) {
+        worker->interrupt().request();
+        if (th.joinable()) {
+            th.join();
+        }
+        throw ComalError(ErrorCode::Memory,
+            "SPAWN failed: out of memory while registering worker");
+    } catch (const std::exception&) {
+        worker->interrupt().request();
+        if (th.joinable()) {
+            th.join();
+        }
+        throw ComalError(ErrorCode::Run,
+            "SPAWN failed: unable to register worker thread");
+    }
 }
 
 // ── OPEN ────────────────────────────────────────────────────────────────

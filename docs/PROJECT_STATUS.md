@@ -1,6 +1,6 @@
 # OpenCOMAL Project Status
 
-**Last Updated:** 20 April 2026
+**Last Updated:** 22 April 2026
 **Purpose:** Short, ordered snapshot of current project state and near-term work.
 
 ---
@@ -50,6 +50,7 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
   - SPAWN target must be a `CLOSED` `PROC`.
   - Spawned workers are fire-and-forget in this iteration (no process id and no explicit join point).
   - Worker lifecycle is tied to the main interpreter; workers are cancelled when main execution ends.
+  - Worker creation/registration now handles resource exhaustion safely and raises runtime errors instead of terminating the process.
   - In spawned context, call graph is restricted to `CLOSED` `PROC/FUNC` only.
   - `DIM`/`LOCAL` inside `CLOSED` `PROC/FUNC` is rejected in this restrictive mode.
   - Spawned `PRINT`/`INPUT` now route via the parent interpreter I/O path (IDE output panel compatibility).
@@ -71,6 +72,7 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
 - LSP client/server framing and handshake are now robust (`Content-Length` transport + initialize/initialized flow).
 - IDE shutdown now waits for LSP process exit, avoiding process-lifecycle warnings.
 - Source formatter now treats `IF ...` without `THEN` as a block opener for indentation consistency.
+- Qt I/O prompt buffering is now synchronized for concurrent SPAWN output, fixing a verified IDE crash under high thread counts (`double free or corruption (fasttop)`).
 
 ### 4. Tooling and testing
 

@@ -28,6 +28,8 @@ A restrictive `SPAWN` v1 implementation has now been added on top of this queue 
 - No process id / join point is exposed in v1 (fire-and-forget model).
 - On normal program completion, spawned workers are joined gracefully.
 - On interpreter reset/destruction, spawned workers are interrupted and joined.
+- SPAWN worker-thread creation failure (e.g., OS thread/resource limit reached) is surfaced as a runtime error instead of process termination.
+- IDE Qt I/O prompt buffering is synchronized for concurrent SPAWN output to prevent heap corruption under high worker counts.
 
 ---
 

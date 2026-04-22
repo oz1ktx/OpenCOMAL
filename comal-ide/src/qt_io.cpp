@@ -11,6 +11,7 @@ void QtIO::print(const std::string &text)
     emit textOutput(qtext);
 
     // Track text since last newline for the input prompt hint
+    QMutexLocker lock(&inputMutex_);
     int lastNl = qtext.lastIndexOf('\n');
     if (lastNl >= 0)
         pendingPrompt_ = qtext.mid(lastNl + 1);
@@ -20,8 +21,13 @@ void QtIO::print(const std::string &text)
 
 std::string QtIO::readLine()
 {
-    emit inputRequested(pendingPrompt_);
-    pendingPrompt_.clear();
+    QString prompt;
+    {
+        QMutexLocker lock(&inputMutex_);
+        prompt = pendingPrompt_;
+        pendingPrompt_.clear();
+    }
+    emit inputRequested(prompt);
 
     QMutexLocker lock(&inputMutex_);
     while (!inputAvailable_)
