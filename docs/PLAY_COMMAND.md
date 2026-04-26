@@ -41,6 +41,15 @@ This file is the single source of truth for current behavior and near-term desig
 - Qt Multimedia disabled:
   - Fallback engine returns a ready future (no audio) unless FluidSynth path is enabled.
 
+### FluidSynth runtime selection
+
+- `COMAL_FLUID_AUDIO_DRIVER` can force or prioritize drivers.
+  - Single value: `COMAL_FLUID_AUDIO_DRIVER=pulseaudio`
+  - Comma list (priority order): `COMAL_FLUID_AUDIO_DRIVER=pipewire,pulseaudio,alsa`
+- If not set, OpenCOMAL tries common desktop drivers first, then any driver
+  exposed by the local FluidSynth build (`audio.driver` options).
+- `COMAL_SF2=/path/to/file.sf2` overrides SoundFont discovery.
+
 ### PLAY content currently supported
 
 - `PLAY` is currently treated as a string payload.

@@ -12,12 +12,63 @@
 #include <iostream>
 #include <cmath>
 #include <algorithm>
+#include <vector>
+#include <string>
 #include <unistd.h>
 #include <cstring>
 
 namespace comal::sound {
 
 #ifdef USE_FLUIDSYNTH
+
+namespace {
+
+std::string trimCopy(const std::string& s) {
+    const auto begin = s.find_first_not_of(" \t\n\r");
+    if (begin == std::string::npos) return {};
+    const auto end = s.find_last_not_of(" \t\n\r");
+    return s.substr(begin, end - begin + 1);
+}
+
+void appendUnique(std::vector<std::string>& out, const std::string& value) {
+    if (value.empty()) return;
+    if (std::find(out.begin(), out.end(), value) == out.end()) {
+        out.push_back(value);
+    }
+}
+
+std::vector<std::string> parseDriverOverrideList(const char* value) {
+    std::vector<std::string> out;
+    if (!value || std::strlen(value) == 0) return out;
+
+    std::string list(value);
+    std::size_t pos = 0;
+    while (true) {
+        const std::size_t comma = list.find(',', pos);
+        const std::string part = (comma == std::string::npos)
+            ? list.substr(pos)
+            : list.substr(pos, comma - pos);
+        appendUnique(out, trimCopy(part));
+        if (comma == std::string::npos) break;
+        pos = comma + 1;
+    }
+    return out;
+}
+
+void collectFluidOption(void* data, const char* /*name*/, const char* option) {
+    if (!data || !option || std::strlen(option) == 0) return;
+    auto* out = static_cast<std::vector<std::string>*>(data);
+    appendUnique(*out, option);
+}
+
+std::vector<std::string> listFluidAudioDriverOptions(fluid_settings_t* settings) {
+    std::vector<std::string> out;
+    if (!settings) return out;
+    fluid_settings_foreach_option(settings, "audio.driver", &out, collectFluidOption);
+    return out;
+}
+
+} // namespace
 
 class FluidSynthPlayer {
 public:
@@ -30,24 +81,41 @@ public:
         // Use a non-invasive backend by default. Auto/backend default often
         // resolves to raw ALSA, which can interfere with desktop audio stacks.
         const char* driverOverride = std::getenv("COMAL_FLUID_AUDIO_DRIVER");
-        const char* driverCandidates[] = {
-            driverOverride,
-            "pipewire",
-            "pulseaudio",
-            "alsa",           // Fallback: try ALSA if pipewire/pulseaudio unavailable
-            nullptr
-        };
+        std::vector<std::string> preferredDrivers = parseDriverOverrideList(driverOverride);
+        appendUnique(preferredDrivers, "pipewire");
+        appendUnique(preferredDrivers, "pulseaudio");
+        appendUnique(preferredDrivers, "pulse");
+        appendUnique(preferredDrivers, "jack");
+        appendUnique(preferredDrivers, "alsa");
+        appendUnique(preferredDrivers, "portaudio");
+        appendUnique(preferredDrivers, "sdl2");
+        appendUnique(preferredDrivers, "oss");
+
+        const std::vector<std::string> availableDrivers = listFluidAudioDriverOptions(settings);
+        std::vector<std::string> driverCandidates;
+        if (!availableDrivers.empty()) {
+            for (const auto& preferred : preferredDrivers) {
+                if (std::find(availableDrivers.begin(), availableDrivers.end(), preferred) != availableDrivers.end()) {
+                    appendUnique(driverCandidates, preferred);
+                }
+            }
+            for (const auto& available : availableDrivers) {
+                appendUnique(driverCandidates, available);
+            }
+        } else {
+            driverCandidates = preferredDrivers;
+        }
 
         synth = new_fluid_synth(settings);
-        for (const char** d = driverCandidates; *d; ++d) {
-            if (!*d || std::strlen(*d) == 0) continue;
-            fluid_settings_setstr(settings, "audio.driver", *d);
+        for (const auto& candidate : driverCandidates) {
+            fluid_settings_setstr(settings, "audio.driver", candidate.c_str());
             driver = new_fluid_audio_driver(settings, synth);
             if (driver) {
                 audioReady_ = true;
-                selectedDriver_ = *d;
+                selectedDriver_ = candidate;
                 break;
             }
+            appendUnique(attemptedDrivers_, candidate);
         }
 
         // Try to load SF2 from environment variable COMAL_SF2 or common path
@@ -55,7 +123,7 @@ public:
         const char* sfenv = std::getenv("COMAL_SF2");
         if (sfenv) {
             int r = fluid_synth_sfload(synth, sfenv, 1);
-            if (r <= 0) {
+            if (r < 0) {
                 std::cerr << "[sound] failed to load SF2: " << sfenv << "\n";
             } else {
                 sfLoaded = true;
@@ -80,7 +148,7 @@ public:
             for (const char** p = candidates; *p; ++p) {
                 if (access(*p, F_OK) == 0) {
                     int r = fluid_synth_sfload(synth, *p, 1);
-                    if (r > 0) {
+                    if (r >= 0) {
                         sfLoaded = true;
                         break;
                     }
@@ -90,11 +158,16 @@ public:
 
         soundfontLoaded_ = sfLoaded;
         if (!audioReady_) {
-            std::cerr << "[sound] FluidSynth audio driver not available (tried pipewire/pulseaudio";
-            if (driverOverride && std::strlen(driverOverride) > 0) {
-                std::cerr << "/" << driverOverride;
+            std::cerr << "[sound] FluidSynth audio driver not available";
+            if (!attemptedDrivers_.empty()) {
+                std::cerr << " (tried ";
+                for (std::size_t i = 0; i < attemptedDrivers_.size(); ++i) {
+                    if (i != 0) std::cerr << "/";
+                    std::cerr << attemptedDrivers_[i];
+                }
+                std::cerr << ")";
             }
-            std::cerr << "); PLAY will be silent in this session\n";
+            std::cerr << "; PLAY will be silent in this session\n";
         } else {
             std::cerr << "[sound] FluidSynth audio driver: " << selectedDriver_ << "\n";
         }
@@ -186,6 +259,7 @@ private:
     bool audioReady_{false};
     bool soundfontLoaded_{false};
     std::string selectedDriver_;
+    std::vector<std::string> attemptedDrivers_;
     std::mutex state_mutex_;
     std::mutex playback_mutex_;
     comal::sound::abc::ABCState abcState_;
