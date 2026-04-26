@@ -172,6 +172,23 @@ If these conditions are not met, keep the current hybrid model temporarily.
 
 ---
 
+## Implementation Note (LSP Diagnostics)
+
+Date: 26 April 2026
+
+LSP diagnostics now use a parser-backed classification adapter before block-matching
+rules. To avoid making modern AST migration harder, keep this structure:
+
+1. Keep diagnostics rules independent from parser internals (consume only a small
+   neutral classification object: command kind, inline-body flag, optional ids).
+2. Treat parser integration as a backend adapter that can be swapped from
+   legacy-backed parse to direct modern AST parse later.
+3. Avoid threading legacy AST structs through LSP diagnostics logic.
+
+This keeps migration work as a backend replacement, not a diagnostics rewrite.
+
+---
+
 ## Related Files
 
 - `libcomal-parser/include/comal_ast_modern.h`

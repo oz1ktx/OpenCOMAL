@@ -1,6 +1,6 @@
 # OpenCOMAL Project Status
 
-**Last Updated:** 22 April 2026
+**Last Updated:** 26 April 2026
 **Purpose:** Short, ordered snapshot of current project state and near-term work.
 
 ---
@@ -13,7 +13,7 @@
 | Runtime (`libcomal-runtime`) | Stable | Modern AST execution path in active use; SPAWN v1 implemented |
 | Graphics (`libcomal-graphics`) | Stable | DRAW command set includes `text` and style controls |
 | Sound (`libcomal-sound`) | Partial but usable | `TONE` works; `PLAY` has basic support, full MML remains TODO |
-| LSP (`comal-lsp`) | Stable | Diagnostics, completion, definition, hover; keyword help is externalized |
+| LSP (`comal-lsp`) | Stable | Diagnostics, completion, definition, hover; parser-backed diagnostics classification is now in place |
 | IDE (`comal-ide`) | In progress | Core workflow works; editor now shows live LSP diagnostics in saved and unsaved tabs |
 | Test suite | Strong | 127 pass / 6 skip / 0 fail |
 
@@ -71,6 +71,8 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
 - Saved and unsaved tabs both participate in LSP (`untitled://` URIs are used for unsaved buffers).
 - LSP client/server framing and handshake are now robust (`Content-Length` transport + initialize/initialized flow).
 - IDE shutdown now waits for LSP process exit, avoiding process-lifecycle warnings.
+- LSP diagnostics now use parser-backed statement classification with heuristic fallback for partial/invalid lines.
+- LSP diagnostics internals are split into a dedicated module (`comal_lsp_diagnostics`) for clearer maintenance and easier future AST migration.
 - Source formatter now treats `IF ...` without `THEN` as a block opener for indentation consistency.
 - Qt I/O prompt buffering is now synchronized for concurrent SPAWN output, fixing a verified IDE crash under high thread counts (`double free or corruption (fasttop)`).
 

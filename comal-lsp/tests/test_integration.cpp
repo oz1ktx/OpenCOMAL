@@ -139,6 +139,18 @@ TEST_FUNC(test_diagnostics_block_matching) {
         if (d.message.find("NEXT without matching FOR") != std::string::npos)
             foundOrphanNext = true;
     ASSERT_TRUE(foundOrphanNext, "Should detect NEXT without matching FOR");
+
+    // One-line block forms should not be treated as unclosed blocks
+    std::string code4 =
+        "IF 1 THEN PRINT \"ok\"\n"
+        "FOR i := 1 TO 2 DO PRINT i\n"
+        "WHILE 0 DO PRINT \"x\"\n";
+    diags = server.parseDocument(code4);
+    bool foundFalseUnclosed = false;
+    for (const auto& d : diags)
+        if (d.message.find("Unclosed") != std::string::npos || d.message.find("without matching") != std::string::npos)
+            foundFalseUnclosed = true;
+    ASSERT_FALSE(foundFalseUnclosed, "One-line IF/FOR/WHILE should not produce block matching errors");
 }
 
 TEST_FUNC(test_diagnostics_draw_validation) {
@@ -170,6 +182,15 @@ TEST_FUNC(test_diagnostics_draw_validation) {
         if (d.message.find("Unknown command") != std::string::npos)
             foundUnknown = true;
     ASSERT_TRUE(foundUnknown, "DRAW unknown subcommand should produce error");
+
+    // DRAW with variable args should be accepted by static diagnostics
+    std::string code4 = "x:=100\ny:=200\nr:=30\nDRAW circle x y r\n";
+    diags = server.parseDocument(code4);
+    bool anyVarDrawError = false;
+    for (const auto& d : diags)
+        if (d.message.find("DRAW:") != std::string::npos)
+            anyVarDrawError = true;
+    ASSERT_FALSE(anyVarDrawError, "DRAW circle with variable args should have no DRAW errors");
 }
 
 TEST_FUNC(test_graphics_registry_in_server) {

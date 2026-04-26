@@ -14,6 +14,7 @@ endif()
 # ── Sources ────────────────────────────────────────────────────────────────
 set(LSP_SOURCES
     src/lsp_server.cpp
+    src/lsp_diagnostics.cpp
     src/lsp_protocol.cpp
 )
 

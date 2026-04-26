@@ -13,5 +13,5 @@ PROC collatz(x) CLOSED
 ENDPROC
 
 FOR i:=2 TO 10 DO
-  spawn collatz(i)
+  SPAWN collatz(i)
 ENDFOR
