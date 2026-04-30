@@ -47,13 +47,18 @@ struct EllipseShape {
     double x, y, w, h;
 };
 
+struct PixelShape {
+    double x, y;
+    Color color;
+};
+
 struct TextShape {
     double x, y;          // top-left position
     std::string text;     // content to draw
     double fontSize;      // snapshot of Scene::fontSize at draw time
 };
 
-using ShapeData = std::variant<LineShape, RectShape, CircleShape, EllipseShape, TextShape>;
+using ShapeData = std::variant<LineShape, RectShape, CircleShape, EllipseShape, PixelShape, TextShape>;
 
 /// A drawn shape with the style that was active when it was created.
 struct Shape {

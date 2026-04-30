@@ -46,7 +46,7 @@ static const QSet<QString> &comalGraphicsCommands()
     // Graphics subcommands for DRAW statements (libcomal-graphics)
     static const QSet<QString> gc {
         // Shape commands (exactly as in libcomal-graphics)
-        "line", "rect", "circle", "ellipse", "text",
+        "line", "rect", "circle", "ellipse", "pixel", "text",
         // Style commands
         "stroke", "fill", "noFill", "noStroke", "lineWidth", "fontSize",
         // Canvas commands

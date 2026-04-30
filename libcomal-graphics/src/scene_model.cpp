@@ -128,6 +128,15 @@ std::string executeCommand(Scene& scene, const ParsedCommand& cmd) {
             scene.makeShape(EllipseShape{a[0], a[1], a[2], a[3]}));
         return {};
     }
+    if (name == "pixel") {
+        uint8_t alpha = (a.size() >= 6) ? clampByte(a[5]) : 255;
+        target->shapes.push_back(scene.makeShape(PixelShape{
+            a[0],
+            a[1],
+            Color(clampByte(a[2]), clampByte(a[3]), clampByte(a[4]), alpha),
+        }));
+        return {};
+    }
     if (name == "text") {
         const auto& sa = cmd.stringArgs;
         if (sa.empty())

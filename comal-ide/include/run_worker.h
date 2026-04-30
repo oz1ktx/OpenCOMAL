@@ -4,6 +4,7 @@
 #include <QString>
 #include <QVariantList>
 #include <memory>
+#include <atomic>
 
 namespace comal::runtime { class Interpreter; }
 namespace comal::graphics { class Scene; }
@@ -55,6 +56,12 @@ public:
     /// Set line-number breakpoints for the next run.
     void setBreakpoints(const std::vector<int> &lines);
 
+    /// Queue a coalesced scene-changed signal (thread-safe).
+    void queueSceneChanged();
+
+    /// Called by the GUI thread after rendering a sceneChanged notification.
+    void onSceneRendered();
+
 signals:
     /// Emitted when execution finishes normally.
     void finished();
@@ -83,6 +90,8 @@ private:
     QtIO    *io_;       // owned by interp_ via setIO()
     QString  source_;
     QString  directCmd_;
+    std::atomic<bool> sceneSignalPending_{false};
+    std::atomic<bool> sceneSignalDirty_{false};
 
     /// Get the active interpreter (external if set, otherwise default internal one).
     comal::runtime::Interpreter* getInterp() const {

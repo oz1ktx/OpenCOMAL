@@ -142,6 +142,35 @@ ellipse x y w h
 DRAW ellipse, 100, 300, 120, 60
 ```
 
+### pixel
+
+Set a single pixel at (x, y) to an explicit color.  This is useful for
+pixel-driven algorithms such as Mandelbrot rendering.
+
+```
+pixel x y r g b [a]
+```
+
+| Arg | Description | Range |
+|-----|-------------|-------|
+| x, y | Pixel position | Canvas coordinates |
+| r, g, b | Red, green, blue components | 0-255 |
+| a | Alpha (opacity), optional, default 255 | 0-255 |
+
+Unlike `rect`/`circle`/`line`, `pixel` takes its color directly as arguments
+instead of using the current stroke/fill state.
+
+```comal
+// Plot a few individual pixels
+DRAW pixel, 10, 10, 255, 0, 0
+DRAW pixel, 11, 10, 0, 255, 0
+DRAW pixel, 12, 10, 0, 0, 255
+
+// Grouped pixel commands are supported
+DRAW "Fractal.pixel", x, y, r, g, b
+DRAW "Fractal.translate", 40, 20
+```
+
 ### text
 
 Draw a text string at a position.  The text uses the current stroke color

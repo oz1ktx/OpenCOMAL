@@ -12,6 +12,7 @@ LINE	Graphics and Sound	DRAW line command.\n\nSignature:\nline x1 y1 x2 y2\n\nDr
 RECT	Graphics and Sound	DRAW rect command.\n\nSignature:\nrect x y width height\n\nDraw a rectangle.\n\nArguments: exactly 4 numbers.
 CIRCLE	Graphics and Sound	DRAW circle command.\n\nSignature:\ncircle cx cy radius\n\nDraw a circle from center and radius.\n\nArguments: exactly 3 numbers.
 ELLIPSE	Graphics and Sound	DRAW ellipse command.\n\nSignature:\nellipse x y width height\n\nDraw an ellipse.\n\nArguments: exactly 4 numbers.
+PIXEL	Graphics and Sound	DRAW pixel command.\n\nSignature:\npixel x y r g b [a]\n\nSet a single pixel at (x, y) to the provided color.\n\nArguments: 5 to 6 numbers.
 STROKE	Graphics and Sound	DRAW stroke command.\n\nSignature:\nstroke r g b [a]\n\nSet stroke (outline) color. Alpha is optional.\n\nArguments: 3 to 4 numbers.
 FILL	Graphics and Sound	DRAW fill command.\n\nSignature:\nfill r g b [a]\n\nSet fill color. Alpha is optional.\n\nArguments: 3 to 4 numbers.
 NOFILL	Graphics and Sound	DRAW noFill command.\n\nSignature:\nnoFill\n\nDisable fill for subsequent shapes.\n\nArguments: none.

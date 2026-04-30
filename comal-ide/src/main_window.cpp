@@ -110,13 +110,6 @@ MainWindow::MainWindow(QWidget *parent)
     // Set up the persistent I/O backend on the persistent interpreter
     persistentInterp_->setIO(std::unique_ptr<comal::runtime::IOInterface>(persistentIO_));
 
-    // Wire the persistent interpreter's scene-changed callback
-    persistentInterp_->setSceneChangedCallback([this]() {
-        // Trigger graphics panel update when scene changes
-        if (worker_)
-            emit worker_->sceneChanged();
-    });
-
     createPanels();
     createMenus();
 
@@ -422,6 +415,7 @@ void MainWindow::connectRunWorker()
     // Graphics scene changed — re-render the graphics panel
     connect(worker_, &RunWorker::sceneChanged, this, [this]() {
         graphics_->renderScene(worker_->graphicsScene());
+        worker_->onSceneRendered();
     }, Qt::QueuedConnection);
 
     // Execution suspended (break/step) — highlight current line

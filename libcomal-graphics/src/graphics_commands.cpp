@@ -22,6 +22,8 @@ CommandRegistry::CommandRegistry() {
          "Draw a circle.", "cx cy radius"},
         {"ellipse",    4, 4, CommandKind::Shape,
          "Draw an ellipse.", "x y width height"},
+        {"pixel",      5, 6, CommandKind::Shape,
+         "Set a single pixel color.", "x y r g b [a]"},
 
         // Styles
         {"stroke",     3, 4, CommandKind::Style,

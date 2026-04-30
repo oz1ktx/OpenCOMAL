@@ -148,6 +148,11 @@ void GraphicsPanel::renderGroup(const Group& group,
             scene_->addEllipse(gx + ell->x, gy + ell->y,
                               ell->w, ell->h, pen, brush);
         }
+        else if (auto* px = std::get_if<PixelShape>(&shape.data)) {
+            scene_->addRect(gx + px->x, gy + px->y,
+                           1.0, 1.0,
+                           QPen(Qt::NoPen), QBrush(toQt(px->color)));
+        }
         else if (auto* txt = std::get_if<TextShape>(&shape.data)) {
             QFont font;
             font.setPointSizeF(txt->fontSize);

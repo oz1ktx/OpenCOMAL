@@ -217,6 +217,19 @@ static void test_exec_ellipse() {
     PASS();
 }
 
+static void test_exec_pixel() {
+    TEST(exec_pixel);
+    Scene scene;
+    auto err = executeCommand(scene, makeCmd("pixel", {12, 34, 10, 20, 30, 128}));
+    ASSERT(err.empty(), err);
+    ASSERT(scene.root().shapes.size() == 1, "one shape");
+    ASSERT(std::holds_alternative<PixelShape>(scene.root().shapes[0].data), "should be pixel");
+    auto& p = std::get<PixelShape>(scene.root().shapes[0].data);
+    ASSERT(NEAR(p.x, 12) && NEAR(p.y, 34), "coords");
+    ASSERT(p.color == Color(10, 20, 30, 128), "pixel color");
+    PASS();
+}
+
 // ── executeCommand tests: styles ────────────────────────────────────────
 
 static void test_exec_stroke() {
@@ -527,6 +540,7 @@ int main() {
     test_exec_line();
     test_exec_rect();
     test_exec_ellipse();
+    test_exec_pixel();
 
     std::cout << "\n=== executeCommand: styles ===\n";
     test_exec_stroke();

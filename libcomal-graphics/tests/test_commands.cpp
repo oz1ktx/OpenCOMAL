@@ -42,7 +42,7 @@ static void test_registry_known_commands() {
     CommandRegistry reg;
 
     const char* names[] = {
-        "line", "rect", "circle", "ellipse",
+        "line", "rect", "circle", "ellipse", "pixel",
         "stroke", "fill", "noFill", "noStroke", "lineWidth",
         "background", "clear",
         "translate", "rotate", "scale",
@@ -66,7 +66,7 @@ static void test_registry_unknown_command() {
 static void test_registry_all_count() {
     TEST(registry_all_count);
     CommandRegistry reg;
-    ASSERT(reg.all().size() == 16, "expected 16 registered commands");
+    ASSERT(reg.all().size() == 17, "expected 17 registered commands");
     PASS();
 }
 
@@ -79,6 +79,9 @@ static void test_registry_arity() {
 
     auto* circle = reg.find("circle");
     ASSERT(circle && circle->minArgs == 3 && circle->maxArgs == 3, "circle should take 3 args");
+
+    auto* pixel = reg.find("pixel");
+    ASSERT(pixel && pixel->minArgs == 5 && pixel->maxArgs == 6, "pixel should take 5-6 args");
 
     auto* clear = reg.find("clear");
     ASSERT(clear && clear->minArgs == 0 && clear->maxArgs == 0, "clear takes 0 args");

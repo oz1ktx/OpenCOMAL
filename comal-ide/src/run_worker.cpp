@@ -15,9 +15,9 @@ RunWorker::RunWorker(QObject *parent)
     // Hand the QtIO to the internal interpreter (transfers ownership)
     interp_->setIO(std::unique_ptr<IOInterface>(io_));
 
-    // Scene-change callback: emit signal (queued to GUI thread)
+    // Scene-change callback: coalesced signal to prevent render flooding.
     interp_->setSceneChangedCallback([this]() {
-        emit sceneChanged();
+        queueSceneChanged();
     });
 
     // Suspended callback: emitted when the interpreter pauses (BREAK/step)
@@ -64,20 +64,47 @@ RunWorker::~RunWorker()
 void RunWorker::setExternalInterpreter(std::shared_ptr<comal::runtime::Interpreter> interp)
 {
     externalInterp_ = interp;
+    if (externalInterp_) {
+        externalInterp_->setSceneChangedCallback([this]() {
+            queueSceneChanged();
+        });
+    }
     // Note: The external interpreter should already have a QtIO backend
     // configured by MainWindow before being passed here.
+}
+
+void RunWorker::queueSceneChanged()
+{
+    if (sceneSignalPending_.exchange(true, std::memory_order_acq_rel)) {
+        sceneSignalDirty_.store(true, std::memory_order_release);
+        return;
+    }
+    emit sceneChanged();
+}
+
+void RunWorker::onSceneRendered()
+{
+    if (sceneSignalDirty_.exchange(false, std::memory_order_acq_rel)) {
+        emit sceneChanged();
+        return;
+    }
+    sceneSignalPending_.store(false, std::memory_order_release);
 }
 
 void RunWorker::setSource(const QString &source)
 {
     source_ = source;
     directCmd_.clear();
+    sceneSignalPending_.store(false, std::memory_order_release);
+    sceneSignalDirty_.store(false, std::memory_order_release);
 }
 
 void RunWorker::setDirectCommand(const QString &command)
 {
     directCmd_ = command;
     source_.clear();
+    sceneSignalPending_.store(false, std::memory_order_release);
+    sceneSignalDirty_.store(false, std::memory_order_release);
 }
 
 void RunWorker::setGraphicsScene(comal::graphics::Scene* scene)
