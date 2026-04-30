@@ -1,0 +1,62 @@
+// Mandelbrot set demo - parallel rendering using SPAWN
+// The 480-row canvas is divided into nWorkers horizontal stripes.
+// Each CLOSED PROC renders its stripe then writes a "done" token to a
+// shared queue.  The main program reads nWorkers tokens before ending,
+// ensuring workers are not interrupted early.
+
+PROC drawStripe(startRow, endRow, maxIter, xmin, xmax, ymin, ymax) CLOSED
+  FOR py := startRow TO endRow
+    cy := ymin + (ymax - ymin) * py / 479
+    FOR px := 0 TO 639
+      cx := xmin + (xmax - xmin) * px / 639
+      x := 0
+      y := 0
+      iter := 0
+      WHILE iter < maxIter AND x*x + y*y <= 4
+        xt := x*x - y*y + cx
+        y  := 2*x*y + cy
+        x  := xt
+        iter :+ 1
+      ENDWHILE
+      IF iter = maxIter THEN
+        DRAW pixel, px, py, 0, 0, 0
+      ELSE
+        r := (iter * 9)  MOD 256
+        g := (iter * 5)  MOD 256
+        b := (iter * 13) MOD 256
+        DRAW pixel, px, py, r, g, b
+      ENDIF
+    NEXT px
+  NEXT py
+  // Signal main that this stripe is complete
+  OPEN QUEUE 1, "MANDELBROT_DONE", WRITE
+  PRINT QUEUE 1: "done"
+  CLOSE QUEUE 1
+ENDPROC
+
+// ── Main ──────────────────────────────────────────────────────────────
+nWorkers      := 8
+maxIter       := 80
+xmin          := -2.2
+xmax          :=  1.0
+ymin          := -1.2
+ymax          :=  1.2
+rowsPerWorker := 480 DIV nWorkers   // 60 rows each
+
+DRAW background, 0, 0, 0
+
+FOR w := 0 TO nWorkers - 1
+  startRow := w * rowsPerWorker
+  endRow   := startRow + rowsPerWorker - 1
+  SPAWN drawStripe(startRow, endRow, maxIter, xmin, xmax, ymin, ymax)
+NEXT w
+
+// Wait for all workers to finish before letting the interpreter exit
+OPEN QUEUE 2, "MANDELBROT_DONE", READ
+FOR w := 0 TO nWorkers - 1
+  INPUT QUEUE 2: done$
+NEXT w
+CLOSE QUEUE 2
+
+PRINT "Mandelbrot complete (", nWorkers, " workers)"
+END

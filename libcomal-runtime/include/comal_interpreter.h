@@ -134,6 +134,9 @@ public:
     /// The GUI uses this to trigger re-rendering of the graphics panel.
     void setSceneChangedCallback(std::function<void()> cb) { sceneChangedCb_ = std::move(cb); }
 
+    /// Get the current scene-changed callback (e.g. to forward to spawn workers).
+    const std::function<void()>& sceneChangedCallback() const { return sceneChangedCb_; }
+
     /// Set a callback to be invoked when execution is suspended (BREAK / step).
     void setSuspendCallback(std::function<void()> cb) { suspendCallback_ = std::move(cb); }
 

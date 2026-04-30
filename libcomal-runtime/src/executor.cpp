@@ -1590,6 +1590,7 @@ static void execSpawn(Interpreter& interp, ComalLine* line) {
     worker->progroot = interp.progroot;
     worker->procTable = interp.procTable;
     worker->setGraphicsScene(&interp.graphicsScene());  // Share parent's graphics scene
+    worker->setSceneChangedCallback(interp.sceneChangedCallback());  // Forward GUI repaint notification
     worker->setSpawnRestricted(true);
     worker->setIO(std::make_unique<ParentForwardIO>(interp));
 
