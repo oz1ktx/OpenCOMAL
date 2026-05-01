@@ -165,6 +165,12 @@ This is intentionally scheduled for later and is not part of immediate delivery 
 
 ---
 
+## Deferred Initiative: Windows port
+
+Investigate supporting Windows by providing optional Qt-backed implementations that hide OS-specific details (console/terminal I/O, audio via QtMultimedia or FluidSynth, threading/timers, and file/process APIs). Implement Qt backends behind the existing `IOInterface` and gate them with CMake options so headless/CLI builds remain unaffected. Initial target: MSVC + vcpkg (native); MSYS2/MinGW as an alternate for early testing.
+
+---
+
 ## Related Documents
 
 - `docs/AST_MODERNIZATION.md`
@@ -173,3 +179,5 @@ This is intentionally scheduled for later and is not part of immediate delivery 
 - `docs/GRAPHICS_COMMANDS.md`
 - `docs/PLAY_COMMAND.md`
 - `docs/comal-keyword-docs.tsv`
+## Platform Ports (Deferred)
+

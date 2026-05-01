@@ -1,0 +1,140 @@
+// Canvas setup: 640x480 pixels
+DRAW background,0, 0, 50  // Dark night sky
+
+// Ground
+DRAW fill,20, 60, 20  // Dark grassy ground at bottom
+DRAW rect, 0,400,640,480
+// === STARS IN BACKGROUND ===
+DRAW fill,255, 255, 255
+DRAW linewidth,1
+DRAW circle,50, 50, 2
+DRAW circle,150, 80, 3
+DRAW circle,500, 60, 2
+DRAW circle,550, 120, 2
+DRAW circle,100, 150, 2
+DRAW circle,450, 40, 3
+DRAW circle,600, 100, 2
+DRAW circle,200, 100, 2
+
+PLAY "L:2 G,,"
+SLEEP 300
+SLEEP 400
+
+// === THE UFO ===
+// Main saucer body (ellipse)
+DRAW fill,150, 150, 150
+DRAW linewidth,3
+DRAW ellipse, 220, 130, 200, 60  // x, y, width, height
+
+// Dome on top (circle)
+DRAW ellipse,290, 110, 60, 40
+
+// Cockpit windows (small circles)
+DRAW noFill
+DRAW fill,0, 255, 255
+DRAW linewidth,2
+DRAW circle,270, 160, 10
+DRAW circle,320, 170, 10
+DRAW circle,370, 160, 10
+
+PLAY "L:1  D E C C, G, X "
+SLEEP 200
+
+// === LANDING BEAM ===
+// Light beam coming down
+DRAW fill,255, 255, 200  // Semi-transparent yellow
+DRAW linewidth,4
+DRAW rect, 305, 210, 30, 150
+
+// Landing lights (glowing circles)
+DRAW fill,255, 200, 0
+DRAW linewidth,2
+DRAW circle,270, 195, 8
+DRAW circle,320, 200, 8
+DRAW circle,370, 195, 8
+SLEEP 200
+
+// === ALIENS ===
+// Alien 1 (left)
+DRAW fill,100, 255, 100 // Green alien
+DRAW linewidth,2
+//DRAW noFill
+
+// Head (large oval)
+DRAW ellipse,270, 360, 30, 40
+
+// Eyes (big black ovals)
+DRAW fill,0, 0, 0
+DRAW linewidth,1
+DRAW ellipse,270, 370, 8, 12
+DRAW ellipse,290, 370, 8, 12
+
+// Body (thin)
+DRAW fill,100, 255, 100
+DRAW linewidth,4
+DRAW line,280, 400, 280, 430
+
+// Arms (thin lines)
+DRAW line,280, 410, 260, 420
+DRAW line,280, 410, 300, 420
+
+// Legs
+DRAW line,280, 430, 270, 450
+DRAW line,280, 430, 290, 450
+
+// Alien 2 (right)
+DRAW fill,100, 255, 100
+DRAW linewidth,2
+//DRAW noFill
+
+// Head
+DRAW ellipse,350, 360, 30, 40
+
+// Eyes
+DRAW fill,0, 0, 0
+DRAW linewidth,1
+DRAW ellipse,350, 370, 8, 12
+DRAW ellipse,370, 370, 8, 12
+
+// Body
+DRAW fill,100, 255, 100
+DRAW linewidth,3
+DRAW line,360, 400, 360, 430
+
+// Arms
+DRAW line,360, 410, 340, 420
+DRAW line,360, 410, 380, 420
+
+// Legs
+DRAW line,360, 430, 350, 450
+DRAW line,360, 430, 370, 450
+
+// Alien 3 (center, smaller)
+DRAW fill,100, 255, 100
+DRAW linewidth,2
+//DRAW noFill
+
+// Head
+DRAW ellipse,310, 370, 25, 35
+
+// Eyes
+DRAW fill,0, 0, 0
+DRAW linewidth,1
+DRAW ellipse,312, 380, 6, 10
+DRAW ellipse,328, 380, 6, 10
+
+// Body
+DRAW fill,100, 255, 100
+DRAW linewidth,3
+DRAW line,320, 405, 320, 425
+
+// Arms
+DRAW line,320, 412, 305, 420
+DRAW line,320, 412, 335, 420
+
+// Legs
+DRAW line,320, 425, 312, 445
+DRAW line,320, 425, 328, 445
+
+PLAY "L:2  D, E, C, C,, G,, X "
+SLEEP 400
