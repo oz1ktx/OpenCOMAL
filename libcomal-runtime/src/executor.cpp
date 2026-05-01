@@ -26,6 +26,7 @@
 #include <chrono>
 #include <memory>
 #include <system_error>
+#include <unistd.h>
 
 namespace comal::runtime {
 
