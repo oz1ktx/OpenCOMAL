@@ -4,7 +4,6 @@
 
 class QGraphicsView;
 class QGraphicsScene;
-class QToolBar;
 
 namespace comal::graphics { class Scene; struct Group; }
 
@@ -23,13 +22,15 @@ public slots:
     /// Clear the canvas to a blank state.
     void clearCanvas();
 
+    /// Save canvas as PNG image
+    void saveAsPng();
+
+    /// Save canvas as SVG image
+    void saveAsSvg();
+
 signals:
     /// Emitted when user requests clearing (button or context menu).
     void clearRequested();
-
-private slots:
-    void onSaveAsPng();
-    void onSaveAsSvg();
 
 private:
     void renderGroup(const comal::graphics::Group& group,
@@ -38,5 +39,4 @@ private:
 
     QGraphicsScene *scene_;
     QGraphicsView  *view_;
-    QToolBar       *toolbar_;
 };

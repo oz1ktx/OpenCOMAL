@@ -17,8 +17,11 @@
 #include <QDockWidget>
 #include <QLabel>
 #include <QAction>
+#include <QIcon>
 #include <QKeySequence>
 #include <QFileDialog>
+#include <QPainter>
+#include <QPixmap>
 #include <QSettings>
 #include <QCloseEvent>
 #include <QCoreApplication>
@@ -92,6 +95,38 @@ QString extractHoverText(const QJsonObject &hover)
     }
 
     return {};
+}
+
+QIcon makeRunStateIcon(bool running)
+{
+    QPixmap pm(20, 20);
+    pm.fill(Qt::transparent);
+
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+
+    if (running) {
+        // Running: orange circular badge with pause bars.
+        p.setBrush(QColor(255, 153, 0));
+        p.setPen(Qt::NoPen);
+        p.drawEllipse(1, 1, 18, 18);
+
+        p.setBrush(Qt::white);
+        p.drawRoundedRect(QRectF(7, 5, 2.8, 10), 0.8, 0.8);
+        p.drawRoundedRect(QRectF(11.2, 5, 2.8, 10), 0.8, 0.8);
+    } else {
+        // Idle: green circular badge with play triangle.
+        p.setBrush(QColor(46, 160, 67));
+        p.setPen(Qt::NoPen);
+        p.drawEllipse(1, 1, 18, 18);
+
+        QPolygonF play;
+        play << QPointF(8, 6) << QPointF(8, 14) << QPointF(14.5, 10);
+        p.setBrush(Qt::white);
+        p.drawPolygon(play);
+    }
+
+    return QIcon(pm);
 }
 
 } // namespace
@@ -191,6 +226,8 @@ void MainWindow::createMenus()
     editMenu->addSeparator();
     editMenu->addAction(tr("Format &Source"), this, &MainWindow::onFormatSource,
                          QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F));
+    editMenu->addSeparator();
+    editMenu->addAction(tr("Clear &Output"), this, &MainWindow::onClearOutput);
 
     // Program
     auto *progMenu = menuBar()->addMenu(tr("&Program"));
@@ -211,6 +248,13 @@ void MainWindow::createMenus()
         if (codeEditor_)
             codeEditor_->toggleBreakpointAtCurrentLine();
     }, QKeySequence(Qt::Key_F9));
+
+    // Graphics
+    auto *graphicsMenu = menuBar()->addMenu(tr("&Graphics"));
+    graphicsMenu->addAction(tr("&Clear Canvas"), this, &MainWindow::onClearGraphics);
+    graphicsMenu->addSeparator();
+    graphicsMenu->addAction(tr("Save as &PNG..."), this, &MainWindow::onSavePngGraphics);
+    graphicsMenu->addAction(tr("Save as &SVG..."), this, &MainWindow::onSaveSvgGraphics);
 
     // View — toggle each dock panel
     auto *viewMenu = menuBar()->addMenu(tr("&View"));
@@ -240,16 +284,104 @@ void MainWindow::createMenus()
 
 void MainWindow::createToolBar()
 {
-    auto *tb = addToolBar(tr("Program"));
-    tb->setObjectName("ProgramToolBar");
+    auto *tb = addToolBar(tr("Main Toolbar"));
+    tb->setObjectName("MainToolBar");
+    tb->setIconSize(QSize(20, 20));
 
-    tb->addAction(tr("Run"),       this, &MainWindow::onRun);
-    tb->addAction(tr("Stop"),      this, &MainWindow::onStop);
-    tb->addAction(tr("Break"),     this, &MainWindow::onBreak);
+    // Helper to create simple colored square icons (theme-aware fallback)
+    auto makeIcon = [](const QString &themeIcon, const QColor &color = Qt::transparent) -> QIcon {
+        // Try theme icon first (more robust)
+        QIcon icon = QIcon::fromTheme(themeIcon);
+        if (!icon.isNull()) {
+            return icon;
+        }
+        // Fallback: create a simple colored square pixmap
+        if (color != Qt::transparent) {
+            QPixmap pm(20, 20);
+            pm.fill(color);
+            return QIcon(pm);
+        }
+        return QIcon();
+    };
+
+    runIdleIcon_ = makeRunStateIcon(false);
+    runActiveIcon_ = makeRunStateIcon(true);
+
+    // ── Program Control (Run, Stop, Break) ──
+    runAction_ = tb->addAction(runIdleIcon_, tr("Run"));
+    runAction_->setShortcut(QKeySequence(Qt::Key_F5));
+    connect(runAction_, &QAction::triggered, this, &MainWindow::onRun);
+
+    auto *stopAction = tb->addAction(
+        makeIcon("media-playback-stop", Qt::red),
+        tr("Stop"));
+    stopAction->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F5));
+    connect(stopAction, &QAction::triggered, this, &MainWindow::onStop);
+
+    auto *breakAction = tb->addAction(
+        makeIcon("media-playback-pause", Qt::yellow),
+        tr("Break"));
+    breakAction->setShortcut(QKeySequence(Qt::Key_F6));
+    connect(breakAction, &QAction::triggered, this, &MainWindow::onBreak);
+
     tb->addSeparator();
-    tb->addAction(tr("Step Into"), this, &MainWindow::onStepInto);
-    tb->addAction(tr("Step Over"), this, &MainWindow::onStepOver);
-    tb->addAction(tr("Continue"),  this, &MainWindow::onContinue);
+
+    // ── Source Code (Format) ──
+    auto *formatAction = tb->addAction(
+        makeIcon("document-properties", Qt::blue),
+        tr("Format Source"));
+    formatAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F));
+    connect(formatAction, &QAction::triggered, this, &MainWindow::onFormatSource);
+
+    tb->addSeparator();
+
+    // ── Stepping (Step Into, Step Over, Continue) ──
+    auto *stepIntoAction = tb->addAction(
+        makeIcon("go-down", Qt::cyan),
+        tr("Step Into"));
+    stepIntoAction->setShortcut(QKeySequence(Qt::Key_F11));
+    connect(stepIntoAction, &QAction::triggered, this, &MainWindow::onStepInto);
+
+    auto *stepOverAction = tb->addAction(
+        makeIcon("go-next", Qt::magenta),
+        tr("Step Over"));
+    stepOverAction->setShortcut(QKeySequence(Qt::Key_F10));
+    connect(stepOverAction, &QAction::triggered, this, &MainWindow::onStepOver);
+
+    auto *continueAction = tb->addAction(
+        makeIcon("media-playback-start", Qt::green),
+        tr("Continue"));
+    continueAction->setShortcut(QKeySequence(Qt::Key_F5));
+    connect(continueAction, &QAction::triggered, this, &MainWindow::onContinue);
+
+    tb->addSeparator();
+
+    // ── Graphics (Clear Canvas, Save PNG, Save SVG) ──
+    auto *clearGraphicsAction = tb->addAction(
+        makeIcon("edit-clear", Qt::gray),
+        tr("Clear Canvas"));
+    connect(clearGraphicsAction, &QAction::triggered, this, &MainWindow::onClearGraphics);
+
+    auto *savePngAction = tb->addAction(
+        makeIcon("document-save", Qt::darkGreen),
+        tr("Save PNG"));
+    connect(savePngAction, &QAction::triggered, this, &MainWindow::onSavePngGraphics);
+
+    auto *saveSvgAction = tb->addAction(
+        makeIcon("document-save-as", Qt::darkBlue),
+        tr("Save SVG"));
+    connect(saveSvgAction, &QAction::triggered, this, &MainWindow::onSaveSvgGraphics);
+
+    updateRunActionVisual(false);
+}
+
+void MainWindow::updateRunActionVisual(bool running)
+{
+    if (!runAction_) return;
+
+    runAction_->setIcon(running ? runActiveIcon_ : runIdleIcon_);
+    runAction_->setText(running ? tr("Run (Active)") : tr("Run"));
+    runAction_->setToolTip(running ? tr("Program is running") : tr("Run program"));
 }
 
 // ── Status bar ──────────────────────────────────────────────────────
@@ -466,6 +598,7 @@ void MainWindow::onRun()
     connectRunWorker();
 
     stateLabel_->setText(tr("Running"));
+    updateRunActionVisual(true);
     worker_->start();
 }
 
@@ -484,6 +617,7 @@ void MainWindow::onRunFinished()
     const bool completedDirectCommand = lastActionWasDirectCommand_;
     lastActionWasDirectCommand_ = false;
     stateLabel_->setText(tr("Ready"));
+    updateRunActionVisual(false);
     directCommand_->setInputEnabled(false);
     codeEditor_->clearExecutionHighlight();
 
@@ -499,6 +633,7 @@ void MainWindow::onRunError(const QString &message, int lineNumber)
     msg += "\n";
     directCommand_->appendOutput(msg);
     stateLabel_->setText(tr("Error"));
+    updateRunActionVisual(false);
     directCommand_->setInputEnabled(false);
 
     codeEditor_->clearExecutionHighlight();
@@ -538,6 +673,7 @@ void MainWindow::onDirectCommand(const QString &command)
     }
     worker_->setDirectCommand(command);
     stateLabel_->setText(tr("Running"));
+    updateRunActionVisual(true);
     worker_->start();
 }
 
@@ -582,6 +718,7 @@ void MainWindow::startSingleStepRun(const QString &title)
         worker_->setSingleStep(true);
         worker_->requestContinue();
         stateLabel_->setText(tr("Stepping"));
+        updateRunActionVisual(true);
         return;
     }
 
@@ -609,6 +746,7 @@ void MainWindow::startSingleStepRun(const QString &title)
     connectRunWorker();
 
     stateLabel_->setText(tr("Stepping"));
+    updateRunActionVisual(true);
     worker_->start();
 }
 
@@ -623,6 +761,27 @@ void MainWindow::onStepOver()
 }
 
 void MainWindow::onFormatSource(){ codeEditor_->formatSource(); }
+
+void MainWindow::onClearGraphics()
+{
+    persistentScene_->clear();
+    graphics_->clearCanvas();
+}
+
+void MainWindow::onSavePngGraphics()
+{
+    graphics_->saveAsPng();
+}
+
+void MainWindow::onSaveSvgGraphics()
+{
+    graphics_->saveAsSvg();
+}
+
+void MainWindow::onClearOutput()
+{
+    directCommand_->clearOutputPanel();
+}
 
 void MainWindow::onResetLayout()
 {
@@ -653,6 +812,7 @@ void MainWindow::onContinue()
         worker_->setSingleStep(false);  // Disable single-step when continuing
         worker_->requestContinue();
         stateLabel_->setText(tr("Running"));
+        updateRunActionVisual(true);
     }
 }
 

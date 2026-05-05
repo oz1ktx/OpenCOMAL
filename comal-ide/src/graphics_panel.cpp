@@ -6,7 +6,6 @@
 #include <QGraphicsScene>
 #include <QGraphicsEllipseItem>
 #include <QGraphicsTextItem>
-#include <QToolBar>
 #include <QMenu>
 #include <QAction>
 #include <QFileDialog>
@@ -29,15 +28,6 @@ GraphicsPanel::GraphicsPanel(QWidget *parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    // Toolbar with Clear and Save buttons
-    toolbar_ = new QToolBar(this);
-    toolbar_->setIconSize(QSize(16, 16));
-    toolbar_->addAction(tr("Clear"), this, [this]() { emit clearRequested(); });
-    toolbar_->addSeparator();
-    toolbar_->addAction(tr("Save PNG..."), this, &GraphicsPanel::onSaveAsPng);
-    toolbar_->addAction(tr("Save SVG..."), this, &GraphicsPanel::onSaveAsSvg);
-    layout->addWidget(toolbar_);
-
     scene_ = new QGraphicsScene(0, 0, 640, 480, this);
     view_  = new QGraphicsView(scene_, this);
     view_->setRenderHint(QPainter::Antialiasing);
@@ -49,8 +39,8 @@ GraphicsPanel::GraphicsPanel(QWidget *parent)
         QMenu menu(this);
         menu.addAction(tr("Clear"), this, [this]() { emit clearRequested(); });
         menu.addSeparator();
-        menu.addAction(tr("Save as PNG..."), this, &GraphicsPanel::onSaveAsPng);
-        menu.addAction(tr("Save as SVG..."), this, &GraphicsPanel::onSaveAsSvg);
+        menu.addAction(tr("Save as PNG..."), this, &GraphicsPanel::saveAsPng);
+        menu.addAction(tr("Save as SVG..."), this, &GraphicsPanel::saveAsSvg);
         menu.exec(view_->mapToGlobal(pos));
     });
 
@@ -68,7 +58,7 @@ void GraphicsPanel::clearCanvas()
     scene_->setBackgroundBrush(QColor(240, 240, 255));
 }
 
-void GraphicsPanel::onSaveAsPng()
+void GraphicsPanel::saveAsPng()
 {
     QString path = QFileDialog::getSaveFileName(
         this, tr("Save as PNG"), QString(), tr("PNG Images (*.png)"));
@@ -86,7 +76,7 @@ void GraphicsPanel::onSaveAsPng()
     image.save(path);
 }
 
-void GraphicsPanel::onSaveAsSvg()
+void GraphicsPanel::saveAsSvg()
 {
     QString path = QFileDialog::getSaveFileName(
         this, tr("Save as SVG"), QString(), tr("SVG Files (*.svg)"));

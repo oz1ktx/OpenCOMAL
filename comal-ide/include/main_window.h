@@ -7,6 +7,8 @@
 class QTabWidget;
 class QDockWidget;
 class QLabel;
+class QAction;
+class QIcon;
 class CodeEditorPanel;
 class DirectCommandPanel;
 class GraphicsPanel;
@@ -38,6 +40,7 @@ private:
     void createPanels();
     void restoreDefaultLayout();
     void connectRunWorker();
+    void updateRunActionVisual(bool running);
 
     void startSingleStepRun(const QString &title);
     
@@ -78,6 +81,11 @@ private:
     QLabel *posLabel_;
     QLabel *stateLabel_;
 
+    // Main toolbar run action state
+    QAction *runAction_{nullptr};
+    QIcon runIdleIcon_;
+    QIcon runActiveIcon_;
+
 private slots:
     void onNew();
     void onOpen();
@@ -91,6 +99,10 @@ private slots:
     void onStepOver();
     void onContinue();
     void onFormatSource();
+    void onClearGraphics();
+    void onSavePngGraphics();
+    void onSaveSvgGraphics();
+    void onClearOutput();
     void onResetLayout();
     void onRunFinished();
     void onRunError(const QString &message, int lineNumber);

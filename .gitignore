@@ -6,6 +6,7 @@ src/*.o
 *.a
 *.so
 *.dll
+build/
 
 # Generated parser/lexer
 src/lex.yy.c
