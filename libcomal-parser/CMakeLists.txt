@@ -25,6 +25,7 @@ add_library(comal-parser
     ${PARSER_SRC_DIR}/parser_api.cpp
     ${PARSER_SRC_DIR}/parser_deps.cpp
     ${PARSER_SRC_DIR}/ast_compat.cpp
+    ${PARSER_SRC_DIR}/modern_builders.cpp
 )
 
 add_executable(comal-parse-cli

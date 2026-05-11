@@ -6,7 +6,7 @@
 #include "comal_builtins.h"
 #include "comal_interpreter.h"
 #include "comal_executor.h"      // execFuncCall
-#include "comal_ast.h"           // full definitions: id_rec, string, VAL_TYPE, etc.
+#include "comal_legacy_shims.h"   // id_rec / string accessors (no direct comal_ast.h)
 #include "comal_ast_modern.h"
 #include "comal_functions.h"
 #include "parser.tab.h"          // token constants (plusSYM, minusSYM, ...)
@@ -32,9 +32,10 @@ static Value evalSubstr(Interpreter& interp, const comal::ExpSubstr& sub);
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-/// Get the name of an id_rec (legacy struct)
+/// Get the variable name from a legacy id_rec (null-safe wrapper around shim).
 static std::string idName(const id_rec* id) {
-    return id ? id->name : "<null>";
+    const char* n = comal_id_name(id);
+    return n ? n : "<null>";
 }
 
 // ── Main entry point ────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ Value evaluate(Interpreter& interp, const comal::Expression* expr) {
         // Legacy string* → C++ std::string
         const auto* str = expr->asString();
         if (!str) return Value(std::string{});
-        return Value(std::string(str->s, str->len));
+        return Value(comal_string_to_cpp(str));
     }
 
     case OpType::Const:
@@ -313,9 +314,9 @@ static Value evalId(Interpreter& interp, const comal::ExpId& eid) {
 
         // Auto-create in the nearest CLOSED scope (or global), matching legacy behavior
         Value init;
-        if (eid.id && eid.id->type == V_STRING)
+        if (comal_id_is_string(eid.id))
             init = Value(std::string{});
-        else if (eid.id && eid.id->type == V_FLOAT)
+        else if (comal_id_is_float(eid.id))
             init = Value(0.0);
         else
             init = Value(int64_t{0});

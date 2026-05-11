@@ -5,6 +5,7 @@
 #include "comal_executor.h"
 #include "comal_evaluator.h"
 #include "comal_parser_api.h"
+#include "comal_legacy_shims.h"   // id_rec / string accessors
 #include "comal_sound.h"
 
 #include <fstream>
@@ -484,7 +485,8 @@ void Interpreter::buildProcTable() {
             line->command() == StatementType::Func) {
             const auto& pf = line->asProcFunc();
             if (pf.id) {
-                procTable[pf.id->name] = line;
+                const char* n = comal_id_name(pf.id);
+                if (n) procTable[n] = line;
             }
         }
     }

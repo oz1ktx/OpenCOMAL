@@ -1,4 +1,5 @@
 #include "comal_parser_api.h"
+#include "comal_ast.h"           // id_rec, string — needed for direct field access in this tool
 #include "comal_ast_modern.h"
 #include "comal_functions.h"
 

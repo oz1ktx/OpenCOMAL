@@ -1,3 +1,4 @@
+#include "ast_compat.h"          // own declarations
 #include "comal_ast_modern.h"
 #include "comal_ast.h"
 #include "comal_base.h"
@@ -58,28 +59,6 @@ static OpType map_optype(enum optype old_type) {
         case T_SARRAY:        return OpType::Sarray;
         default:              return OpType::Unused;
     }
-}
-
-static enum optype unmap_optype(OpType new_type) {
-    switch (new_type) {
-        case OpType::Unused:      return T_UNUSED;
-        case OpType::Const:       return T_CONST;
-        case OpType::Unary:       return T_UNARY;
-        case OpType::Binary:      return T_BINARY;
-        case OpType::IntNum:      return T_INTNUM;
-        case OpType::Float:       return T_FLOAT;
-        case OpType::Substr:      return T_SUBSTR;
-        case OpType::String:      return T_STRING;
-        case OpType::Id:          return T_ID;
-        case OpType::Sid:         return T_SID;
-        case OpType::Sys:         return T_SYS;
-        case OpType::Syss:        return T_SYSS;
-        case OpType::ExpIsNum:    return T_EXP_IS_NUM;
-        case OpType::ExpIsString: return T_EXP_IS_STRING;
-        case OpType::Array:       return T_ARRAY;
-        case OpType::Sarray:      return T_SARRAY;
-    }
-    return T_UNUSED;
 }
 
 Expression* convert_expression(const struct expression* old_exp) {
@@ -161,40 +140,6 @@ Expression* convert_expression(const struct expression* old_exp) {
     }
     
     return new Expression(new_type, old_exp->op, std::move(data));
-}
-
-// ============================================================================
-// Modern class -> Legacy struct conversion (for compatibility during transition)
-// ============================================================================
-
-struct expression* convert_to_legacy_expression(const Expression* new_exp, int pool) {
-    if (!new_exp) return nullptr;
-    
-    auto* old_exp = static_cast<struct expression*>(
-        mem_alloc(pool, sizeof(struct expression))
-    );
-    
-    old_exp->optype = unmap_optype(new_exp->opType());
-    old_exp->op = new_exp->op();
-    
-    // Convert data based on type
-    switch (new_exp->opType()) {
-        case OpType::IntNum:
-            old_exp->e.num = static_cast<long>(new_exp->asNum());
-            break;
-        case OpType::Float:
-            old_exp->e.fnum.val = new_exp->asFloat();
-            old_exp->e.fnum.text = nullptr;  // modern AST no longer carries source text
-            break;
-        case OpType::String:
-            old_exp->e.str = new_exp->asString();
-            break;
-        // TODO: add more reverse-conversion cases as needed
-        default:
-            break;
-    }
-    
-    return old_exp;
 }
 
 // ============================================================================

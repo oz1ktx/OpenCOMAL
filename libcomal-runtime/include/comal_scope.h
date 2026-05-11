@@ -17,8 +17,6 @@
 
 #include "comal_value.h"
 
-struct id_rec;   // forward from legacy parser
-
 namespace comal {
 class ComalLine;
 class Expression;

@@ -5,7 +5,7 @@
 #include "comal_executor.h"
 #include "comal_evaluator.h"
 #include "comal_interpreter.h"
-#include "comal_ast.h"           // full definitions: id_rec, string, VAL_TYPE, etc.
+#include "comal_legacy_shims.h"   // id_rec / string accessors (no direct comal_ast.h)
 #include "comal_ast_modern.h"
 #include "comal_functions.h"
 #include "comal_file_io.h"       // FileMode enum
@@ -1003,7 +1003,7 @@ static Value& resolveLval(Interpreter& interp, const Expression* lval) {
             // Check id_rec type for V_FLOAT variables
             bool is_float = false;
             if (auto* eid = std::get_if<ExpId>(&lval->data()))
-                is_float = (eid->id && eid->id->type == V_FLOAT);
+                is_float = comal_id_is_float(eid->id);
             init = is_float ? Value(0.0) : Value(int64_t{0});
             break;
         }

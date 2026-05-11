@@ -21,6 +21,8 @@
 #include "comal_misc.h"
 #include "comal_id.h"
 #include "comal_program.h"
+#include "comal_ast_modern.h"
+#include "modern_builders.h"
 
 #include <string.h>
 
@@ -54,6 +56,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 		struct two_exp *twoexpp;
 		struct comal_line cl;
 		struct comal_line *pcl;
+		void *pcl_modern;  /* actually comal::ComalLine* */
 		struct exp_list *expptr;
 		struct ext_rec *extptr;
 		struct dim_list *dimptr;

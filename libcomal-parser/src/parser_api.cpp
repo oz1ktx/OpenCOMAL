@@ -1,4 +1,6 @@
 #include "comal_parser_api.h"
+#include "ast_compat.h"          // convert_comal_line (internal)
+#include "comal_ast.h"           // full legacy struct definitions
 #include "lexer_support.h"
 #include "parser_support.h"
 #include "comal_memory.h"
@@ -74,14 +76,38 @@ ComalLine* comal_parse_line_modern(const char *line,
                                    char *errbuf, size_t errbuf_len,
                                    int *errpos)
 {
-    struct comal_line legacy_line;
-    memset(&legacy_line, 0, sizeof(legacy_line));
-
-    if (!comal_parse_line(line, &legacy_line, errbuf, errbuf_len, errpos)) {
+    if (line == nullptr) {
+        if (errbuf && errbuf_len > 0) {
+            strncpy(errbuf, "No input", errbuf_len - 1);
+            errbuf[errbuf_len - 1] = '\0';
+        }
+        if (errpos) *errpos = 0;
         return nullptr;
     }
 
-    return convert_comal_line(&legacy_line);
+    // Drive the parser directly — no intermediate struct comal_line copy.
+    // This is the Phase 2 improvement: the modern path no longer goes through
+    // the legacy comal_parse_line() API.
+    lex_setinput((char *)line);
+    (void)yyparse();
+
+    int error_pos = pars_handle_error_silent();
+    if (error_pos) {
+        if (errbuf && errbuf_len > 0) {
+            const char *msg = pars_last_error();
+            if (msg == nullptr || msg[0] == '\0') msg = "Parse error";
+            strncpy(errbuf, msg, errbuf_len - 1);
+            errbuf[errbuf_len - 1] = '\0';
+        }
+        if (errpos) *errpos = error_pos;
+        return nullptr;
+    }
+
+    if (errbuf && errbuf_len > 0) errbuf[0] = '\0';
+    if (errpos) *errpos = 0;
+
+    // Convert directly from the authoritative c_line — no copy.
+    return convert_comal_line(&c_line);
 }
 
 const char* statement_type_name(StatementType cmd) {
