@@ -1,5 +1,4 @@
 #include "comal_parser_api.h"
-#include "ast_compat.h"          // convert_comal_line (internal)
 #include "comal_ast.h"           // full legacy struct definitions
 #include "lexer_support.h"
 #include "parser_support.h"
@@ -9,6 +8,7 @@
 #include <string.h>
 
 extern struct comal_line c_line;
+extern comal::ComalLine* c_line_modern;
 
 int comal_parse_line(const char *line, struct comal_line *out_line,
 			     char *errbuf, size_t errbuf_len, int *errpos)
@@ -106,8 +106,11 @@ ComalLine* comal_parse_line_modern(const char *line,
     if (errbuf && errbuf_len > 0) errbuf[0] = '\0';
     if (errpos) *errpos = 0;
 
-    // Convert directly from the authoritative c_line — no copy.
-    return convert_comal_line(&c_line);
+    // Read the modern AST built directly by the grammar action — no post-parse
+    // conversion needed. The grammar's a_comal_line rule populates c_line_modern.
+    ComalLine* result = c_line_modern;
+    c_line_modern = nullptr;  // take ownership, clear global
+    return result;
 }
 
 const char* statement_type_name(StatementType cmd) {

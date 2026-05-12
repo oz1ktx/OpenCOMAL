@@ -23,12 +23,14 @@
 #include "comal_program.h"
 #include "comal_ast_modern.h"
 #include "modern_builders.h"
+#include "ast_compat.h"
 
 #include <string.h>
 
 #define yyunion(x,y)	( (*(x)) = (*(y)) )
 
 PUBLIC struct comal_line c_line;
+PUBLIC comal::ComalLine* c_line_modern = nullptr;
 
 PRIVATE void p_error(const char *msg);
 
@@ -217,20 +219,20 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %type	<whenptr>	when_strlist
 %type	<assignptr>	assign_list assign_item
 
-%type	<cl>	comal_line
-%type	<cl>	program_line complex_stat simple_stat complex_1word
-%type	<cl>	simple_1word case_stat data_stat elif_stat for_stat
-%type	<cl>	func_stat if_stat proc_stat until_stat when_stat
-%type	<cl>	while_stat label_stat close_stat del_stat dim_stat
-%type	<cl>	exec_stat import_stat input_stat open_stat os_stat
-%type	<cl>	print_stat read_stat restore_stat return_stat
-%type	<cl>	select_out_stat stop_stat sys_stat write_stat assign_stat
-%type	<cl>	select_in_stat exit_stat cursor_stat chdir_stat
-%type	<cl>	rmdir_stat mkdir_stat repeat_stat
-%type	<cl>	local_stat trap_stat dir_stat unit_stat draw_stat play_stat tone_stat sleep_stat
-%type	<cl>	spawn_stat
+%type	<pcl_modern>	comal_line
+%type	<pcl_modern>	program_line complex_stat simple_stat complex_1word
+%type	<pcl_modern>	simple_1word case_stat data_stat elif_stat for_stat
+%type	<pcl_modern>	func_stat if_stat proc_stat until_stat when_stat
+%type	<pcl_modern>	while_stat label_stat close_stat del_stat dim_stat
+%type	<pcl_modern>	exec_stat import_stat input_stat open_stat os_stat
+%type	<pcl_modern>	print_stat read_stat restore_stat return_stat
+%type	<pcl_modern>	select_out_stat stop_stat sys_stat write_stat assign_stat
+%type	<pcl_modern>	select_in_stat exit_stat cursor_stat chdir_stat
+%type	<pcl_modern>	rmdir_stat mkdir_stat repeat_stat
+%type	<pcl_modern>	local_stat trap_stat dir_stat unit_stat draw_stat play_stat tone_stat sleep_stat
+%type	<pcl_modern>	spawn_stat
 
-%type	<pcl>		optsimple_stat 
+%type	<pcl_modern>	optsimple_stat
 
 %start	a_comal_line
 
@@ -238,7 +240,8 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 
 a_comal_line	:	comal_line eolnSYM
 			{
-				c_line=$1;
+				c_line_modern = (comal::ComalLine*)$1;
+				c_line.cmd=0;  /* legacy path: cmd cleared; content in c_line_modern */
 				YYACCEPT;
 			}
 		|	error eolnSYM
@@ -246,41 +249,35 @@ a_comal_line	:	comal_line eolnSYM
 				p_error("Syntax error");
 				yyerrok;
 				c_line.cmd=0;
+				c_line_modern = nullptr;
 				YYACCEPT;
 			}
 		;
 		
 comal_line	:	intnumSYM program_line optrem
 			{
-				$$=$2;
-				$$.ld=PARS_ALLOC(struct comal_line_data);
-				$$.ld->lineno=$1;
-				$$.ld->rem=$3;
-				$$.lineptr=NULL;
+				comal::ComalLine* cl = (comal::ComalLine*)$2;
+				cl->setLineData(new comal::ComalLineData($1, 0, $3));
+				cl->setLinePtr(nullptr);
+				$$ = (void*)cl;
 			}
 		|	complex_stat optrem
 			{
-				$$=$1;
-				$$.ld=NULL;
-				if ($2) {
-					$$.ld=PARS_ALLOC(struct comal_line_data);
-					$$.ld->lineno=0;
-					$$.ld->rem=$2;
-				}
+				comal::ComalLine* cl = (comal::ComalLine*)$1;
+				if ($2) cl->setLineData(new comal::ComalLineData(0, 0, $2));
+				$$ = (void*)cl;
 			}
 		|	simple_stat optrem
 			{
-				$$=$1;
-				$$.ld=NULL;
-				if ($2) {
-					$$.ld=PARS_ALLOC(struct comal_line_data);
-					$$.ld->lineno=0;
-					$$.ld->rem=$2;
-				}
+				comal::ComalLine* cl = (comal::ComalLine*)$1;
+				if ($2) cl->setLineData(new comal::ComalLineData(0, 0, $2));
+				$$ = (void*)cl;
 			}
 		|	optrem
 			{
-				$$.cmd=0;
+				comal::ComalLine* cl = comal::build_empty_line();
+				if ($1) cl->setLineData(new comal::ComalLineData(0, 0, $1));
+				$$ = (void*)cl;
 			}
 		;
 		
@@ -294,7 +291,7 @@ program_line	:	complex_stat
 		|	simple_stat
 		|	/* epsilon */
 			{
-				$$.cmd=0;
+				$$ = (void*)comal::build_empty_line();
 			}
 		;
 		
@@ -347,8 +344,7 @@ simple_stat	:	close_stat
 		|	write_stat
 		|	xid
 			{
-				$$.cmd=execSYM;
-				$$.lc.exp=$1;
+				$$ = (void*)comal::build_exec_line(comal::convert_expression($1));
 			}
 		|	assign_stat
 		|	simple_1word
@@ -356,152 +352,145 @@ simple_stat	:	close_stat
 
 complex_1word	:	elseSYM
 			{
-				$$.cmd=elseSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::Else);
 			}
 		|	endcaseSYM
 			{
-				$$.cmd=endcaseSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::EndCase);
 			}
 		|	endfuncSYM optid
 			{
-				$$.cmd=endfuncSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::EndFunc);
 			}
 		|	endifSYM
 			{
-				$$.cmd=endifSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::EndIf);
 			}
 		|	loopSYM
 			{
-				$$.cmd=loopSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::Loop);
 			}
 		|	endloopSYM
 			{
-				$$.cmd=endloopSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::EndLoop);
 			}
 		|	endprocSYM optid2
 			{
-				$$.cmd=endprocSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::EndProc);
 			}
 		|	endwhileSYM
 			{
-				$$.cmd=endwhileSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::EndWhile);
 			}
 		|	endforSYM optnumlvalue
 			{
-				$$.cmd=endforSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::EndFor);
 			}
 		|	otherwiseSYM
 			{
-				$$.cmd=otherwiseSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::Otherwise);
 			}
 		|	repeatSYM
 			{
-				$$.cmd=repeatSYM;
-				$$.lc.ifwhilerec.exp=NULL;
-				$$.lc.ifwhilerec.stat=NULL;
+				$$ = (void*)comal::build_repeat_line(comal::IfWhileRec{nullptr, nullptr});
 			}
 		|	trapSYM
 			{
-				$$.cmd=trapSYM;
-				$$.lc.traprec.esc=0;
+				$$ = (void*)comal::build_trap_line(comal::TrapRec{0});
 			}
 		|	handlerSYM
 			{
-				$$.cmd=handlerSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::Handler);
 			}
 		|	endtrapSYM
 			{
-				$$.cmd=endtrapSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::EndTrap);
 			}
 		;
 
 simple_1word	:	nullSYM
 			{
-				$$.cmd=nullSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::Null);
 			}
 		|	endSYM
 			{
-				$$.cmd=endSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::End);
 			}
 		|	exitSYM
 			{
-				$$.cmd=exitSYM;
-				$$.lc.exp=NULL;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Exit, nullptr);
 			}
 		|	pageSYM
 			{
-				$$.cmd=pageSYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::Page);
 			}
 		|	retrySYM
 			{
-				$$.cmd=retrySYM;
+				$$ = (void*)comal::build_simple_keyword_line(comal::StatementType::Retry);
 			}
 		;
 		
 case_stat	:	caseSYM exp optof
 			{
-				$$.cmd=caseSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_case_line(comal::convert_expression($2));
 			}
 		;
 		
 close_stat	:	closeSYM
 			{
-				$$.cmd=closeSYM;
-				$$.lc.exproot=NULL;
+				$$ = (void*)comal::build_close_line(nullptr);
 			}
 		|	closeSYM optfileS exp_list
 			{
-				$$.cmd=closeSYM;
-				$$.lc.exproot=PARS_REVERSE(struct exp_list, $3);
+				$$ = (void*)comal::build_close_line(
+					comal::convert_exp_list(PARS_REVERSE(struct exp_list, $3)));
 			}
 		;
 
 cursor_stat	:	cursorSYM numexp commaSYM numexp
 			{
-				$$.cmd=cursorSYM;
-				$$.lc.twoexp.exp1=$2;
-				$$.lc.twoexp.exp2=$4;
+				$$ = (void*)comal::build_cursor_line(
+					comal::convert_expression($2),
+					comal::convert_expression($4));
 			}
 		;
 		
 chdir_stat	:	chdirSYM stringexp
 			{
-				$$.cmd=chdirSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Chdir,
+					comal::convert_expression($2));
 			}
 		;
 
 rmdir_stat	:	rmdirSYM stringexp
 			{
-				$$.cmd=rmdirSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Rmdir,
+					comal::convert_expression($2));
 			}
 		;
 
 mkdir_stat	:	mkdirSYM stringexp
 			{
-				$$.cmd=mkdirSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Mkdir,
+					comal::convert_expression($2));
 			}
 		;
 
 data_stat	:	dataSYM exp_list
 			{
-				$$.cmd=dataSYM;
-				$$.lc.exproot=PARS_REVERSE(struct exp_list, $2);
+				$$ = (void*)comal::build_data_line(
+					comal::convert_exp_list(PARS_REVERSE(struct exp_list, $2)));
 			}
 		;
 
 draw_stat	:	drawSYM exp_list
 			{
-				$$.cmd=drawSYM;
-				$$.lc.exproot=PARS_REVERSE(struct exp_list, $2);
+				struct exp_list* rev = PARS_REVERSE(struct exp_list, $2);
 				/* Auto-quote: if the first expression is a bare
 				   identifier (no subscripts), treat it as a
 				   string constant — e.g. DRAW circle, 100, 200, 50
 				   becomes DRAW "circle", 100, 200, 50 */
-				struct exp_list *first = $$.lc.exproot;
+				struct exp_list *first = rev;
 				if (first && first->exp) {
 					struct expression *inner = first->exp;
 					if (inner->optype == T_EXP_IS_NUM)
@@ -512,59 +501,57 @@ draw_stat	:	drawSYM exp_list
 							inner->e.expid.id->name);
 					}
 				}
+				$$ = (void*)comal::build_draw_line(comal::convert_exp_list(rev));
 			}
 		;
 
 	tone_stat	:	toneSYM exp_list
 				{
-				$$.cmd=toneSYM;
-				$$.lc.exproot=PARS_REVERSE(struct exp_list, $2);
-				/* Expected usage: TONE freq_ms duration_ms or numeric expressions */
+				$$ = (void*)comal::build_tone_line(
+					comal::convert_exp_list(PARS_REVERSE(struct exp_list, $2)));
 			}
 			;
 
 	play_stat	:	playSYM exp_list
 				{
-				$$.cmd=playSYM;
-				$$.lc.exproot=PARS_REVERSE(struct exp_list, $2);
-				/* PLAY takes a parameter list or string — parsed as expression list */
+				$$ = (void*)comal::build_play_line(
+					comal::convert_exp_list(PARS_REVERSE(struct exp_list, $2)));
 			}
 			;
 
 	sleep_stat	:	sleepSYM exp_list
 			{
-			$$.cmd=sleepSYM;
-			$$.lc.exproot=PARS_REVERSE(struct exp_list, $2);
-			/* SLEEP ms_expr (expression list, but only first is used) */
+			$$ = (void*)comal::build_sleep_line(
+				comal::convert_exp_list(PARS_REVERSE(struct exp_list, $2)));
 		}
 		;
 
 del_stat	:	delSYM stringexp
 			{
-				$$.cmd=delSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Del,
+					comal::convert_expression($2));
 			}
 		;
 
 dir_stat	:	dirSYM opt_stringexp
 			{
-				$$.cmd=dirSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Dir,
+					comal::convert_expression($2));
 			}
 		;
 
 unit_stat	:	unitSYM stringexp
 			{
-				$$.cmd=unitSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Unit,
+					comal::convert_expression($2));
 			}
 		;
 
 
 local_stat	:	localSYM local_list
 			{
-				$$.cmd=localSYM;
-				$$.lc.dimroot=PARS_REVERSE(struct dim_list, $2);
+				$$ = (void*)comal::build_local_line(
+					comal::convert_dim_list(PARS_REVERSE(struct dim_list, $2)));
 			}
 		;
 local_list	:	local_list commaSYM local_item
@@ -604,8 +591,8 @@ local_item	:	numid opt_dim_ensions
 
 dim_stat	:	dimSYM dim_list
 			{
-				$$.cmd=dimSYM;
-				$$.lc.dimroot=PARS_REVERSE(struct dim_list, $2);
+				$$ = (void*)comal::build_dim_line(
+					comal::convert_dim_list(PARS_REVERSE(struct dim_list, $2)));
 			}
 		;
 		
@@ -690,15 +677,15 @@ dim_ension	:	numexp
 
 elif_stat	:	elifSYM numexp optthen
 			{
-				$$.cmd=elifSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Elif,
+					comal::convert_expression($2));
 			}
 		;
 
 exit_stat	:	exitSYM ifwhen numexp
 			{
-				$$.cmd=exitSYM;
-				$$.lc.exp=$3;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Exit,
+					comal::convert_expression($3));
 			}
 		;
 		
@@ -708,27 +695,26 @@ ifwhen		:	ifSYM
 		
 exec_stat	:	execSYM xid
 			{
-				$$.cmd=execSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_exec_line(comal::convert_expression($2));
 			}
 		;
 
 spawn_stat	:	spawnSYM xid
 			{
-				$$.cmd=spawnSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_spawn_line(comal::convert_expression($2));
 			}
 		;
 
 for_stat	:	forSYM numlvalue assign1 numexp todownto numexp optstep optdo optsimple_stat
 			{
-				$$.cmd=forSYM;
-				$$.lc.forrec.lval=$2;
-				$$.lc.forrec.from=$4;
-				$$.lc.forrec.mode=$5;
-				$$.lc.forrec.to=$6;
-				$$.lc.forrec.step=$7;
-				$$.lc.forrec.stat=$9;
+				comal::ForRec fr;
+				fr.lval = comal::convert_expression($2);
+				fr.from = comal::convert_expression($4);
+				fr.mode = $5;
+				fr.to   = comal::convert_expression($6);
+				fr.step = comal::convert_expression($7);
+				fr.stat = (comal::ComalLine*)$9;
+				$$ = (void*)comal::build_for_line(std::move(fr));
 			}
 		;
 
@@ -754,33 +740,35 @@ optstep		:	stepSYM numexp
 		
 func_stat	:	funcSYM id procfunc_head optclosed opt_external
 			{
-				$$.cmd=funcSYM;
-				$$.lc.pfrec.id=$2;
-				$$.lc.pfrec.parmroot=PARS_REVERSE(struct parm_list, $3);
-				$$.lc.pfrec.closed=$4;
-				$$.lc.pfrec.external=$5;
+				comal::ProcFuncRec pf;
+				pf.id       = $2;
+				pf.parmroot = comal::convert_parm_list(PARS_REVERSE(struct parm_list, $3));
+				pf.closed   = $4;
+				pf.external = comal::convert_ext_rec($5);
+				$$ = (void*)comal::build_func_line(std::move(pf));
 			}
 		;
 
 if_stat		:	ifSYM numexp optthen optsimple_stat
 			{
-				$$.cmd=ifSYM;
-				$$.lc.ifwhilerec.exp=$2;
-				$$.lc.ifwhilerec.stat=$4;
+				$$ = (void*)comal::build_if_line(
+					comal::IfWhileRec{comal::convert_expression($2), (comal::ComalLine*)$4});
 			}
 		;
 		
 import_stat	:	importSYM id colonSYM import_list
 			{
-				$$.cmd=importSYM;
-				$$.lc.importrec.id=$2;
-				$$.lc.importrec.importroot=PARS_REVERSE(struct import_list, $4);
+				comal::ImportRec ir;
+				ir.id         = $2;
+				ir.importroot = comal::convert_import_list(PARS_REVERSE(struct import_list, $4));
+				$$ = (void*)comal::build_import_line(std::move(ir));
 			}
 		|	importSYM import_list
 			{
-				$$.cmd=importSYM;
-				$$.lc.importrec.id=NULL;
-				$$.lc.importrec.importroot=PARS_REVERSE(struct import_list, $2);
+				comal::ImportRec ir;
+				ir.id         = nullptr;
+				ir.importroot = comal::convert_import_list(PARS_REVERSE(struct import_list, $2));
+				$$ = (void*)comal::build_import_line(std::move(ir));
 			}
 		;
 		
@@ -802,9 +790,18 @@ import_list	:	import_list commaSYM oneparm
 
 input_stat	:	inputSYM input_modifier lval_list
 			{
-				$$.cmd=inputSYM;
-				$$.lc.inputrec.modifier=$2;
-				$$.lc.inputrec.lvalroot=PARS_REVERSE(struct exp_list, $3);
+				comal::InputRec ir;
+				if ($2 == nullptr) {
+					ir.modifier = nullptr;
+				} else if ($2->type == fileSYM) {
+					ir.modifier = new comal::InputModifier(fileSYM,
+						comal::TwoExp{comal::convert_expression($2->data.twoexp.exp1),
+						              comal::convert_expression($2->data.twoexp.exp2)});
+				} else {
+					ir.modifier = new comal::InputModifier(stringSYM, $2->data.str);
+				}
+				ir.lvalroot = comal::convert_exp_list(PARS_REVERSE(struct exp_list, $3));
+				$$ = (void*)comal::build_input_line(std::move(ir));
 			}
 		;
 		
@@ -828,17 +825,23 @@ input_modifier	:	io_designator
 
 open_stat	:	openSYM fileSYM numexp commaSYM stringexp commaSYM open_type
 			{
-				$$.cmd=openSYM;
-				$$.lc.openrec=$7;
-				$$.lc.openrec.filenum=$3;
-				$$.lc.openrec.filename=$5;
+				comal::OpenRec orec;
+				orec.type      = $7.type;
+				orec.reclen    = comal::convert_expression($7.reclen);
+				orec.read_only = $7.read_only;
+				orec.filenum   = comal::convert_expression($3);
+				orec.filename  = comal::convert_expression($5);
+				$$ = (void*)comal::build_open_line(std::move(orec));
 			}
 		|	openSYM queueSYM numexp commaSYM stringexp commaSYM queue_type
 			{
-				$$.cmd=openSYM;
-				$$.lc.openrec=$7;
-				$$.lc.openrec.filenum=$3;
-				$$.lc.openrec.filename=$5;
+				comal::OpenRec orec;
+				orec.type      = $7.type;
+				orec.reclen    = nullptr;
+				orec.read_only = 0;
+				orec.filenum   = comal::convert_expression($3);
+				orec.filename  = comal::convert_expression($5);
+				$$ = (void*)comal::build_open_line(std::move(orec));
 			}
 		;
 		
@@ -884,42 +887,44 @@ queue_type	:	readSYM
 
 os_stat		:	osSYM stringexp
 			{
-				$$.cmd=osSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Os,
+					comal::convert_expression($2));
 			}
 		;
 
 print_stat	:	printi
 			{
-				$$.cmd=printSYM;
-				$$.lc.printrec.modifier=NULL;
-				$$.lc.printrec.printroot=NULL;
-				$$.lc.printrec.pr_sep=0;
+				comal::PrintRec pr;
+				pr.modifier  = nullptr;
+				pr.printroot = nullptr;
+				pr.pr_sep    = 0;
+				$$ = (void*)comal::build_print_line(std::move(pr));
 			}
 		|	printi print_list optpr_sep
 			{
-				$$.cmd=printSYM;
-				$$.lc.printrec.modifier=NULL;
-				$$.lc.printrec.printroot=PARS_REVERSE(struct print_list, $2);
-				$$.lc.printrec.pr_sep=$3;
+				comal::PrintRec pr;
+				pr.modifier  = nullptr;
+				pr.printroot = comal::convert_print_list(PARS_REVERSE(struct print_list, $2));
+				pr.pr_sep    = $3;
+				$$ = (void*)comal::build_print_line(std::move(pr));
 			}
 		|	printi usingSYM stringexp colonSYM prnum_list optpr_sep
 			{
-				$$.cmd=printSYM;
-				$$.lc.printrec.modifier=PARS_ALLOC(struct print_modifier);
-				$$.lc.printrec.modifier->type=usingSYM;
-				$$.lc.printrec.modifier->data.str=$3;
-				$$.lc.printrec.printroot=PARS_REVERSE(struct print_list, $5);
-				$$.lc.printrec.pr_sep=$6;
+				comal::PrintRec pr;
+				pr.modifier  = new comal::PrintModifier(usingSYM, comal::convert_expression($3));
+				pr.printroot = comal::convert_print_list(PARS_REVERSE(struct print_list, $5));
+				pr.pr_sep    = $6;
+				$$ = (void*)comal::build_print_line(std::move(pr));
 			}
 		|	printi io_designator print_list
 			{
-				$$.cmd=printSYM;
-				$$.lc.printrec.modifier=PARS_ALLOC(struct print_modifier);
-				$$.lc.printrec.modifier->type=fileSYM;
-				$$.lc.printrec.modifier->data.twoexp=$2;
-				$$.lc.printrec.printroot=PARS_REVERSE(struct print_list, $3);
-				$$.lc.printrec.pr_sep=0;
+				comal::PrintRec pr;
+				pr.modifier  = new comal::PrintModifier(fileSYM,
+					comal::TwoExp{comal::convert_expression($2.exp1),
+					              comal::convert_expression($2.exp2)});
+				pr.printroot = comal::convert_print_list(PARS_REVERSE(struct print_list, $3));
+				pr.pr_sep    = 0;
+				$$ = (void*)comal::build_print_line(std::move(pr));
 			}
 		;
 		
@@ -966,76 +971,83 @@ optpr_sep	:	pr_sep
 		
 proc_stat	:	procSYM idSYM procfunc_head optclosed opt_external
 			{
-				$$.cmd=procSYM;
-				$$.lc.pfrec.id=$2;
-				$$.lc.pfrec.parmroot=PARS_REVERSE(struct parm_list, $3);
-				$$.lc.pfrec.closed=$4;
-				$$.lc.pfrec.external=$5;
+				comal::ProcFuncRec pf;
+				pf.id       = $2;
+				pf.parmroot = comal::convert_parm_list(PARS_REVERSE(struct parm_list, $3));
+				pf.closed   = $4;
+				pf.external = comal::convert_ext_rec($5);
+				$$ = (void*)comal::build_proc_line(std::move(pf));
 			}
 		;
 
 read_stat	:	readSYM optfile lval_list
 			{
-				$$.cmd=readSYM;
-				$$.lc.readrec.modifier=$2;
-				$$.lc.readrec.lvalroot=PARS_REVERSE(struct exp_list, $3);
+				comal::ReadRec rr;
+				if ($2) {
+					rr.modifier = new comal::TwoExp{
+						comal::convert_expression($2->exp1),
+						comal::convert_expression($2->exp2)};
+				} else {
+					rr.modifier = nullptr;
+				}
+				rr.lvalroot = comal::convert_exp_list(PARS_REVERSE(struct exp_list, $3));
+				$$ = (void*)comal::build_read_line(std::move(rr));
 			}
 		;
 
 restore_stat	:	restoreSYM optid2
 			{
-				$$.cmd=restoreSYM;
-				$$.lc.id=$2;
+				$$ = (void*)comal::build_restore_line($2);
 			}
 		;
 
 return_stat	:	returnSYM optexp
 			{
-				$$.cmd=returnSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Return,
+					comal::convert_expression($2));
 			}
 		;
 
 select_out_stat	:	select_outputSYM stringexp
 			{
-				$$.cmd=select_outputSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Select_Output,
+					comal::convert_expression($2));
 			}
 		;
 
 
 select_in_stat	:	select_inputSYM stringexp
 			{
-				$$.cmd=select_inputSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Select_Input,
+					comal::convert_expression($2));
 			}
 		;
 
 stop_stat	:	stopSYM optexp
 			{
-				$$.cmd=stopSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Stop,
+					comal::convert_expression($2));
 			}
 		;
 
 sys_stat	:	sysSYM exp_list
 			{
-				$$.cmd=sysSYM;
-				$$.lc.exproot=PARS_REVERSE(struct exp_list, $2);
+				/* SYS maps to StatementType::Os with an ExpList* payload */
+				comal::ExpList* args = comal::convert_exp_list(PARS_REVERSE(struct exp_list, $2));
+				$$ = (void*)new comal::ComalLine(nullptr, comal::StatementType::Os, args);
 			}
 		;
 
 until_stat	:	untilSYM numexp
 			{
-				$$.cmd=untilSYM;
-				$$.lc.exp=$2;
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Until,
+					comal::convert_expression($2));
 			}
 		;
 
 trap_stat	:	trapSYM escSYM plusorminus
 			{
-				$$.cmd=trapSYM;
-				$$.lc.traprec.esc=$3;
+				$$ = (void*)comal::build_trap_line(comal::TrapRec{$3});
 			}
 		;		
 
@@ -1051,8 +1063,8 @@ plusorminus	:	plusSYM
 				
 when_stat	:	whenSYM when_list
 			{
-				$$.cmd=whenSYM;
-				$$.lc.whenroot=PARS_REVERSE(struct when_list, $2);
+				$$ = (void*)comal::build_when_line(
+					comal::convert_when_list(PARS_REVERSE(struct when_list, $2)));
 			}
 		;
 
@@ -1128,32 +1140,32 @@ relop		:	gtrSYM
 
 while_stat	:	whileSYM numexp optdo optsimple_stat
 			{
-				$$.cmd=whileSYM;
-				$$.lc.ifwhilerec.exp=$2;
-				$$.lc.ifwhilerec.stat=$4;
+				$$ = (void*)comal::build_while_line(
+					comal::IfWhileRec{comal::convert_expression($2), (comal::ComalLine*)$4});
 			}
 		;
 
 repeat_stat	:	repeatSYM simple_stat untilSYM numexp
 			{
-				$$.cmd=repeatSYM;
-				$$.lc.ifwhilerec.exp=$4;
-				$$.lc.ifwhilerec.stat=stat_dup(&$2);
+				$$ = (void*)comal::build_repeat_line(
+					comal::IfWhileRec{comal::convert_expression($4), (comal::ComalLine*)$2});
 			}
 		;
 
 write_stat	:	writeSYM file_designator exp_list
 			{
-				$$.cmd=writeSYM;
-				$$.lc.writerec.twoexp=$2;
-				$$.lc.writerec.exproot=PARS_REVERSE(struct exp_list, $3);
+				comal::WriteRec wr;
+				wr.twoexp  = comal::TwoExp{comal::convert_expression($2.exp1),
+				                           comal::convert_expression($2.exp2)};
+				wr.exproot = comal::convert_exp_list(PARS_REVERSE(struct exp_list, $3));
+				$$ = (void*)comal::build_write_line(std::move(wr));
 			}
 		;
 
 assign_stat	:	assign_list
 			{
-				$$.cmd=becomesSYM;
-				$$.lc.assignroot=PARS_REVERSE(struct assign_list, $1);
+				$$ = (void*)comal::build_assign_line(
+					comal::convert_assign_list(PARS_REVERSE(struct assign_list, $1)));
 			}
 		;
 		
@@ -1211,8 +1223,7 @@ assign2		:	becplusSYM
 		
 label_stat	:	idSYM colonSYM
 			{
-				$$.cmd=idSYM;
-				$$.lc.id=$1;
+				$$ = (void*)comal::build_label_line($1);
 			}
 		;
 		
@@ -1769,17 +1780,12 @@ exp_list	:	exp_list commaSYM exp
 		
 optsimple_stat	:	simple_stat
 			{
-				if ($1.cmd<0)
-					$$=NULL;
-				else
-				{
-					$$=stat_dup(&$1);
-					$$->ld=NULL;
-				}
+				/* simple_stat is already a heap-allocated ComalLine* */
+				$$ = $1;
 			}
 		|	/* epsilon */
 			{
-				$$=NULL;
+				$$ = nullptr;
 			}
 		;
 

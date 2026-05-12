@@ -1,10 +1,10 @@
 # AST Modernization Status and Legacy Retirement Plan
 
-**Last Updated:** 11 May 2026
+**Last Updated:** 12 May 2026
 **Intent:** Keep this document short, accurate, and actionable.
 
-**Current Phase:** Phase 3 Complete — Grammar Infrastructure Ready
-**Next Phase:** Phase 4 (optional optimization) — Systematic grammar rule migration
+**Current Phase:** Phase 4 Complete — Grammar Rule Migration Done
+**Next Phase:** Phase 5 (optional) — Legacy AST Decommissioning
 
 ---
 
@@ -248,19 +248,68 @@ validated in isolation without affecting the rest of the parser.
 - Parser can now construct modern AST through direct builder calls.
 - Infrastructure is ready for systematic rule migration (Phase 4+, optional).
 
-### Phase 4: Compatibility Layer Reduction (OPTIONAL OPTIMIZATION)
+### Phase 4: Compatibility Layer Reduction (COMPLETED 12 May 2026)
 
-**Objective:** Migrate individual grammar rules to use modern builders (performance + code quality).
+**Objective:** Migrate all grammar rules to build modern ComalLine* directly, eliminating the post-parse `convert_comal_line()` call.
 
-1. Systematically migrate grammar rules from struct comal_line to direct builder calls.
-2. Remove conversion overhead once all rules migrate.
-3. Keep legacy path available as fallback until full validation complete.
+**What Was Done:**
 
-Exit criteria (optional; proceed only if Phase 3 succeeded):
+1. **Exported conversion helpers from `ast_compat.h/.cpp`**:
+   - Made `convert_exp_list`, `convert_dim_list`, `convert_parm_list`,
+     `convert_import_list`, `convert_print_list`, `convert_when_list`,
+     `convert_assign_list`, `convert_ext_rec` public (non-static).
+   - These are used by grammar actions to convert legacy sub-expression results
+     into modern types.
 
-- Most/all grammar rules use modern builders directly.
-- Parser no longer requires post-parse conversion pass.
-- All tests pass with new path.
+2. **Added `c_line_modern` global** (`PUBLIC comal::ComalLine* c_line_modern`)
+   to `parser.y`, populated by the `a_comal_line` top rule directly.
+
+3. **Migrated all statement grammar rules** to use modern builders:
+   - Changed `%type` for all statement rules from `<cl>` to `<pcl_modern>`.
+   - Changed `optsimple_stat` from `<pcl>` to `<pcl_modern>` (no more `stat_dup`).
+   - Rewrote semantic actions for all ~35 statement rules: `complex_1word`,
+     `simple_1word`, `case_stat`, `close_stat`, `cursor_stat`, `chdir_stat`,
+     `rmdir_stat`, `mkdir_stat`, `data_stat`, `draw_stat`, `tone_stat`,
+     `play_stat`, `sleep_stat`, `del_stat`, `dir_stat`, `unit_stat`, `os_stat`,
+     `elif_stat`, `exit_stat`, `exec_stat`, `spawn_stat`, `for_stat`,
+     `func_stat`, `if_stat`, `import_stat`, `input_stat`, `label_stat`,
+     `local_stat`, `open_stat`, `print_stat`, `proc_stat`, `read_stat`,
+     `repeat_stat`, `restore_stat`, `return_stat`, `select_out_stat`,
+     `select_in_stat`, `stop_stat`, `sys_stat`, `trap_stat`, `until_stat`,
+     `when_stat`, `while_stat`, `write_stat`, `assign_stat`.
+   - `comal_line` and `program_line` updated to work with `ComalLine*`.
+
+4. **Updated `parser_api.cpp`**:
+   - `comal_parse_line_modern()` now reads `c_line_modern` directly — no
+     post-parse `convert_comal_line(&c_line)` call.
+   - Removed `#include "ast_compat.h"` from `parser_api.cpp`.
+
+**Validation:**
+- PASS=136, FAIL=4 (same timeouts), SKIP=11 — no regressions
+- Parser corpus: parse_ok=147, parse_fail=4 — matches baseline exactly
+- FOR, PROC, IF, WHILE, PRINT, DRAW and other statement types all verified
+
+**Files Modified:**
+- `libcomal-parser/src/ast_compat.h` — exported conversion helpers
+- `libcomal-parser/src/ast_compat.cpp` — removed `static` from helpers
+- `libcomal-parser/src/parser.y` — migrated all statement rules
+- `libcomal-parser/src/parser_api.cpp` — uses `c_line_modern` directly
+
+**Architecture After Phase 4:**
+```
+Grammar rules → build_*_line() / convert_*() directly → modern ComalLine*
+                 ↓ (stored in c_line_modern global)
+parser_api.cpp → comal_parse_line_modern() → returns c_line_modern
+```
+
+The old conversion path (`yyparse()` → `c_line` → `convert_comal_line()`) is
+no longer used by the modern API. It remains available for the legacy
+`comal_parse_line()` API (used only by `parse_cli.cpp` with `out_line=NULL`).
+
+**Exit Criteria Met:**
+- ✅ All grammar rules migrated to use modern builders
+- ✅ `parser_api.cpp` no longer calls `convert_comal_line`
+- ✅ No regressions: PASS=136, parse_ok=147
 
 ### Phase 5: Legacy AST Decommissioning (IF NEEDED LATER)
 

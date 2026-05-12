@@ -23,14 +23,6 @@ bool ParmList::isFunc() const { return ref_type_ == funcSYM; }
 // Forward declarations of internal conversion helpers
 // ============================================================================
 
-static ExpList* convert_exp_list(const struct exp_list* old_list);
-static DimList* convert_dim_list(const struct dim_list* old_list);
-static ParmList* convert_parm_list(const struct parm_list* old_list);
-static ImportList* convert_import_list(const struct import_list* old_list);
-static PrintList* convert_print_list(const struct print_list* old_list);
-static WhenList* convert_when_list(const struct when_list* old_list);
-static AssignList* convert_assign_list(const struct assign_list* old_list);
-
 // Forward declaration — convert_comal_line is defined later but needed
 // for recursive conversion of short-form body statements (e.g. IF...THEN, FOR...DO).
 ComalLine* convert_comal_line(const struct comal_line* old_line);
@@ -146,7 +138,7 @@ Expression* convert_expression(const struct expression* old_exp) {
 // List Conversion Helpers (Legacy -> Modern)
 // ============================================================================
 
-static ExpList* convert_exp_list(const struct exp_list* old_list) {
+ExpList* convert_exp_list(const struct exp_list* old_list) {
     if (!old_list) return nullptr;
     
     // Convert iteratively, then reverse to preserve order
@@ -183,7 +175,7 @@ static DimEnsion* convert_dimensions(const struct dim_ension* old_dim) {
     return prev;
 }
 
-static DimList* convert_dim_list(const struct dim_list* old_list) {
+DimList* convert_dim_list(const struct dim_list* old_list) {
     if (!old_list) return nullptr;
     
     DimList* result = nullptr;
@@ -208,7 +200,7 @@ static DimList* convert_dim_list(const struct dim_list* old_list) {
     return prev;
 }
 
-static ParmList* convert_parm_list(const struct parm_list* old_list) {
+ParmList* convert_parm_list(const struct parm_list* old_list) {
     if (!old_list) return nullptr;
     
     ParmList* result = nullptr;
@@ -233,7 +225,7 @@ static ParmList* convert_parm_list(const struct parm_list* old_list) {
     return prev;
 }
 
-static ImportList* convert_import_list(const struct import_list* old_list) {
+ImportList* convert_import_list(const struct import_list* old_list) {
     if (!old_list) return nullptr;
     
     ImportList* result = nullptr;
@@ -257,7 +249,7 @@ static ImportList* convert_import_list(const struct import_list* old_list) {
     return prev;
 }
 
-static PrintList* convert_print_list(const struct print_list* old_list) {
+PrintList* convert_print_list(const struct print_list* old_list) {
     if (!old_list) return nullptr;
     
     PrintList* result = nullptr;
@@ -281,7 +273,7 @@ static PrintList* convert_print_list(const struct print_list* old_list) {
     return prev;
 }
 
-static WhenList* convert_when_list(const struct when_list* old_list) {
+WhenList* convert_when_list(const struct when_list* old_list) {
     if (!old_list) return nullptr;
     
     WhenList* result = nullptr;
@@ -305,7 +297,7 @@ static WhenList* convert_when_list(const struct when_list* old_list) {
     return prev;
 }
 
-static AssignList* convert_assign_list(const struct assign_list* old_list) {
+AssignList* convert_assign_list(const struct assign_list* old_list) {
     if (!old_list) return nullptr;
     
     AssignList* result = nullptr;
@@ -437,7 +429,7 @@ static WriteRec convert_write_rec(const struct write_rec& old_wr) {
     return wr;
 }
 
-static ExtRec* convert_ext_rec(const struct ext_rec* old_er) {
+ExtRec* convert_ext_rec(const struct ext_rec* old_er) {
     if (!old_er) return nullptr;
     
     auto* er = new ExtRec();
