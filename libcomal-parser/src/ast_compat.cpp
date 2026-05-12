@@ -23,9 +23,10 @@ bool ParmList::isFunc() const { return ref_type_ == funcSYM; }
 // Forward declarations of internal conversion helpers
 // ============================================================================
 
-// Forward declaration — convert_comal_line is defined later but needed
-// for recursive conversion of short-form body statements (e.g. IF...THEN, FOR...DO).
-ComalLine* convert_comal_line(const struct comal_line* old_line);
+// Forward declaration — convert_comal_line is internal-only (Phase 5: static).
+// Defined later but needed for recursive conversion of short-form body statements
+// (e.g. IF...THEN, FOR...DO). Never called from outside ast_compat.cpp.
+static ComalLine* convert_comal_line(const struct comal_line* old_line);
 
 // ============================================================================
 // Legacy struct -> Modern class conversion: Expressions
@@ -536,10 +537,11 @@ static StatementType map_cmd(int cmd) {
 }
 
 // ============================================================================
-// convert_comal_line: the main entry point for Phase 3
+// convert_comal_line: internal-only (never called by modern API)
+// Phase 5 cleanup: Made static since modern path uses direct builders.
 // ============================================================================
 
-ComalLine* convert_comal_line(const struct comal_line* old_line) {
+static ComalLine* convert_comal_line(const struct comal_line* old_line) {
     if (!old_line) return nullptr;
     
     StatementType cmd = map_cmd(old_line->cmd);

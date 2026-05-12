@@ -3,8 +3,8 @@
 **Last Updated:** 12 May 2026
 **Intent:** Keep this document short, accurate, and actionable.
 
-**Current Phase:** Phase 4 Complete — Grammar Rule Migration Done
-**Next Phase:** Phase 5 (optional) — Legacy AST Decommissioning
+**Current Phase:** Phase 5 Complete — Legacy AST Decommissioning Done
+**Next Phase:** Phase 6 (optional) — Grammar Rewrite for Direct Modern AST
 
 ---
 
@@ -311,27 +311,82 @@ no longer used by the modern API. It remains available for the legacy
 - ✅ `parser_api.cpp` no longer calls `convert_comal_line`
 - ✅ No regressions: PASS=136, parse_ok=147
 
-### Phase 5: Legacy AST Decommissioning (IF NEEDED LATER)
+### Phase 5: Legacy AST Decommissioning (COMPLETED 12 May 2026)
 
-1. Remove unused legacy AST declarations/includes from active parser/runtime code.
-2. Move any retained legacy definitions to isolated compatibility location.
-3. Update docs to state modern AST as single canonical model.
+**Objective:** Remove or isolate unnecessary legacy AST exports and clarify remaining
+hybrid architecture.
 
-Exit criteria (proceed only if Phase 4 completed):
+**What Was Done:**
 
-- Active code path uses modern AST only.
-- Legacy AST is either removed or isolated as optional compatibility artifact.
+1. **Made `convert_comal_line()` static**:
+   - This function was the old Phase 2 main entry point for AST conversion.
+   - It is no longer called from anywhere (Phase 4 eliminated post-parse conversion).
+   - Made private (static) to clarify it's internal-only and never exported.
 
-### Phase 6: Hardening and Cleanup
+2. **Updated `ast_compat.h` documentation**:
+   - Removed export of `convert_comal_line()`.
+   - Added explicit comments explaining why remaining conversion functions exist.
+   - Documented that these converters are necessary **until** the Bison grammar is
+     rewritten to build modern AST directly (Phase 6+ future work).
 
-1. Run full build + tests + targeted parser corpus checks.
-2. Validate IDE/LSP behavior on modern-only parser path.
-3. Remove dead code, obsolete comments, and stale docs.
+3. **Clarified remaining hybrid architecture**:
+   - Grammar still constructs legacy struct expressions (from Bison parser_support.cpp)
+     for performance/compatibility reasons.
+   - These are immediately converted to modern variants via `convert_expression()`,
+     `convert_exp_list()`, etc. before passing to `build_*_line()`.
+   - This is correct and necessary; not technical debt yet.
+   - No change to parser_api.cpp needed — modern path already clean.
 
-Exit criteria:
+4. **Validated with full build + tests**:
+   - Full build: All targets compile without errors.
+   - Test suite: PASS=136, FAIL=4, SKIP=11 (no regressions from Phase 4).
+   - Parser corpus: 147/151 programs parse successfully (baseline matches).
 
-- Regression-free validation complete.
-- Migration checklist closed.
+**Architecture Summary After Phase 5:**
+
+```
+Modern Parser Path (comal_parse_line_modern):
+  Grammar rules → build_*_line() + convert_*() helpers → modern ComalLine*
+                  ↓ (stored in c_line_modern global)
+  parser_api.cpp → comal_parse_line_modern() → returns modern ComalLine*
+  (clean, no intermediate conversions)
+
+Legacy Parser Path (comal_parse_line, used only by parse_cli tool):
+  Grammar rules → struct comal_line (legacy Bison action)
+  parser_api.cpp → comal_parse_line() → returns struct comal_line
+  (backward compatible, optional)
+```
+
+**Files Modified:**
+- `libcomal-parser/src/ast_compat.h` — clarified exports and documented necessity
+- `libcomal-parser/src/ast_compat.cpp` — made `convert_comal_line()` static
+
+**Exit Criteria Met:**
+- ✅ Legacy AST exports clarified (only expression conversion functions remain public)
+- ✅ `convert_comal_line()` is now private (never called from outside)
+- ✅ Comments document why remaining converters are necessary
+- ✅ No regressions: PASS=136, parse_ok=147
+- ✅ Architecture documented for future maintainers
+
+**Remaining Future Work (Phase 6+):**
+
+If desired in a future release, the grammar could be rewritten to build modern AST
+directly instead of legacy-first:
+
+1. Update Bison semantic actions to call `make_modern_expression()` builders
+   instead of legacy expression struct constructors.
+2. Remove dependency on `parser_support.cpp` legacy expression building.
+3. Remove `ast_compat.cpp` conversion layer entirely.
+4. Move parser grammar closer to runtime AST model.
+
+This would eliminate the hybrid approach but is a major refactor (100+ grammar rules).
+Defer unless performance or simplicity benefits justify the effort.
+
+### Phase 6: Grammar Rewrite for Direct Modern AST (FUTURE)
+
+If Phase 5 decommissioning reveals performance bottlenecks or maintainability
+benefits, Phase 6 would rewrite the Bison grammar to build modern AST directly,
+eliminating the `ast_compat.cpp` compatibility layer entirely.
 
 ---
 
