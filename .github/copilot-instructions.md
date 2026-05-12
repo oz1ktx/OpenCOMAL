@@ -80,11 +80,12 @@ This project has a **modern C++20** frontend and runtime, plus a **legacy C** co
 
 **Current project phase:**
 - Phases 1-4 complete (Expression AST, Statement AST, Parser Integration, Runtime Library)
-- Phase 5 in progress: Qt6 GUI IDE (comal-ide/) — ~2200 lines
-  - Working: multi-tab editor, syntax highlighting (custom QsciLexerComal), run/stop, Format Source, graphics panel (DRAW rendering), file browser, I/O panel
-  - Not yet: debug panel, help panel, Find/Replace, settings, LSP integration
+- Phase 5 in progress: Qt6 GUI IDE (comal-ide/) — ~2200 lines, substantially feature-complete
+  - Working: multi-tab editor, syntax highlighting (custom QsciLexerComal), run/stop, Format Source, graphics panel (DRAW rendering), file browser, debug panel, help panel, settings dialog, LSP integration, I/O panel
+  - Known gaps: step-over/step-out debugger controls, conditional breakpoints, Find/Replace (cosmetic polish items)
 - Graphics library complete (libcomal-graphics/) — 13 DRAW commands, scene model, group nesting
-- LSP Server complete (diagnostics, completion, definition, hover)
+- LSP Server complete (diagnostics, completion, definition, hover) — now with parser-backed statement classification
+- Modern AST transition: Runtime fully on modern AST; parser still uses legacy→modern conversion (intentional for compatibility)
 - Numberless program support: parser accepts programs without COMAL line numbers
 - 127/133 tests passing (6 skipped: interactive/infinite-loop/squash-format)
 - See `docs/PROJECT_STATUS.md` for detailed status

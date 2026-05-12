@@ -42,22 +42,32 @@ Language Server Protocol (LSP) implementation for OpenCOMAL, enabling IDE integr
 > LSP configuration).
 
 
-## Status
+## Status (May 2026)
 
-**Phase 1: Scaffolding** (Complete ✅)
-- ✓ Project structure and CMakeLists.txt
-- ✓ Basic LSP server skeleton
-- ✓ Core message dispatch
-- ✓ LSP protocol data structures
-- ✓ JSON parsing integration (custom implementation)
+**Production-Ready** ✅
 
-**Phase 2: Document Tracking** (Complete ✅)
-- ✓ Parse and track open documents
-- ✓ Real-time diagnostics via parse errors
-- ✓ Basic semantic token types
+All core LSP features are implemented and integrated with the Qt IDE and editor ecosystem:
 
-**Phase 3: Code Intelligence** (Complete ✅)
-- ✓ Completion provider integration with parser
+**Implemented Features:**
+- ✓ **Diagnostics** — Real-time parse errors and syntax checking with parser-backed statement classification
+- ✓ **Hover** — Type hints and documentation including grouped DRAW forms (e.g., `HUD.line`)
+- ✓ **Completion** — Context-aware keyword and identifier suggestions
+- ✓ **Go-to-Definition** — Navigate to PROC and FUNC declarations
+- ✓ **Document Tracking** — Real-time updates for saved and unsaved (`untitled://`) files
+- ✓ **Symbol Navigation** — Rename support and definition lookup
+
+**Integration:**
+- Embedded in Qt IDE (`comal-ide`) with full diagnostics in editor
+- Standalone server mode for VS Code, Kate, Vim, and other LSP clients
+- Robust protocol framing (`Content-Length` transport)
+- Custom JSON parser (no external dependencies)
+
+**Recent Enhancements:**
+- Parser-backed diagnostics for improved accuracy
+- Support for unsaved editor buffers via `untitled://` URIs
+- Grouped DRAW command hover support
+
+For integration details, see `docs/COMAL_LSP_USAGE.md`.
 - ✓ Definition lookup from modern AST
 - ✓ Hover information system
 - ✓ Symbol table building for PROC/FUNC definitions

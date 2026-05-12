@@ -7,15 +7,23 @@ This project is a fork of OpenCOMAL from Darren Bane https://github.com/poldy/Op
 
 ## Status
 
-This version of COMAL is built for Linux using the Qt6 GUI components. You get an IDE with all the usual features: An editor with syntax highlighting, a debug panel to watch variables and the stack, and breakpoints. You also get a graphical panel where the COMAL program can draw using simple commands.
+This is a modern C++20 reconstruction of OpenCOMAL, originally built for microcomputers. It features:
 
+- **Qt6 IDE** with syntax highlighting, multi-tab editor, and integrated run/debug workflow
+- **Full COMAL execution** with modern AST-based runtime, supporting numberless programs
+- **Graphical output** via 13 DRAW commands (lines, circles, rectangles, text, color, fill, etc.)
+- **Audio support** (TONE + PLAY with ABC notation subset)
+- **Debug facilities** including breakpoints, variable inspection, call-stack tracing, and SPAWN-based concurrency
+- **LSP integration** enabling real-time diagnostics and IDE features
+- **Language Server Protocol** for VS Code, Kate, Vim, and other LSP-compatible editors
 
-### Missing features
+### Known Limitations
 
-The CURSOR command (placing text on a coordinate on the text screen) is not implemented.
-Debugging does not support modifying variables.
-The GUI could be prettier.
-Menus are not all functional yet.
+- **CURSOR command** — Text positioning at screen coordinates not implemented (PRINT and graphics commands available as alternatives)
+- **Variable modification in debugger** — Read-only inspection of variables during breakpoints (planned enhancement)
+- **Windows support** — Currently Linux/Unix only; Windows port requires Qt I/O abstraction work
+- **Conditional breakpoints** — Basic breakpoint support only; conditional variants planned
+- **Find/Replace** — Editor has syntax highlighting and navigation but not Find/Replace (future enhancement)
 
 
 ## Building

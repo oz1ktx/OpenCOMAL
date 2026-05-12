@@ -264,13 +264,19 @@ void CodeEditorPanel::setLspClient(ComalLspClient *client) {
             applyLspDiagnostics(editor, diagnosticKey);
         }
     });
-    // Completion and definition can be handled similarly
+    // Completion and definition are detected and logged but deferred from UI display.
+    // These are polish items scheduled for Phase 6 (IDE debugger + editor UX enhancement).
     connect(lspClient_, &ComalLspClient::completionReceived, this, [this](const QString &filePath, const QJsonObject &completion) {
-        // TODO: Show completion popup
+        // DEFERRED: Show completion popup via QsciScintilla::autoCompleteFromAPIs()
+        // Requires: mapping LSP completion items to QsciAPIs, managing autocomplete popup lifecycle
+        // Estimated effort: ~30 min after QsciAPI review
         qDebug() << "Completion for" << filePath << completion;
     });
     connect(lspClient_, &ComalLspClient::definitionReceived, this, [this](const QString &filePath, const QJsonObject &definition) {
-        // TODO: Jump to definition
+        // DEFERRED: Jump to definition via gotoLine() + editor switch
+        // Requires: parsing definition location (file, line), switching to target editor, focusing line
+        // Current state: LSP server returns definition; client receives it but does not navigate
+        // Estimated effort: ~20 min (straightforward line/file navigation via existing APIs)
         qDebug() << "Definition for" << filePath << definition;
     });
 }

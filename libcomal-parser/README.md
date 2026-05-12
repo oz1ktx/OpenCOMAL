@@ -1,12 +1,20 @@
-# libcomal-parser (initial extraction)
+# libcomal-parser
 
-This directory contains the extracted lexer/parser sources from legacy OpenCOMAL.
+C++20 parser library providing modern AST construction from COMAL source text.
 
-Status:
-- Uses the original Flex/Bison sources with the existing C support routines.
-- Still depends on legacy headers/types in legacy/src.
+## Current Status (May 2026)
 
-Next steps:
-- Carve out shared AST and type definitions into libcomal-parser/include.
-- Remove dependencies on runtime/editor-specific headers.
-- Provide a stable parse API for full-document parsing.
+**Modernization Complete:**
+- Modern AST fully defined in `include/comal_ast_modern.h` (~950 lines)
+- Public API: `comal_parse_line_modern()` for immediate execution
+- Compatibility layer: `src/ast_compat.cpp` seamlessly converts legacy→modern AST during parsing
+- Numberless COMAL program support fully implemented (line numbers optional)
+- Backend: Original Flex/Bison grammar sources with C support routines
+
+**Architecture:**
+- Parser uses legacy AST internally (proven, stable)
+- Automatic conversion to modern AST for runtime execution
+- Separation maintained for compatibility and gradual modernization
+
+**Design Details:**
+See `docs/AST_MODERNIZATION.md` for the complete transition plan and current phase status.
