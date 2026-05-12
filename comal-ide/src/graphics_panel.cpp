@@ -97,6 +97,11 @@ void GraphicsPanel::saveAsSvg()
 
 void GraphicsPanel::renderScene(const comal::graphics::Scene& model)
 {
+    // Acquire the scene lock to safely read the scene during rendering.
+    // This prevents data races when the interpreter thread modifies the scene
+    // via DRAW commands while the GUI thread is rendering.
+    auto lock = model.acquireLock();
+    
     scene_->clear();
     scene_->setBackgroundBrush(toQt(model.backgroundColor));
     renderGroup(model.root(), model, 0, 0);
