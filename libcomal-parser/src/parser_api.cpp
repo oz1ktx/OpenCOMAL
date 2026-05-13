@@ -128,8 +128,11 @@ const char* statement_type_name(StatementType cmd) {
         case StatementType::Restore:       return "RESTORE";
         case StatementType::Exec:          return "EXEC";
         case StatementType::Spawn:         return "SPAWN";
+        case StatementType::SpawnHandle:   return "SPAWN HANDLE";
+        case StatementType::Wait:          return "WAIT";
         case StatementType::Return:        return "RETURN";
         case StatementType::Stop:          return "STOP";
+        case StatementType::StopSpawn:     return "STOP SPAWN";
         case StatementType::End:           return "END";
         case StatementType::Exit:          return "EXIT";
         case StatementType::Null:          return "NULL";

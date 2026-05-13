@@ -20,7 +20,13 @@ if [[ ! -x "$COMAL_RUN" ]]; then
 fi
 
 TMPFAIL=$(mktemp)
-trap 'rm -f "$TMPFAIL"' EXIT
+
+cleanup_generated_artifacts() {
+  # Some file I/O tests generate top-level temporary files.
+  find "$REPO_ROOT" -maxdepth 1 -type f \( -name 'ofile*' -o -name '*.dat' -o -name 'temp' \) -delete
+}
+
+trap 'cleanup_generated_artifacts; rm -f "$TMPFAIL"' EXIT
 
 pass=0; fail=0; skip=0; total=0
 
@@ -57,6 +63,8 @@ run_dir() {
 
   local bn rc
   for f in "${files[@]}"; do
+    cleanup_generated_artifacts
+
     bn=$(basename "$f")
     case " $SKIP " in *" $bn "*) skip=$((skip+1)); total=$((total+1)); continue;; esac
 
@@ -72,12 +80,16 @@ run_dir() {
       fail=$((fail+1))
       echo "$label/$bn (rc=$rc)" >> "$TMPFAIL"
     fi
+
+    cleanup_generated_artifacts
   done
 }
 
 echo "=== OpenCOMAL Test Suite ==="
 echo "Runner: $COMAL_RUN"
 echo
+
+cleanup_generated_artifacts
 
 # Run numbered (legacy-format) tests
 run_dir "$REPO_ROOT/tests/programs" "programs"

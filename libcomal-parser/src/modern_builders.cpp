@@ -34,6 +34,7 @@ StatementType token_to_statement_type(int token_symbol) {
         case restoreSYM:       return StatementType::Restore;
         case execSYM:          return StatementType::Exec;
         case spawnSYM:         return StatementType::Spawn;
+        case waitSYM:          return StatementType::Wait;
         case returnSYM:        return StatementType::Return;
         case stopSYM:          return StatementType::Stop;
         case endSYM:           return StatementType::End;
@@ -237,6 +238,10 @@ ComalLine* build_exec_line(Expression* procexp) {
 
 ComalLine* build_spawn_line(Expression* procexp) {
     return new ComalLine(make_linedata(), StatementType::Spawn, procexp);
+}
+
+ComalLine* build_spawn_handle_line(Expression* handleExp, Expression* procexp) {
+    return new ComalLine(make_linedata(), StatementType::SpawnHandle, TwoExp{handleExp, procexp});
 }
 
 } // namespace comal

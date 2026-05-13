@@ -31,6 +31,24 @@ A restrictive `SPAWN` v1 implementation has now been added on top of this queue 
 - SPAWN worker-thread creation failure (e.g., OS thread/resource limit reached) is surfaced as a runtime error instead of process termination.
 - IDE Qt I/O prompt buffering is synchronized for concurrent SPAWN output to prevent heap corruption under high worker counts.
 
+### SPAWN Handle and WAIT Extension (Current Behavior)
+
+The restrictive `SPAWN` model now also supports optional worker handles and explicit waiting:
+
+- `SPAWN procName(args...)` starts a worker with an interpreter-assigned internal handle.
+- `SPAWN <handle>: procName(args...)` starts a worker with an explicit handle.
+- `WAIT` waits for all active spawned workers.
+- `WAIT <handle>` waits for one specific worker handle.
+- `STOP SPAWN <handle>` requests cooperative cancellation for one worker handle.
+
+Handle rules:
+
+- Explicit handles must be positive integers.
+- Reusing an active handle raises a runtime error.
+- `WAIT <handle>` on a non-existing active handle raises a runtime error.
+
+The `WAIT <handle>` error behavior is intentional and follows existing resource semantics (for example, operations on non-open resources report errors rather than silently succeeding).
+
 ---
 
 ## Motivation

@@ -1,0 +1,14 @@
+// WAIT on a non-existing handle must raise an error (caught by TRAP/HANDLER).
+
+gotErr := 0
+
+TRAP
+  WAIT 99
+HANDLER
+  gotErr := 1
+ENDTRAP
+
+// If WAIT did not error, force test failure by triggering an unhandled runtime error.
+IF gotErr = 0 THEN PRINT 1/0
+
+END

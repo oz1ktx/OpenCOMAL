@@ -50,6 +50,7 @@ ComalLine* build_repeat_line(IfWhileRec&& repeatrec);
 ComalLine* build_case_line(Expression* caseexp);
 ComalLine* build_exec_line(Expression* procexp);
 ComalLine* build_spawn_line(Expression* procexp);
+ComalLine* build_spawn_handle_line(Expression* handleExp, Expression* procexp);
 ComalLine* build_open_line(OpenRec&& openrec);
 ComalLine* build_read_line(ReadRec&& readrec);
 ComalLine* build_write_line(WriteRec&& writerec);

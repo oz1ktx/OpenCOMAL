@@ -1,8 +1,8 @@
 // Mandelbrot set demo - parallel rendering using SPAWN
 // The 480-row canvas is divided into nWorkers horizontal stripes.
-// Each CLOSED PROC renders its stripe then writes a "done" token to a
-// shared queue.  The main program reads nWorkers tokens before ending,
-// ensuring workers are not interrupted early.
+// Each CLOSED PROC renders its stripe in a separate worker.
+// Main uses WAIT to join workers before ending, avoiding queue-based
+// completion signaling.
 
 PROC drawStripe(startRow, endRow, maxIter, xmin, xmax, ymin, ymax) CLOSED
   FOR py := startRow TO endRow
@@ -28,10 +28,6 @@ PROC drawStripe(startRow, endRow, maxIter, xmin, xmax, ymin, ymax) CLOSED
       ENDIF
     NEXT px
   NEXT py
-  // Signal main that this stripe is complete
-  OPEN QUEUE 1, "MANDELBROT_DONE", WRITE
-  PRINT QUEUE 1: "done"
-  CLOSE QUEUE 1
 ENDPROC
 
 // ── Main ──────────────────────────────────────────────────────────────
@@ -48,15 +44,11 @@ DRAW background, 0, 0, 0
 FOR w := 0 TO nWorkers - 1
   startRow := w * rowsPerWorker
   endRow   := startRow + rowsPerWorker - 1
-  SPAWN drawStripe(startRow, endRow, maxIter, xmin, xmax, ymin, ymax)
+  SPAWN w + 1: drawStripe(startRow, endRow, maxIter, xmin, xmax, ymin, ymax)
 NEXT w
 
 // Wait for all workers to finish before letting the interpreter exit
-OPEN QUEUE 2, "MANDELBROT_DONE", READ
-FOR w := 0 TO nWorkers - 1
-  INPUT QUEUE 2: done$
-NEXT w
-CLOSE QUEUE 2
+WAIT
 
 PRINT "Mandelbrot complete (", nWorkers, " workers)"
 END

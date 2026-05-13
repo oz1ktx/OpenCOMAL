@@ -1,0 +1,21 @@
+// Explicit duplicate SPAWN handle must raise an error (caught by TRAP/HANDLER).
+
+PROC worker(n) CLOSED
+  SLEEP 2
+ENDPROC
+
+gotErr := 0
+
+SPAWN 5: worker(1)
+TRAP
+  SPAWN 5: worker(2)
+HANDLER
+  gotErr := 1
+ENDTRAP
+
+WAIT
+
+// If duplicate handle did not error, force test failure.
+IF gotErr = 0 THEN PRINT 1/0
+
+END

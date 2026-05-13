@@ -167,6 +167,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %token	stepSYM 
 %token	stopSYM 
 %token	spawnSYM
+%token	waitSYM
 %token	sysSYM 
 %token	syssSYM
 %token	thenSYM 
@@ -230,7 +231,7 @@ extern struct comal_line *stat_dup(struct comal_line *stat);
 %type	<pcl_modern>	select_in_stat exit_stat cursor_stat chdir_stat
 %type	<pcl_modern>	rmdir_stat mkdir_stat repeat_stat
 %type	<pcl_modern>	local_stat trap_stat dir_stat unit_stat draw_stat play_stat tone_stat sleep_stat
-%type	<pcl_modern>	spawn_stat
+%type	<pcl_modern>	spawn_stat wait_stat
 
 %type	<pcl_modern>	optsimple_stat
 
@@ -333,6 +334,7 @@ simple_stat	:	close_stat
 		|	rmdir_stat
 		|	sleep_stat
 		| 	spawn_stat
+		| 	wait_stat
 		|	select_out_stat
 		|	select_in_stat
 		|	stop_stat
@@ -703,6 +705,23 @@ spawn_stat	:	spawnSYM xid
 			{
 				$$ = (void*)comal::build_spawn_line(comal::convert_expression($2));
 			}
+		|	spawnSYM numexp colonSYM xid
+			{
+				$$ = (void*)comal::build_spawn_handle_line(
+					comal::convert_expression($2),
+					comal::convert_expression($4));
+			}
+		;
+
+wait_stat	:	waitSYM
+			{
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Wait, nullptr);
+			}
+		|	waitSYM numexp
+			{
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Wait,
+					comal::convert_expression($2));
+			}
 		;
 
 for_stat	:	forSYM numlvalue assign1 numexp todownto numexp optstep optdo optsimple_stat
@@ -1027,6 +1046,11 @@ stop_stat	:	stopSYM optexp
 			{
 				$$ = (void*)comal::build_single_exp_line(comal::StatementType::Stop,
 					comal::convert_expression($2));
+			}
+		|	stopSYM spawnSYM numexp
+			{
+				$$ = (void*)comal::build_single_exp_line(comal::StatementType::StopSpawn,
+					comal::convert_expression($3));
 			}
 		;
 

@@ -163,6 +163,7 @@ PRIVATE struct {
 	stepSYM, 0, "STEP"}, {
 	spawnSYM, 0, "SPAWN"}, {
 	stopSYM, 0, "STOP"}, {
+	waitSYM, 0, "WAIT"}, {
 	tnrsSYM, _STR, "STR$"}, {
 	tnrnSYM, _TAN, "TAN"}, {
 	thenSYM, 0, "THEN"}, {

@@ -330,7 +330,6 @@ void MainWindow::createToolBar()
     auto *formatAction = tb->addAction(
         makeIcon("document-properties", Qt::blue),
         tr("Format Source"));
-    formatAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F));
     connect(formatAction, &QAction::triggered, this, &MainWindow::onFormatSource);
 
     tb->addSeparator();

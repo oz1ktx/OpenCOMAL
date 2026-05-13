@@ -38,10 +38,107 @@ comal::sound::Engine& Interpreter::soundEngine() {
     return *soundEngine_;
 }
 
-void Interpreter::registerSpawnWorker(std::shared_ptr<Interpreter> worker,
-                                      std::thread thread) {
+int64_t Interpreter::registerSpawnWorker(std::shared_ptr<Interpreter> worker,
+                                         std::thread&& thread,
+                                         std::optional<int64_t> requestedHandle) {
     std::lock_guard<std::mutex> lock(spawnedWorkersMutex_);
-    spawnedWorkers_.push_back(SpawnWorker{std::move(worker), std::move(thread)});
+
+    int64_t handle = 0;
+    if (requestedHandle.has_value()) {
+        handle = requestedHandle.value();
+        if (handle <= 0) {
+            throw ComalError(ErrorCode::Parm,
+                "SPAWN handle must be a positive integer");
+        }
+        for (const auto& w : spawnedWorkers_) {
+            if (w.handle == handle) {
+                throw ComalError(ErrorCode::Parm,
+                    "SPAWN handle already in use: " + std::to_string(handle));
+            }
+        }
+        if (handle >= nextSpawnHandle_) {
+            nextSpawnHandle_ = handle + 1;
+        }
+    } else {
+        while (true) {
+            handle = nextSpawnHandle_++;
+            bool inUse = false;
+            for (const auto& w : spawnedWorkers_) {
+                if (w.handle == handle) {
+                    inUse = true;
+                    break;
+                }
+            }
+            if (!inUse) {
+                break;
+            }
+        }
+    }
+
+    spawnedWorkers_.push_back(SpawnWorker{handle, std::move(worker), std::move(thread)});
+    return handle;
+}
+
+void Interpreter::waitSpawnedWorkers() {
+    std::vector<SpawnWorker> workers;
+    {
+        std::lock_guard<std::mutex> lock(spawnedWorkersMutex_);
+        if (spawnedWorkers_.empty()) {
+            return;
+        }
+        workers = std::move(spawnedWorkers_);
+        spawnedWorkers_.clear();
+    }
+
+    for (auto& worker : workers) {
+        if (worker.thread.joinable()) {
+            worker.thread.join();
+        }
+    }
+}
+
+bool Interpreter::waitSpawnWorker(int64_t handle) {
+    SpawnWorker workerToJoin;
+    bool found = false;
+
+    {
+        std::lock_guard<std::mutex> lock(spawnedWorkersMutex_);
+        for (auto it = spawnedWorkers_.begin(); it != spawnedWorkers_.end(); ++it) {
+            if (it->handle == handle) {
+                workerToJoin = std::move(*it);
+                spawnedWorkers_.erase(it);
+                found = true;
+                break;
+            }
+        }
+    }
+
+    if (found && workerToJoin.thread.joinable()) {
+        workerToJoin.thread.join();
+    }
+
+    return found;
+}
+
+bool Interpreter::requestStopSpawnWorker(int64_t handle) {
+    std::shared_ptr<Interpreter> target;
+
+    {
+        std::lock_guard<std::mutex> lock(spawnedWorkersMutex_);
+        for (auto& worker : spawnedWorkers_) {
+            if (worker.handle == handle) {
+                target = worker.interp;
+                break;
+            }
+        }
+    }
+
+    if (!target) {
+        return false;
+    }
+
+    target->interrupt().request();
+    return true;
 }
 
 void Interpreter::stopSpawnedWorkers(bool requestInterrupt) {
@@ -53,6 +150,7 @@ void Interpreter::stopSpawnedWorkers(bool requestInterrupt) {
         }
         workers = std::move(spawnedWorkers_);
         spawnedWorkers_.clear();
+        nextSpawnHandle_ = 1;
     }
 
     // Wake workers that might be blocked on queue INPUT.

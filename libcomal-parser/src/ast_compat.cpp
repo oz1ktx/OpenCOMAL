@@ -484,6 +484,7 @@ static StatementType map_cmd(int cmd) {
         case restoreSYM:       return StatementType::Restore;
         case execSYM:          return StatementType::Exec;
         case spawnSYM:         return StatementType::Spawn;
+        case waitSYM:          return StatementType::Wait;
         case returnSYM:        return StatementType::Return;
         case stopSYM:          return StatementType::Stop;
         case endSYM:           return StatementType::End;

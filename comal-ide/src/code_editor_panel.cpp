@@ -692,7 +692,7 @@ static const QSet<QString> &comalKeywords()
         "OUTPUT", "PAGE", "PRINT", "PROC", "RANDOM", "READ",
         "REF", "REPEAT", "RESTORE", "RETURN", "RUN", "SELECT",
         "SPAWN", "SPC", "STEP", "STOP", "TAB", "THEN", "TO", "TRAP",
-        "TRUE", "UNTIL", "USE", "USING", "WHEN", "WHILE",
+        "TRUE", "UNTIL", "USE", "USING", "WAIT", "WHEN", "WHILE",
         "WRITE", "ZONE",
     };
     return kw;

@@ -22,6 +22,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+#include <optional>
 
 #include "comal_value.h"
 #include "comal_scope.h"
@@ -261,8 +262,11 @@ public:
     void resetRunState();
 
     /// Register a spawned worker thread for lifecycle management.
-    void registerSpawnWorker(std::shared_ptr<Interpreter> worker,
-                             std::thread thread);
+    /// If requestedHandle is not provided, an interpreter-managed handle is assigned.
+    /// Returns the assigned handle.
+    int64_t registerSpawnWorker(std::shared_ptr<Interpreter> worker,
+                                std::thread&& thread,
+                                std::optional<int64_t> requestedHandle = std::nullopt);
 
     /// Join all spawned workers.
     ///
@@ -270,6 +274,18 @@ public:
     /// interrupt() and queue shutdown notification. Use false for graceful
     /// shutdown at normal program completion.
     void stopSpawnedWorkers(bool requestInterrupt = true);
+
+    /// Wait for all currently active spawned workers to complete.
+    /// This is a non-canceling join operation used by WAIT.
+    void waitSpawnedWorkers();
+
+    /// Wait for one spawned worker identified by handle.
+    /// Returns true if an active worker existed for the handle and was joined.
+    bool waitSpawnWorker(int64_t handle);
+
+    /// Request cooperative stop for one spawned worker handle.
+    /// Returns true if a running worker with that handle was found.
+    bool requestStopSpawnWorker(int64_t handle);
 
     /// Get this interpreter's sound engine, creating it on first use.
     comal::sound::Engine& soundEngine();
@@ -310,11 +326,13 @@ private:
     std::function<void()> suspendCallback_;
 
     struct SpawnWorker {
+        int64_t handle{0};
         std::shared_ptr<Interpreter> interp;
         std::thread thread;
     };
     std::mutex spawnedWorkersMutex_;
     std::vector<SpawnWorker> spawnedWorkers_;
+    int64_t nextSpawnHandle_{1};
 
     /// Interpreter-owned sound engine (lazy initialized).
     std::unique_ptr<comal::sound::Engine> soundEngine_;

@@ -25,6 +25,7 @@
 #include <thread>
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <system_error>
 #include <unistd.h>
 
@@ -278,6 +279,7 @@ void execLine(Interpreter& interp, ComalLine* line) {
 
     // ── SPAWN (fire-and-forget call of CLOSED PROC) ─────────────────────
     case StatementType::Spawn:
+    case StatementType::SpawnHandle:
         execSpawn(interp, line);
         break;
 
@@ -344,6 +346,39 @@ void execLine(Interpreter& interp, ComalLine* line) {
     // ── STOP / END ──────────────────────────────────────────────────────
     case StatementType::Stop:
         throw StopSignal{};
+
+    case StatementType::StopSpawn: {
+        auto* expr = std::get_if<Expression*>(&line->contents());
+        if (!expr || !*expr) {
+            throw ComalError(ErrorCode::Parm,
+                "STOP SPAWN requires a worker handle");
+        }
+        int64_t handle = evaluate(interp, *expr).toInt();
+        if (handle <= 0) {
+            throw ComalError(ErrorCode::Parm,
+                "STOP SPAWN handle must be a positive integer");
+        }
+        (void)interp.requestStopSpawnWorker(handle);
+        break;
+    }
+
+    case StatementType::Wait: {
+        auto* expr = std::get_if<Expression*>(&line->contents());
+        if (expr && *expr) {
+            int64_t handle = evaluate(interp, *expr).toInt();
+            if (handle <= 0) {
+                throw ComalError(ErrorCode::Parm,
+                    "WAIT handle must be a positive integer");
+            }
+            if (!interp.waitSpawnWorker(handle)) {
+                throw ComalError(ErrorCode::Close,
+                    "WAIT on non-existing worker handle: " + std::to_string(handle));
+            }
+        } else {
+            interp.waitSpawnedWorkers();
+        }
+        break;
+    }
 
     case StatementType::End:
         throw EndSignal{};
@@ -1552,11 +1587,24 @@ static void execDim(Interpreter& interp, ComalLine* line) {
 }
 
 static void execSpawn(Interpreter& interp, ComalLine* line) {
-    auto* expr = std::get_if<Expression*>(&line->contents());
-    if (!expr || !*expr)
-        throw ComalError(ErrorCode::Parm, "SPAWN requires a procedure call expression");
+    const Expression* target = nullptr;
+    std::optional<int64_t> requestedHandle;
 
-    const Expression* target = *expr;
+    if (line->command() == StatementType::SpawnHandle) {
+        auto* te = std::get_if<TwoExp>(&line->contents());
+        if (!te || !te->exp1 || !te->exp2) {
+            throw ComalError(ErrorCode::Parm,
+                "SPAWN handle form requires: SPAWN <handle>: PROC(args)");
+        }
+        requestedHandle = evaluate(interp, te->exp1).toInt();
+        target = te->exp2;
+    } else {
+        auto* expr = std::get_if<Expression*>(&line->contents());
+        if (!expr || !*expr)
+            throw ComalError(ErrorCode::Parm, "SPAWN requires a procedure call expression");
+        target = *expr;
+    }
+
     while (target && (target->opType() == OpType::ExpIsNum || target->opType() == OpType::ExpIsString)) {
         target = target->asExp();
     }
@@ -1621,7 +1669,7 @@ static void execSpawn(Interpreter& interp, ComalLine* line) {
     }
 
     try {
-        interp.registerSpawnWorker(worker, std::move(th));
+        (void)interp.registerSpawnWorker(worker, std::move(th), requestedHandle);
     } catch (const std::bad_alloc&) {
         worker->interrupt().request();
         if (th.joinable()) {

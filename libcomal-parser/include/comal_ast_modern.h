@@ -568,8 +568,11 @@ enum class StatementType : int {
     Restore,            // RESTORE
     Exec,               // EXEC ...
     Spawn,              // SPAWN ...
+    SpawnHandle,        // SPAWN <handle>: ...
+    Wait,               // WAIT [handle]
     Return,             // RETURN [expr]
     Stop,               // STOP
+    StopSpawn,          // STOP SPAWN <handle>
     End,                // END
     Exit,               // EXIT [WHEN expr]
     Null,               // NULL (no-op)

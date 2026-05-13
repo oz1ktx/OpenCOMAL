@@ -1,0 +1,11 @@
+// SPAWN/WAIT basic success path with implicit and explicit worker handles.
+
+PROC worker(n) CLOSED
+  SLEEP 2
+ENDPROC
+
+SPAWN worker(1)
+SPAWN 2: worker(2)
+WAIT 2
+WAIT
+END

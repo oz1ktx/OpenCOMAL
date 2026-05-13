@@ -165,6 +165,60 @@ This is intentionally scheduled for later and is not part of immediate delivery 
 
 ---
 
+## Deferred Investigation: Runtime Performance Backend (Bytecode)
+
+Evaluate a project-specific bytecode VM as a future execution backend for OpenCOMAL.
+
+- Preferred direction: project-specific bytecode (rather than reusing another language bytecode such as Lua) to preserve COMAL semantics, debugger line mapping, and IDE/LSP integration.
+
+### Scope for initial spike
+
+- Define a minimal v1 opcode set for statements and expressions.
+- Compile modern AST to bytecode after parse/structure scan.
+- Keep AST interpreter as reference/fallback for behavior parity.
+- Add source-line mapping for breakpoints/step/debug views.
+
+### Success criteria
+
+- Measurable speedup on representative COMAL programs.
+- No semantic regressions in existing runtime test suite.
+- Clean integration path for SPAWN, TRAP/HANDLER, DATA/READ, and file/queue I/O.
+
+---
+
+## Deferred Investigation: SPAWN Handles and WAIT Synchronization
+
+Improve educational concurrency ergonomics by adding a small, explicit join/cancel model while preserving current SPAWN behavior.
+
+### Accepted syntax direction
+
+- Existing spawn remains valid: `SPAWN procName(args...)`
+- Add optional handle form: `SPAWN <handle>: procName(args...)`
+- Add synchronization: `WAIT` (all workers), `WAIT <handle>` (single worker)
+- Extend STOP for worker cancellation: `STOP SPAWN <handle>`
+
+### Semantic rules (v1)
+
+- Handles are interpreter-managed logical worker IDs (not OS thread IDs).
+- Reusing an active handle is a runtime error.
+- `WAIT <handle>` returns immediately if the worker is already finished.
+- `STOP SPAWN <handle>` is cooperative cancellation via worker interrupt request (no force-kill).
+- Existing `STOP` semantics for main program execution remain unchanged.
+
+### Implementation checklist
+
+- Parser and grammar: add `WAIT`, `WAIT <exp>`, `SPAWN <exp> : <proc-call>`, and `STOP SPAWN <exp>` forms.
+- AST and statement typing: add payload support for WAIT target and STOP-SPAWN target.
+- Runtime worker table: track worker lifecycle by handle (running, finished, canceled, failed).
+- Runtime synchronization: implement wait-all and wait-single with condition variable signaling.
+- Runtime cancellation: route `STOP SPAWN` through existing cooperative interrupt path.
+- Error handling: define and test diagnostics for invalid handle, duplicate handle, and non-worker target.
+- IDE/debug integration: preserve line mapping and ensure break/stop controls behave consistently.
+- Documentation/examples: update SPAWN docs and convert `examples/mandelbrot_pixel_spawn.lst` to `WAIT`-based completion.
+- Tests: add parser coverage, runtime behavior tests, cancellation tests, and regression checks for existing SPAWN v1 programs.
+
+---
+
 ## Deferred Initiative: Windows port
 
 Investigate supporting Windows by providing optional Qt-backed implementations that hide OS-specific details (console/terminal I/O, audio via QtMultimedia or FluidSynth, threading/timers, and file/process APIs). Implement Qt backends behind the existing `IOInterface` and gate them with CMake options so headless/CLI builds remain unaffected. Initial target: MSVC + vcpkg (native); MSYS2/MinGW as an alternate for early testing.
