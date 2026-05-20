@@ -9,26 +9,21 @@ namespace comal::runtime {
 
 // ── Scope: local lookup ─────────────────────────────────────────────────
 
-Symbol* Scope::findLocal(const std::string& name) {
+Symbol* Scope::findLocal(std::string_view name) {
     auto it = symbols_.find(name);
     return (it != symbols_.end()) ? &it->second : nullptr;
 }
 
 // ── Scope: walk-up lookup (respects CLOSED) ─────────────────────────────
 
-Symbol* Scope::find(const std::string& name) {
-    // Search this scope first
-    if (Symbol* s = findLocal(name))
-        return s;
-
-    // If this scope is CLOSED, stop here (don't walk up)
-    if (closed)
-        return nullptr;
-
-    // Try parent
-    if (parent)
-        return parent->find(name);
-
+Symbol* Scope::find(std::string_view name) {
+    for (Scope* scope = this; scope; scope = scope->parent) {
+        auto it = scope->symbols_.find(name);
+        if (it != scope->symbols_.end())
+            return &it->second;
+        if (scope->closed)
+            break;
+    }
     return nullptr;
 }
 

@@ -14,6 +14,7 @@
 #include <cmath>
 #include <algorithm>
 #include <cctype>
+#include <optional>
 
 namespace comal::runtime {
 
@@ -32,10 +33,15 @@ static Value evalSubstr(Interpreter& interp, const comal::ExpSubstr& sub);
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-/// Get the variable name from a legacy id_rec (null-safe wrapper around shim).
-static std::string idName(const id_rec* id) {
+/// Get the variable name from a legacy id_rec as a view (null-safe).
+static std::string_view idNameView(const id_rec* id) {
     const char* n = comal_id_name(id);
-    return n ? n : "<null>";
+    return n ? std::string_view{n} : std::string_view{};
+}
+
+/// String-owning wrapper used for APIs that require std::string.
+static std::string idName(const id_rec* id) {
+    return std::string(idNameView(id));
 }
 
 // ── Main entry point ────────────────────────────────────────────────────
@@ -252,35 +258,41 @@ static Value evalUnary(Interpreter& interp, int op,
 // ── Variable lookup (Id) ────────────────────────────────────────────────
 
 static Value evalId(Interpreter& interp, const comal::ExpId& eid) {
-    std::string name = idName(eid.id);
+    const std::string_view nameView = idNameView(eid.id);
+    std::optional<std::string> nameOwned;
+    auto nameStr = [&]() -> const std::string& {
+        if (!nameOwned)
+            nameOwned.emplace(nameView);
+        return *nameOwned;
+    };
 
     // Check if it's a function call first
     if (eid.exproot) {
         // Could be a FUNC call or an array subscript
-        Symbol* sym = interp.scopes.current().find(name);
+        Symbol* sym = interp.scopes.current().find(nameView);
         if (sym) {
             if (sym->resolve().isArray()) {
                 return evalArrayElem(interp, eid.exproot, sym);
             }
             // If it's a FUNC reference, call it
             if (sym->kind == SymbolKind::FuncRef) {
-                return execFuncCall(interp, name, eid.exproot);
+                return execFuncCall(interp, nameStr(), eid.exproot);
             }
         }
 
         // Check the proc table for a user-defined FUNC
-        auto it = interp.procTable.find(name);
+        auto it = interp.procTable.find(nameStr());
         if (it != interp.procTable.end()) {
-            return execFuncCall(interp, name, eid.exproot);
+            return execFuncCall(interp, nameStr(), eid.exproot);
         }
 
-        throw ComalError(ErrorCode::Id, "Unknown function or array '" + name + "'");
+        throw ComalError(ErrorCode::Id, "Unknown function or array '" + nameStr() + "'");
     }
 
     // Simple variable lookup
-    Symbol* sym = interp.scopes.current().find(name);
+    Symbol* sym = interp.scopes.current().find(nameView);
     if (sym && sym->kind == SymbolKind::FuncRef) {
-        return execFuncCall(interp, name, nullptr);
+        return execFuncCall(interp, nameStr(), nullptr);
     }
     if (sym && sym->kind == SymbolKind::NameThunk) {
         // NAME parameter: re-evaluate expression in caller's scope
@@ -306,10 +318,10 @@ static Value evalId(Interpreter& interp, const comal::ExpId& eid) {
     }
     if (!sym) {
         // Before auto-creating a variable, check if this is a zero-arg FUNC call
-        auto it = interp.procTable.find(name);
+        auto it = interp.procTable.find(nameStr());
         if (it != interp.procTable.end() &&
             it->second->command() == StatementType::Func) {
-            return execFuncCall(interp, name, nullptr);
+            return execFuncCall(interp, nameStr(), nullptr);
         }
 
         // Auto-create in the nearest CLOSED scope (or global), matching legacy behavior
@@ -323,7 +335,7 @@ static Value evalId(Interpreter& interp, const comal::ExpId& eid) {
         Scope* target = &interp.scopes.current();
         while (target->parent && !target->closed)
             target = target->parent;
-        sym = &target->define(name, std::move(init));
+        sym = &target->define(nameStr(), std::move(init));
     }
 
     return sym->resolve();
@@ -332,25 +344,31 @@ static Value evalId(Interpreter& interp, const comal::ExpId& eid) {
 // ── String variable lookup (Sid) ────────────────────────────────────────
 
 static Value evalSid(Interpreter& interp, const comal::ExpSid& esid) {
-    std::string name = idName(esid.id);
+    const std::string_view nameView = idNameView(esid.id);
+    std::optional<std::string> nameOwned;
+    auto nameStr = [&]() -> const std::string& {
+        if (!nameOwned)
+            nameOwned.emplace(nameView);
+        return *nameOwned;
+    };
 
     // If there are arguments, check for FUNC call first
     if (esid.exproot) {
         // Check for FUNC variable reference
-        Symbol* sym_check = interp.scopes.current().find(name);
+        Symbol* sym_check = interp.scopes.current().find(nameView);
         if (sym_check && sym_check->kind == SymbolKind::FuncRef) {
-            return execFuncCall(interp, name, esid.exproot);
+            return execFuncCall(interp, nameStr(), esid.exproot);
         }
-        auto it = interp.procTable.find(name);
+        auto it = interp.procTable.find(nameStr());
         if (it != interp.procTable.end()) {
-            return execFuncCall(interp, name, esid.exproot);
+            return execFuncCall(interp, nameStr(), esid.exproot);
         }
     }
 
     // Look up the variable
-    Symbol* sym = interp.scopes.current().find(name);
+    Symbol* sym = interp.scopes.current().find(nameView);
     if (sym && sym->kind == SymbolKind::FuncRef) {
-        return execFuncCall(interp, name, nullptr);
+        return execFuncCall(interp, nameStr(), nullptr);
     }
     if (sym && sym->kind == SymbolKind::NameThunk) {
         Scope proxy;
@@ -373,7 +391,7 @@ static Value evalSid(Interpreter& interp, const comal::ExpSid& esid) {
         Scope* target = &interp.scopes.current();
         while (target->parent && !target->closed)
             target = target->parent;
-        sym = &target->define(name, Value(std::string{}));
+        sym = &target->define(nameStr(), Value(std::string{}));
     }
 
     Value base;
@@ -383,7 +401,7 @@ static Value evalSid(Interpreter& interp, const comal::ExpSid& esid) {
             base = evalArrayElem(interp, esid.exproot, sym);
         } else {
             throw ComalError(ErrorCode::Array,
-                "'" + name + "' is not an array");
+                "'" + nameStr() + "' is not an array");
         }
     } else {
         base = sym->resolve();

@@ -10,6 +10,7 @@
 ///   - IMPORT makes outer-scope variables visible locally
 
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 #include <memory>
@@ -35,6 +36,42 @@ enum class SymbolKind {
 };
 
 class Scope;  // forward declaration for use in Symbol
+
+struct TransparentStringHash {
+    using is_transparent = void;
+
+    size_t operator()(std::string_view s) const noexcept {
+        return std::hash<std::string_view>{}(s);
+    }
+
+    size_t operator()(const std::string& s) const noexcept {
+        return std::hash<std::string_view>{}(s);
+    }
+
+    size_t operator()(const char* s) const noexcept {
+        return std::hash<std::string_view>{}(s ? std::string_view{s} : std::string_view{});
+    }
+};
+
+struct TransparentStringEqual {
+    using is_transparent = void;
+
+    bool operator()(const std::string& a, const std::string& b) const noexcept {
+        return a == b;
+    }
+
+    bool operator()(std::string_view a, std::string_view b) const noexcept {
+        return a == b;
+    }
+
+    bool operator()(const std::string& a, std::string_view b) const noexcept {
+        return std::string_view{a} == b;
+    }
+
+    bool operator()(std::string_view a, const std::string& b) const noexcept {
+        return a == std::string_view{b};
+    }
+};
 
 /// One symbol in a scope.
 struct Symbol {
@@ -65,6 +102,8 @@ struct Symbol {
 /// Replaces legacy sym_env.
 class Scope {
 public:
+    using SymbolMap = std::unordered_map<std::string, Symbol, TransparentStringHash, TransparentStringEqual>;
+
     Scope* parent{nullptr};        // enclosing scope (nullptr for global)
     bool closed{false};            // CLOSED procedure — blocks sym lookup
     std::string name;              // e.g. "GLOBAL", procedure name
@@ -74,11 +113,11 @@ public:
     // ── Lookup ──────────────────────────────────────────────────────────
 
     /// Find a symbol in THIS scope only.
-    Symbol* findLocal(const std::string& name);
+    Symbol* findLocal(std::string_view name);
 
     /// Find a symbol, walking up through parent scopes.
     /// Stops at a CLOSED boundary (like legacy sym_search).
-    Symbol* find(const std::string& name);
+    Symbol* find(std::string_view name);
 
     // ── Mutation ────────────────────────────────────────────────────────
 
@@ -107,10 +146,10 @@ public:
     size_t size() const { return symbols_.size(); }
 
     /// Get all symbols in this scope (for debugging/variable inspection).
-    const std::unordered_map<std::string, Symbol>& allSymbols() const { return symbols_; }
+    const SymbolMap& allSymbols() const { return symbols_; }
 
 private:
-    std::unordered_map<std::string, Symbol> symbols_;
+    SymbolMap symbols_;
 };
 
 // ── Scope stack (managed by the interpreter) ────────────────────────────

@@ -993,7 +993,7 @@ static void execAssign(Interpreter& interp, ComalLine* line) {
 
 // ── Lvalue resolution ───────────────────────────────────────────────────
 
-static std::string lvalName(const Expression* lval) {
+static std::string_view lvalName(const Expression* lval) {
     // Unwrap ExpIsNum/ExpIsString wrappers
     while (lval->opType() == OpType::ExpIsNum || lval->opType() == OpType::ExpIsString)
         lval = lval->asExp();
@@ -1001,17 +1001,17 @@ static std::string lvalName(const Expression* lval) {
     switch (lval->opType()) {
     case OpType::Id: {
         const auto& eid = std::get<ExpId>(lval->data());
-        return eid.id ? eid.id->name : "";
+        return eid.id ? std::string_view{eid.id->name} : std::string_view{};
     }
     case OpType::Sid: {
         const auto& esid = std::get<ExpSid>(lval->data());
-        return esid.id ? esid.id->name : "";
+        return esid.id ? std::string_view{esid.id->name} : std::string_view{};
     }
     case OpType::Array:
     case OpType::Sarray: {
         // Array element — same layout as ExpId
         const auto& eid = std::get<ExpId>(lval->data());
-        return eid.id ? eid.id->name : "";
+        return eid.id ? std::string_view{eid.id->name} : std::string_view{};
     }
     default:
         throw ComalError(ErrorCode::Lval, "Expression is not an lvalue");
@@ -1023,9 +1023,9 @@ static Value& resolveLval(Interpreter& interp, const Expression* lval) {
     while (lval->opType() == OpType::ExpIsNum || lval->opType() == OpType::ExpIsString)
         lval = lval->asExp();
 
-    std::string name = lvalName(lval);
+    const std::string_view nameView = lvalName(lval);
 
-    Symbol* sym = interp.scopes.current().find(name);
+    Symbol* sym = interp.scopes.current().find(nameView);
     if (!sym) {
         // Auto-create in the nearest CLOSED scope (or global), matching legacy behavior
         Value init;
@@ -1047,7 +1047,7 @@ static Value& resolveLval(Interpreter& interp, const Expression* lval) {
         Scope* target = &interp.scopes.current();
         while (target->parent && !target->closed)
             target = target->parent;
-        sym = &target->define(name, std::move(init));
+        sym = &target->define(std::string{nameView}, std::move(init));
     }
 
     // Array element?
@@ -1129,8 +1129,8 @@ static void assignToLval(Interpreter& interp, const Expression* lval,
         if (esid.twoexp && target.isString()) {
             // The target was already returned as the whole string
             // We need to do substring replacement
-            std::string name = lvalName(lval);
-            Symbol* sym = interp.scopes.current().find(name);
+            const std::string_view nameView = lvalName(lval);
+            Symbol* sym = interp.scopes.current().find(nameView);
             if (sym) {
                 std::string& s = sym->resolve().asString();
                 int64_t from = 1, to = static_cast<int64_t>(s.size());

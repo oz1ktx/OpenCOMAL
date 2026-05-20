@@ -1,6 +1,6 @@
 # OpenCOMAL Project Status
 
-**Last Updated:** 26 April 2026
+**Last Updated:** 20 May 2026
 **Purpose:** Short, ordered snapshot of current project state and near-term work.
 
 ---
@@ -10,7 +10,7 @@
 | Area | Status | Notes |
 |------|--------|-------|
 | Parser (`libcomal-parser`) | Stable | Modern AST available via modern API; legacy compatibility layer still present |
-| Runtime (`libcomal-runtime`) | Stable | Modern AST execution path in active use; SPAWN v1 implemented |
+| Runtime (`libcomal-runtime`) | Stable | Modern AST execution path in active use; SPAWN v1 implemented; profiling-driven lookup/eval optimizations applied |
 | Graphics (`libcomal-graphics`) | Stable | DRAW command set includes `text` and style controls |
 | Sound (`libcomal-sound`) | Partial but usable | `TONE` works; `PLAY` has basic support, full MML remains TODO |
 | LSP (`comal-lsp`) | Stable | Diagnostics, completion, definition, hover; parser-backed diagnostics classification is now in place |
@@ -25,6 +25,7 @@
 
 All earlier modernization phases are complete enough for daily development.
 Current work is mostly IDE ergonomics, debugger depth, and integration polish.
+The bytecode backend investigation is intentionally deferred while runtime hotspots are addressed with targeted optimizations.
 
 ---
 
@@ -60,6 +61,11 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
   - `RANDOM` files always use binary fixed-record format.
   - Record positioning (e.g., `READ FILE 1,pos:`) now correctly seeks before reading.
   - Runtime supports both file I/O and queue-based message passing.
+  - **Profiling-driven optimization pass completed (May 2026):**
+    - `perf` and `valgrind` profiling runs were performed on `examples/mandelbrot_pixel.lst` and `examples/mandelbrot_pixel_spawn.lst`.
+    - Primary hotspots were confirmed in symbol lookup and expression evaluation (`Scope::find`, `evaluate`, `evalId`).
+    - Runtime now uses transparent string-key lookup and view-based name handling in hot paths to reduce temporary allocations and repeated lookup overhead.
+    - First-pass profiling after changes shows a meaningful reduction in evaluator self-time on spawn-heavy workload.
 
 ### 3. IDE core workflow
 
@@ -142,16 +148,26 @@ bash tests/run_tests.sh ./build/libcomal-runtime/comal-run
 
 # CTest view
 cd build && ctest --output-on-failure
+
+# Optional profiling build
+cmake -S . -B build-prof -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build-prof -j$(nproc)
+
+# Example perf run
+perf record -e cpu-clock -F 999 -g --call-graph dwarf -- \
+  ./build-prof/libcomal-runtime/comal-run examples/mandelbrot_pixel_spawn.lst
+perf report --stdio --dsos comal-run
 ```
 
 ---
 
 ## Near-Term Priorities (Ordered)
 
-1. IDE debug experience polish (step controls, breakpoint UX, variable/call-stack clarity).
-2. IDE editor integration polish (code actions, richer diagnostics UX, completion tuning).
-3. Sound feature expansion (`PLAY` compatibility beyond current minimal support).
-4. Preparation work for future legacy AST retirement (no execution yet).
+1. Continue runtime hotspot reduction (symbol lookup caching and expression path optimizations).
+2. IDE debug experience polish (step controls, breakpoint UX, variable/call-stack clarity).
+3. IDE editor integration polish (code actions, richer diagnostics UX, completion tuning).
+4. Sound feature expansion (`PLAY` compatibility beyond current minimal support).
+5. Preparation work for future legacy AST retirement (no execution yet).
 
 ---
 
@@ -168,6 +184,8 @@ This is intentionally scheduled for later and is not part of immediate delivery 
 ## Deferred Investigation: Runtime Performance Backend (Bytecode)
 
 Evaluate a project-specific bytecode VM as a future execution backend for OpenCOMAL.
+
+Status: **Deferred by decision (May 2026)** until profiling-led interpreter optimizations flatten current hotspots.
 
 - Preferred direction: project-specific bytecode (rather than reusing another language bytecode such as Lua) to preserve COMAL semantics, debugger line mapping, and IDE/LSP integration.
 
