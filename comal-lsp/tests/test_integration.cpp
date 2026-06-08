@@ -191,6 +191,15 @@ TEST_FUNC(test_diagnostics_draw_validation) {
         if (d.message.find("DRAW:") != std::string::npos)
             anyVarDrawError = true;
     ASSERT_FALSE(anyVarDrawError, "DRAW circle with variable args should have no DRAW errors");
+
+    // DRAW with trailing comment should ignore comment text in arg validation
+    std::string code5 = "DRAW circle 100 200 50 // centered alien body\n";
+    diags = server.parseDocument(code5);
+    bool anyCommentDrawError = false;
+    for (const auto& d : diags)
+        if (d.message.find("DRAW:") != std::string::npos)
+            anyCommentDrawError = true;
+    ASSERT_FALSE(anyCommentDrawError, "DRAW with trailing comment should have no DRAW errors");
 }
 
 TEST_FUNC(test_graphics_registry_in_server) {

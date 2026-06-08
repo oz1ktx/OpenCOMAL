@@ -32,8 +32,8 @@ FileBrowserPanel::FileBrowserPanel(QWidget *parent)
         }
     });
 
-    // Default: show current directory
-    setRootPath(QDir::currentPath());
+    // Default: show user's home directory
+    setRootPath(QDir::homePath());
 }
 
 void FileBrowserPanel::setRootPath(const QString &path)

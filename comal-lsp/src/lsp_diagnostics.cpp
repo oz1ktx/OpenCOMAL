@@ -117,6 +117,22 @@ std::string normalizeDrawArgsForDiagnostics(const std::string& drawArgs) {
     return normalized;
 }
 
+// Strip COMAL inline // comments while preserving // inside quoted strings.
+std::string stripInlineCommentForDiagnostics(const std::string& line) {
+    bool inQuotes = false;
+    for (size_t i = 0; i + 1 < line.size(); ++i) {
+        const char c = line[i];
+        if (c == '"') {
+            inQuotes = !inQuotes;
+            continue;
+        }
+        if (!inQuotes && c == '/' && line[i + 1] == '/') {
+            return line.substr(0, i);
+        }
+    }
+    return line;
+}
+
 StatementParseResult parseLineWithParserForDiagnostics(const std::string& sourceLine) {
     StatementParseResult info;
 
@@ -488,6 +504,7 @@ void runDrawDiagnostics(const NormalizedLine& normalized,
     }
 
     std::string drawArgs = normalized.trimmed.substr(normalized.splitPos + 1);
+    drawArgs = stripInlineCommentForDiagnostics(drawArgs);
     size_t ds = drawArgs.find_first_not_of(" \t");
     if (ds == std::string::npos) {
         return;
