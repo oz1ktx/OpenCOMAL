@@ -150,6 +150,7 @@ PRIVATE struct {
 	returnSYM, 0, "RETURN"}, {
 	rmdirSYM, 0, "RMDIR"}, {
 	tnrnSYM, _ROUND, "ROUND"}, {
+	tsrnSYM, _EVAL, "EVAL"}, {
 	rndSYM, _RND , "RND"}, {
 	select_outputSYM, 0, "SELECT OUTPUT"}, {
 	select_inputSYM, 0, "SELECT INPUT"}, {

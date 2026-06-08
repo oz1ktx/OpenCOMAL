@@ -1,0 +1,19 @@
+       10 // EVAL() sample program
+       20 //
+       30 READ f$
+       40 FOR x:=0 TO 5 STEP 0.5 DO
+       50   got:=EVAL(f$)
+       60   want:=5*x+SIN(2*x)
+       70   IF ABS(got-want)>0.000001 THEN STOP "eval mismatch 1"
+       80 ENDFOR
+       90 //
+      100 READ f$
+      110 FOR x:=-3 TO 3 DO
+      120   got:=EVAL(f$)
+      130   want:=x^2+3*x-7
+      140   IF got<>want THEN STOP "eval mismatch 2"
+      150 ENDFOR
+      160 //
+      170 PRINT "All ok"
+      180 //
+      190 DATA "5*x+SIN(2*x)", "x^2+3*x-7"

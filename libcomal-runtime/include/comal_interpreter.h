@@ -94,6 +94,9 @@ public:
     /// Parse and execute a single direct command (e.g. PRINT 2+2).
     void executeDirect(const std::string& command);
 
+    /// Parse and evaluate a numeric expression stored in a string.
+    Value evalExpressionString(const std::string& exprText);
+
     // Suspend/Resume support
     void suspend();
     void resume();
@@ -315,6 +318,9 @@ private:
 
     /// Storage for parsed lines (owns the ParseTree objects).
     std::vector<std::unique_ptr<ParseTree>> trees_;
+
+    /// Cached ASTs for EVAL(expr$). These point into the parser's shared pool.
+    std::unordered_map<std::string, const Expression*> evalExprCache_;
 
     /// Graphics scene model and command registry.
     comal::graphics::Scene defaultScene_;       // internal default (CLI use)

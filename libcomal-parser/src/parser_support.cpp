@@ -333,6 +333,12 @@ PUBLIC int pars_handle_error_silent()
 	return i;
 }
 
+PUBLIC void pars_clear_error()
+{
+	pars_error_happened = 0;
+	pars_errtxt[0] = '\0';
+}
+
 PUBLIC const char *pars_last_error()
 {
 	return pars_errtxt;

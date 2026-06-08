@@ -130,6 +130,9 @@ Value evalBuiltinUnary(Interpreter& interp, int op, const Value& arg) {
             "VAL(\"" + s + "\") — cannot convert to number");
     }
 
+    case _EVAL:
+        return interp.evalExpressionString(arg.asString());
+
     case _UPPER: {
         std::string s = arg.asString();
         std::transform(s.begin(), s.end(), s.begin(),

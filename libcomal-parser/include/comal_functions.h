@@ -45,5 +45,6 @@
 #define _ROUND 4038
 
 #define _SPLIT 4039
+#define _EVAL 4040
 
 #endif

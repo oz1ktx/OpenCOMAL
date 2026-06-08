@@ -38,13 +38,9 @@ SKIP="rnd()1.lst rnd()2.lst signif1.lst gentest.lst lst2sq.lst sq2lst.lst"
 # the modern parser/runtime.
 SKIP="$SKIP run1.lst selin1.lst selout1.lst trace1.lst"
 
-# Audio/timing tests are flaky on headless CI runners (no stable audio backend).
-# Keep them enabled for local development unless running in CI.
-if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
-  SKIP="$SKIP tone_block.lst tone_play_test.lst encounters.lst abc_data_play.lst"
-fi
-
-# Long-form audio demos (runtime exceeds test timeout; run manually)
+# Audio/sound programs that require a real audio backend or run longer than the
+# 5-second test timeout. Skip unconditionally; run manually when audio is set up.
+SKIP="$SKIP tone_block.lst tone_play_test.lst encounters.lst abc_data_play.lst"
 SKIP="$SKIP pinkpanther_play.lst"
 
 run_dir() {

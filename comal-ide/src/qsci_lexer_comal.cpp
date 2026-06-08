@@ -31,7 +31,7 @@ static const QSet<QString> &comalBuiltins()
     // Numeric and string built-in functions recognised by the parser.
     static const QSet<QString> bf {
         "ABS", "ASN", "ATN", "COS", "DEG", "EOD", "EOF", "ERR",
-        "ERRLINE", "EXP", "FALSE", "FRAC", "INT", "LEN", "LN",
+        "ERRLINE", "EVAL", "EXP", "FALSE", "FRAC", "INT", "LEN", "LN",
         "LOG", "NOT", "ORD", "PI", "RAD", "RND", "ROUND", "SGN",
         "SIN", "SQR", "TAN", "TRUE", "VAL",
         // String builtins (matched without the trailing $)

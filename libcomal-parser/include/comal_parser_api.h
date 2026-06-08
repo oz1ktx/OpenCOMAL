@@ -30,6 +30,14 @@ ComalLine* comal_parse_line_modern(const char *line,
                                    char *errbuf, size_t errbuf_len,
                                    int *errpos);
 
+/// Parse a standalone expression by reusing the existing line grammar.
+/// The returned pointer is owned by the parser's current pool and remains
+/// valid until comal_parser_reset() is called.
+/// On parse error, returns nullptr and fills errbuf/errpos.
+Expression* comal_parse_expression_modern(const char *expr,
+                                          char *errbuf, size_t errbuf_len,
+                                          int *errpos);
+
 /// Return a human-readable name for a StatementType enum value.
 const char* statement_type_name(StatementType cmd);
 

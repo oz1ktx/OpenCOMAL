@@ -429,6 +429,39 @@ void Interpreter::addLine(const std::string& text) {
     }
 }
 
+Value Interpreter::evalExpressionString(const std::string& exprText) {
+    auto it = evalExprCache_.find(exprText);
+    const Expression* expr = nullptr;
+
+    if (it != evalExprCache_.end()) {
+        expr = it->second;
+    } else {
+        char errbuf[256] = {};
+        int errpos = 0;
+        expr = comal_parse_expression_modern(exprText.c_str(),
+                                             errbuf, sizeof(errbuf), &errpos);
+        if (!expr) {
+            std::string msg = "EVAL parse error";
+            if (errpos > 0) {
+                msg += " at column " + std::to_string(errpos);
+            }
+            if (errbuf[0] != '\0') {
+                msg += ": ";
+                msg += errbuf;
+            }
+            throw ComalError(ErrorCode::Val, msg);
+        }
+        evalExprCache_.emplace(exprText, expr);
+    }
+
+    Value result = evaluate(*this, expr);
+    if (!result.isNumeric()) {
+        throw ComalError(ErrorCode::Type,
+            "EVAL() requires a numeric expression");
+    }
+    return result;
+}
+
 // ── structureScan ───────────────────────────────────────────────────────
 
 /// Structure scan table: maps statement types to their expected end markers.

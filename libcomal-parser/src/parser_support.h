@@ -51,5 +51,6 @@ extern struct expression *pars_exp_rnd(struct expression *exp1, struct expressio
 extern void pars_error(char *s, ...);
 extern int pars_handle_error(void);
 extern int pars_handle_error_silent(void);
+extern void pars_clear_error(void);
 extern const char *pars_last_error(void);
 extern int pars_last_error_pos(void);

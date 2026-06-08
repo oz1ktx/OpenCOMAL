@@ -1,6 +1,6 @@
 # OpenCOMAL Project Status
 
-**Last Updated:** 20 May 2026
+**Last Updated:** 8 Jun 2026
 **Purpose:** Short, ordered snapshot of current project state and near-term work.
 
 ---
@@ -15,7 +15,7 @@
 | Sound (`libcomal-sound`) | Partial but usable | `TONE` works; `PLAY` has basic support, full MML remains TODO |
 | LSP (`comal-lsp`) | Stable | Diagnostics, completion, definition, hover; parser-backed diagnostics classification is now in place |
 | IDE (`comal-ide`) | In progress | Core workflow works; editor now shows live LSP diagnostics in saved and unsaved tabs |
-| Test suite | Strong | 127 pass / 6 skip / 0 fail |
+| Test suite | Strong | 140 pass / 15 skip / 0 fail |
 
 ---
 
@@ -61,6 +61,7 @@ The bytecode backend investigation is intentionally deferred while runtime hotsp
   - `RANDOM` files always use binary fixed-record format.
   - Record positioning (e.g., `READ FILE 1,pos:`) now correctly seeks before reading.
   - Runtime supports both file I/O and queue-based message passing.
+  - Runtime now supports `EVAL(expr$)` for numeric expressions parsed from strings in the current interpreter scope.
   - **Profiling-driven optimization pass completed (May 2026):**
     - `perf` and `valgrind` profiling runs were performed on `examples/mandelbrot_pixel.lst` and `examples/mandelbrot_pixel_spawn.lst`.
     - Primary hotspots were confirmed in symbol lookup and expression evaluation (`Scope::find`, `evaluate`, `evalId`).
@@ -85,7 +86,7 @@ The bytecode backend investigation is intentionally deferred while runtime hotsp
 ### 4. Tooling and testing
 
 - Unified test runner in `tests/run_tests.sh`.
-- Current aggregate result: **127 pass, 6 skip, 0 fail**.
+- Current aggregate result: **140 pass, 15 skip, 0 fail**.
 
 ### 5. Help and discoverability
 
@@ -93,6 +94,8 @@ The bytecode backend investigation is intentionally deferred while runtime hotsp
 - Packaged installs include this file at `/usr/share/doc/opencomal/comal-keyword-docs.tsv`.
 - LSP hover and IDE Help panel use the same shared documentation source.
 - `SPAWN` help is included in the shared keyword docs and available to both LSP hover and IDE Help.
+- `EVAL` help is included in the shared keyword docs and available to both LSP hover and IDE Help.
+- `EVAL` is syntax-highlighted as a built-in function in the IDE editor (teal, same category as `SIN`, `VAL`, etc.).
 - `DRAW` hovers now support grouped command forms (e.g. `HUD.line`, `Ship.Engine.rect`).
 - `PLAY` documentation now reflects the currently implemented ABC subset.
 - ABC parser beat-unit fix: `Q:1/4=123` now correctly applies the beat unit fraction;
@@ -127,12 +130,12 @@ The bytecode backend investigation is intentionally deferred while runtime hotsp
 
 | Metric | Value |
 |--------|-------|
-| Total test programs | 133 |
-| Pass | 127 |
-| Skip | 6 |
+| Total test programs | 155 |
+| Pass | 140 |
+| Skip | 15 |
 | Fail | 0 |
 
-**Skip reasons (expected):** interactive, infinite-loop, or squash-format related cases.
+**Skip reasons (expected):** interactive, infinite-loop, squash-format, or audio/timing cases.
 
 ---
 

@@ -5,6 +5,8 @@
 #include "comal_memory.h"
 #include "comal_id.h"
 
+#include <string>
+
 #include <string.h>
 
 extern struct comal_line c_line;
@@ -110,6 +112,61 @@ ComalLine* comal_parse_line_modern(const char *line,
     // conversion needed. The grammar's a_comal_line rule populates c_line_modern.
     ComalLine* result = c_line_modern;
     c_line_modern = nullptr;  // take ownership, clear global
+    return result;
+}
+
+Expression* comal_parse_expression_modern(const char *expr,
+                                          char *errbuf, size_t errbuf_len,
+                                          int *errpos)
+{
+    if (expr == nullptr) {
+        if (errbuf && errbuf_len > 0) {
+            strncpy(errbuf, "No input", errbuf_len - 1);
+            errbuf[errbuf_len - 1] = '\0';
+        }
+        if (errpos) *errpos = 0;
+        return nullptr;
+    }
+
+    c_line_modern = nullptr;
+    pars_clear_error();
+
+    std::string wrapped = "RETURN ";
+    wrapped += expr;
+
+    lex_setinput(wrapped.data());
+    (void)yyparse();
+
+    int error_pos = pars_last_error_pos();
+    if (error_pos) {
+        if (errbuf && errbuf_len > 0) {
+            const char *msg = pars_last_error();
+            if (msg == nullptr || msg[0] == '\0') msg = "Parse error";
+            strncpy(errbuf, msg, errbuf_len - 1);
+            errbuf[errbuf_len - 1] = '\0';
+        }
+        if (errpos) *errpos = error_pos;
+        c_line_modern = nullptr;
+        pars_clear_error();
+        return nullptr;
+    }
+
+    if (errbuf && errbuf_len > 0) errbuf[0] = '\0';
+    if (errpos) *errpos = 0;
+
+    ComalLine* line = c_line_modern;
+    c_line_modern = nullptr;
+    if (line == nullptr || line->command() != StatementType::Return) {
+        delete line;
+        if (errbuf && errbuf_len > 0) {
+            strncpy(errbuf, "Expression parse did not yield RETURN wrapper", errbuf_len - 1);
+            errbuf[errbuf_len - 1] = '\0';
+        }
+        return nullptr;
+    }
+
+    Expression* result = line->asExpr();
+    delete line;
     return result;
 }
 

@@ -76,6 +76,7 @@ static const char* op_name(int op) {
 	if (op == _FRAC) return "FRAC";
 	if (op == _ROUND) return "ROUND";
 	if (op == _SPLIT) return "SPLIT";
+	if (op == _EVAL) return "EVAL";
 	// Parentheses (used for grouping)
 	if (op == 318) return "";      // lparenSYM — grouping, no visible op
 	// Fallback
