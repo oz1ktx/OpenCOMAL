@@ -254,5 +254,37 @@ Investigate supporting Windows by providing optional Qt-backed implementations t
 - `docs/GRAPHICS_COMMANDS.md`
 - `docs/PLAY_COMMAND.md`
 - `docs/comal-keyword-docs.tsv`
+- `docs/future_assembly_addon.md`
 ## Platform Ports (Deferred)
+
+# Future Development
+
+## Educational Multi-Language IDE Direction (COMAL + Z80/CP/M Assembly)
+
+We plan to evolve the IDE into a language-flexible teaching environment that supports both:
+
+### COMAL workflows (current)
+Z80 assembly programming with CP/M-oriented execution and debugging (future)
+
+### Why this direction
+
+Reuse the existing Qt IDE shell, editor, run control, panel layout, and LSP integration patterns.
+Avoid maintaining separate cloned applications with duplicated UI and tooling code.
+Enable comparative teaching workflows across high-level and low-level programming models in one environment.
+Proposed architecture direction
+
+Introduce a backend abstraction layer so the IDE can host multiple execution engines.
+Keep COMAL as the first backend implementation.
+Add a Z80/CP/M backend for assemble, load, run, step, break, and inspect state.
+Expected teaching capabilities (future)
+
+Edit and assemble simple Z80 programs.
+Run in an emulated CP/M-like environment.
+Inspect registers, flags, stack, memory windows, and disassembly.
+Use breakpoints and stepping controls similar to existing IDE run/debug workflow.
+Status
+
+Accepted as a future development direction.
+Initial work should prioritize shared abstractions and minimal disruption to existing COMAL behavior.
+Detailed planning will be maintained in a separate draft document.
 
