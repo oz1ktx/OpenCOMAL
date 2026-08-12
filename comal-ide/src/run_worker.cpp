@@ -1,5 +1,6 @@
 #include "run_worker.h"
 #include "qt_io.h"
+#include "language_backend.h"
 #include "comal_interpreter.h"
 #include "comal_error.h"
 #include "comal_scene_model.h"
@@ -107,6 +108,16 @@ void RunWorker::setDirectCommand(const QString &command)
     sceneSignalDirty_.store(false, std::memory_order_release);
 }
 
+void RunWorker::setLanguage(LanguageId language)
+{
+    language_ = language;
+}
+
+void RunWorker::setProgramPath(const QString &programPath)
+{
+    programPath_ = programPath;
+}
+
 void RunWorker::setGraphicsScene(comal::graphics::Scene* scene)
 {
     getInterp()->setGraphicsScene(scene);
@@ -160,27 +171,25 @@ const comal::graphics::Scene& RunWorker::graphicsScene() const
 
 void RunWorker::run()
 {
-    try {
-        if (!directCmd_.isEmpty()) {
-            // Direct command mode: parse and execute a single line
-            getInterp()->executeDirect(directCmd_.toStdString());
-        } else {
-            // Full program mode
-            getInterp()->resetRunState();
-            getInterp()->loadSource(source_.toStdString());
-            getInterp()->run();
-        }
-        emit finished();
-    } catch (const StopSignal&) {
-        emit finished();
-    } catch (const EndSignal&) {
-        emit finished();
-    } catch (const EscapeSignal&) {
-        emit finished();
-    } catch (const ComalError &e) {
-        emit errorOccurred(QString::fromStdString(e.what()),
-                           static_cast<int>(e.line()));
-    } catch (const std::exception &e) {
-        emit errorOccurred(QString::fromUtf8(e.what()), 0);
+    std::unique_ptr<ILanguageBackend> backend;
+    if (language_ == LanguageId::Z80Assembly) {
+        backend = std::make_unique<Z80BackendStub>();
+    } else {
+        backend = std::make_unique<ComalBackendAdapter>();
     }
+
+    const BackendRunResult result = backend->run(
+        BackendRunContext{getInterp(), source_, directCmd_, programPath_});
+
+    if (result.finished) {
+        emit finished();
+        return;
+    }
+
+    if (!result.ok) {
+        emit errorOccurred(result.errorMessage, result.errorLine);
+        return;
+    }
+
+    emit finished();
 }

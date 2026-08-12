@@ -5,13 +5,14 @@
 #include <QVariantList>
 #include <memory>
 #include <atomic>
+#include "language_profile.h"
 
 namespace comal::runtime { class Interpreter; }
 namespace comal::graphics { class Scene; }
 class QtIO;
 
-/// Worker thread that runs the COMAL interpreter.
-/// Owns the Interpreter instance and its QtIO backend.
+/// Worker thread that executes source through the selected language backend.
+/// Owns the Interpreter instance and its QtIO backend for COMAL mode.
 class RunWorker : public QThread {
     Q_OBJECT
 
@@ -28,6 +29,12 @@ public:
 
     /// Set a single direct command to execute (call before start()).
     void setDirectCommand(const QString &command);
+
+    /// Set the source language for execution mode selection.
+    void setLanguage(LanguageId language);
+
+    /// Set the current program path (used by non-COMAL backends).
+    void setProgramPath(const QString &programPath);
 
     /// Use an external (persistent) graphics scene.
     void setGraphicsScene(comal::graphics::Scene* scene);
@@ -90,6 +97,8 @@ private:
     QtIO    *io_;       // owned by interp_ via setIO()
     QString  source_;
     QString  directCmd_;
+    QString  programPath_;
+    LanguageId language_{LanguageId::Comal};
     std::atomic<bool> sceneSignalPending_{false};
     std::atomic<bool> sceneSignalDirty_{false};
 

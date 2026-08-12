@@ -6,6 +6,7 @@
 #include <QSet>
 #include <QStringList>
 #include "comal_lsp_client.h"
+#include "language_profile.h"
 
 class QsciScintilla;
 class QTabWidget;
@@ -24,6 +25,7 @@ public:
     void openFile(const QString &filePath);
     QString currentFilePath() const;
     QString filePathToUri(const QString &filePath) const;  // Convert plain path to file:// URI
+    LanguageId currentLanguage() const;
 
     bool saveFile();
     bool saveFileAs();
@@ -57,6 +59,9 @@ private:
     QTabWidget    *tabs_;
     QsciScintilla *createEditor();
     void connectEditorSignals(QsciScintilla *editor);
+    void applyLanguageToEditor(QsciScintilla *editor, LanguageId language);
+    LanguageId languageForEditor(QsciScintilla *editor) const;
+    bool isLspEnabledForEditor(QsciScintilla *editor) const;
     QString filePathForEditor(QsciScintilla *editor) const;
     QString lspUriForEditor(QsciScintilla *editor);
     void clearLspDiagnostics(QsciScintilla *editor);

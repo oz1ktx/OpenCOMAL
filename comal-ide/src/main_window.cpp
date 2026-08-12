@@ -589,6 +589,8 @@ void MainWindow::onRun()
     delete worker_;
     worker_ = new RunWorker(this);
     worker_->setGraphicsScene(persistentScene_.get());
+    worker_->setLanguage(codeEditor_->currentLanguage());
+    worker_->setProgramPath(codeEditor_->currentFilePath());
     worker_->setSource(source);
     {
         auto bps = codeEditor_->breakpointsForCurrentFile();
@@ -665,11 +667,14 @@ void MainWindow::onDirectCommand(const QString &command)
         worker_ = new RunWorker(this);
         worker_->setGraphicsScene(persistentScene_.get());
         worker_->setExternalInterpreter(persistentInterp_);
+        worker_->setLanguage(LanguageId::Comal);
         connectRunWorker();
     } else {
         // Reuse existing worker; just set external interpreter again to ensure consistency
         worker_->setExternalInterpreter(persistentInterp_);
+        worker_->setLanguage(LanguageId::Comal);
     }
+    worker_->setProgramPath(codeEditor_->currentFilePath());
     worker_->setDirectCommand(command);
     stateLabel_->setText(tr("Running"));
     updateRunActionVisual(true);
@@ -685,7 +690,7 @@ void MainWindow::onOpen()
 {
     QString path = QFileDialog::getOpenFileName(
         this, tr("Open File"), QString(),
-        tr("COMAL Files (*.lst *.cml *.prl *.prc);;All Files (*)"));
+        tr("Source Files (*.lst *.cml *.prl *.prc *.asm *.z80 *.s *.com);;All Files (*)"));
     if (!path.isEmpty())
         codeEditor_->openFile(path);
 }
@@ -736,6 +741,8 @@ void MainWindow::startSingleStepRun(const QString &title)
     delete worker_;
     worker_ = new RunWorker(this);
     worker_->setGraphicsScene(persistentScene_.get());
+    worker_->setLanguage(codeEditor_->currentLanguage());
+    worker_->setProgramPath(codeEditor_->currentFilePath());
     worker_->setSource(source);
     {
         auto bps = codeEditor_->breakpointsForCurrentFile();

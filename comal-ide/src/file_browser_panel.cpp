@@ -12,7 +12,7 @@ FileBrowserPanel::FileBrowserPanel(QWidget *parent)
     layout->setContentsMargins(0, 0, 0, 0);
 
     model_ = new QFileSystemModel(this);
-    model_->setNameFilters({"*.lst", "*.prl", "*.prc", "*.cml"});
+    model_->setNameFilters({"*.lst", "*.prl", "*.prc", "*.cml", "*.asm", "*.z80", "*.s", "*.com"});
     model_->setNameFilterDisables(false);   // hide non-matching files
 
     tree_ = new QTreeView(this);
