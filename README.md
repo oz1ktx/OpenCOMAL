@@ -39,7 +39,7 @@ If you use Fedora, the packages are named -devel instead of -dev
 
 ```shell
 # Clone this repo to your local workspace
-git clone https://github.com/oz1ktx/OpenCOMAL.git
+git clone --recurse-submodules https://github.com/oz1ktx/OpenCOMAL.git
 # make a build directory
 cd OpenCOMAL
 mkdir build
@@ -52,3 +52,17 @@ cd ..
 cmake -S . -B build -DCPACK_GENERATOR="DEB;RPM"
 cmake --build build --target package
 ```
+
+If you already cloned the repository without submodules, populate the required third-party sources before configuring CMake:
+
+```shell
+git submodule update --init --recursive
+```
+
+The Z80 assembly and CP/M-compatible runtime work currently depends on these vendored upstream projects under `third_party/`:
+
+- `redcode/Z80`
+- `redcode/Zeta`
+- `z00m128/sjasmplus`
+
+OpenCOMAL builds them from source as git submodules and keeps them behind the project backend/adapter layer.
