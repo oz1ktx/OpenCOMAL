@@ -1,0 +1,23 @@
+# file opened: demo.asm
+ 1    0000              ; OpenCOMAL Z80 demo program
+ 2    0000              ; Prints a message via CP/M BDOS (function 9), then exits (function 0)
+ 3    0000
+ 4    0000                      ORG 0100h
+ 5    0100
+ 6    0100 11 0D 01     START:  LD DE,MSG
+ 7    0103 0E 09                LD C,9
+ 8    0105 CD 05 00             CALL 5
+ 9    0108
+10    0108 0E 00                LD C,0
+11    010A CD 05 00             CALL 5
+12    010D
+13    010D 48 45 4C 4C  MSG:    DB 'HELLO FROM OPENCOMAL Z80 DEMO$'
+13    0111 4F 20 46 52
+13    0115 4F 4D 20 4F
+13    0119 50 45 4E 43
+13    011D 4F 4D 41 4C
+13    0121 20 5A 38 30
+13    0125 20 44 45 4D
+13    0129 4F 24
+14    012B
+# file closed: demo.asm

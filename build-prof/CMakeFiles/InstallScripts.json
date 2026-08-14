@@ -1,0 +1,13 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/pnand/Workspace/Scratch/OpenCOMAL/build-prof/cmake_install.cmake",
+		"/home/pnand/Workspace/Scratch/OpenCOMAL/build-prof/libcomal-parser/cmake_install.cmake",
+		"/home/pnand/Workspace/Scratch/OpenCOMAL/build-prof/libcomal-runtime/cmake_install.cmake",
+		"/home/pnand/Workspace/Scratch/OpenCOMAL/build-prof/libcomal-graphics/cmake_install.cmake",
+		"/home/pnand/Workspace/Scratch/OpenCOMAL/build-prof/libcomal-sound/cmake_install.cmake",
+		"/home/pnand/Workspace/Scratch/OpenCOMAL/build-prof/comal-lsp/cmake_install.cmake",
+		"/home/pnand/Workspace/Scratch/OpenCOMAL/build-prof/comal-ide/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

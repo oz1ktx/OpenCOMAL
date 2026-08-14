@@ -44,6 +44,7 @@ add_executable(comal-ide
     src/direct_command_panel.cpp
     src/graphics_panel.cpp
     src/debug_panel.cpp
+    src/debug_adapter.cpp
     src/file_browser_panel.cpp
     src/help_panel.cpp
     src/qt_io.cpp
@@ -58,6 +59,7 @@ add_executable(comal-ide
     include/direct_command_panel.h
     include/graphics_panel.h
     include/debug_panel.h
+    include/debug_adapter.h
     include/file_browser_panel.h
     include/help_panel.h
     include/qt_io.h

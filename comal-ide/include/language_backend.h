@@ -59,3 +59,13 @@ class SjasmplusAssembler final : public IZ80Assembler {
 public:
     AssemblerResult assembleFile(const QString& sourcePath, const QString& outputDirectory) override;
 };
+
+/// Factory for creating language backends based on language ID.
+class BackendFactory {
+public:
+    /// Create a backend adapter for the specified language.
+    /// Returns nullptr if language is not supported.
+    static std::unique_ptr<ILanguageBackend> createBackend(LanguageId language);
+};
+
+#include "language_profile.h"

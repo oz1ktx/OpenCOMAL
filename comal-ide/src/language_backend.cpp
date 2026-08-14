@@ -550,3 +550,15 @@ BackendRunResult Z80BackendStub::run(const BackendRunContext &ctx)
         "Z80 backend currently supports .COM execution and .asm/.z80/.s assembly via sjasmplus.";
     return result;
 }
+
+std::unique_ptr<ILanguageBackend> BackendFactory::createBackend(LanguageId language)
+{
+    switch (language) {
+    case LanguageId::Comal:
+        return std::make_unique<ComalBackendAdapter>();
+    case LanguageId::Z80Assembly:
+        return std::make_unique<Z80BackendStub>();
+    default:
+        return nullptr;
+    }
+}

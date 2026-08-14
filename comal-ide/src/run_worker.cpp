@@ -171,11 +171,11 @@ const comal::graphics::Scene& RunWorker::graphicsScene() const
 
 void RunWorker::run()
 {
-    std::unique_ptr<ILanguageBackend> backend;
-    if (language_ == LanguageId::Z80Assembly) {
-        backend = std::make_unique<Z80BackendStub>();
-    } else {
-        backend = std::make_unique<ComalBackendAdapter>();
+    // Create backend using the factory based on language ID
+    const auto backend = BackendFactory::createBackend(language_);
+    if (!backend) {
+        emit errorOccurred("Unsupported language selected.", 0);
+        return;
     }
 
     const BackendRunResult result = backend->run(

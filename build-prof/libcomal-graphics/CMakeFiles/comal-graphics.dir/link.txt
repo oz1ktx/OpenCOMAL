@@ -1,0 +1,2 @@
+/usr/bin/ar qc libcomal-graphics.a "CMakeFiles/comal-graphics.dir/src/graphics_commands.cpp.o" "CMakeFiles/comal-graphics.dir/src/scene_model.cpp.o"
+/usr/bin/ranlib libcomal-graphics.a
