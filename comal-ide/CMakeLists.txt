@@ -47,6 +47,7 @@ add_executable(comal-ide
     src/debug_adapter.cpp
     src/file_browser_panel.cpp
     src/help_panel.cpp
+    src/assembly_output_panel.cpp
     src/qt_io.cpp
     src/run_worker.cpp
     src/language_backend.cpp
@@ -62,6 +63,7 @@ add_executable(comal-ide
     include/debug_adapter.h
     include/file_browser_panel.h
     include/help_panel.h
+    include/assembly_output_panel.h
     include/qt_io.h
     include/run_worker.h
     include/language_backend.h

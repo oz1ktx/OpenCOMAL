@@ -15,6 +15,7 @@ class GraphicsPanel;
 class DebugPanel;
 class FileBrowserPanel;
 class HelpPanel;
+class AssemblyOutputPanel;
 class RunWorker;
 class QtIO;
 class SettingsDialog;
@@ -59,12 +60,14 @@ private:
     QDockWidget *debugDock_;
     QDockWidget *fileBrowserDock_;
     QDockWidget *helpDock_;
+    QDockWidget *assemblyOutputDock_;
 
     DirectCommandPanel *directCommand_;
     GraphicsPanel      *graphics_;
     DebugPanel         *debug_;
     FileBrowserPanel   *fileBrowser_;
     HelpPanel          *help_;
+    AssemblyOutputPanel *assemblyOutput_;
 
     // Runtime worker
     RunWorker *worker_{nullptr};

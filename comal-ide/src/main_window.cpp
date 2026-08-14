@@ -5,6 +5,7 @@
 #include "debug_panel.h"
 #include "file_browser_panel.h"
 #include "help_panel.h"
+#include "assembly_output_panel.h"
 #include "run_worker.h"
 #include "qt_io.h"
 #include "settings_dialog.h"
@@ -498,6 +499,12 @@ void MainWindow::createPanels()
         connect(codeEditor_, &CodeEditorPanel::keywordUnderCursorChanged,
             help_, &HelpPanel::showKeywordHelp);
 
+    // Assembly output — bottom (tabbed with direct command)
+    assemblyOutput_ = new AssemblyOutputPanel;
+    assemblyOutputDock_ = new QDockWidget(tr("Assembly Output"), this);
+    assemblyOutputDock_->setObjectName("AssemblyOutputDock");
+    assemblyOutputDock_->setWidget(assemblyOutput_);
+
     // Direct command execution (when no program is running)
     connect(directCommand_, &DirectCommandPanel::lineEntered,
             this, &MainWindow::onDirectCommand);
@@ -530,15 +537,18 @@ void MainWindow::restoreDefaultLayout()
     addDockWidget(Qt::RightDockWidgetArea,  graphicsDock_);
     addDockWidget(Qt::RightDockWidgetArea,  helpDock_);
     addDockWidget(Qt::BottomDockWidgetArea, debugDock_);
+    addDockWidget(Qt::BottomDockWidgetArea, assemblyOutputDock_);
 
     // Stack help below graphics on the right
     splitDockWidget(graphicsDock_, helpDock_, Qt::Vertical);
 
-    // Put debug to the right of direct command at the bottom
+    // Put debug and assembly output to the right of direct command at the bottom
     splitDockWidget(directCommandDock_, debugDock_, Qt::Horizontal);
+    splitDockWidget(debugDock_, assemblyOutputDock_, Qt::Horizontal);
 
-    // Start with help hidden (user can show via View menu)
+    // Start with help and assembly output hidden (user can show via View menu)
     helpDock_->hide();
+    assemblyOutputDock_->hide();
 }
 
 // ── Run / Stop ────────────────────────────────────────────────────────
@@ -979,15 +989,38 @@ void MainWindow::onAssemblyStarted(const QString &sourcePath)
     Q_UNUSED(sourcePath);
     stateLabel_->setText(tr("Assembling..."));
     statusBar()->showMessage(tr("Assembling %1").arg(QFileInfo(sourcePath).fileName()));
+    assemblyOutput_->clearListing();
 }
 
 void MainWindow::onAssemblySucceeded(const QString &outputPath, const QString &listingPath, double elapsedSeconds)
 {
-    Q_UNUSED(outputPath);
-    Q_UNUSED(listingPath);
     const QString message = tr("✓ Assembled in %.2fs").arg(elapsedSeconds);
     stateLabel_->setText(message);
     statusBar()->showMessage(message, 3000);  // Show for 3 seconds
+    
+    // Display listing in assembly output panel
+    if (!listingPath.isEmpty()) {
+        QFile listFile(listingPath);
+        if (listFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QString listing = QString::fromUtf8(listFile.readAll());
+            assemblyOutput_->displayListing(listing);
+            listFile.close();
+        }
+    }
+    
+    // Display statistics
+    QFileInfo outputInfo(outputPath);
+    if (outputInfo.exists()) {
+        assemblyOutput_->displayStatistics(
+            codeEditor_->currentFilePath(),
+            elapsedSeconds,
+            outputPath,
+            outputInfo.size()
+        );
+    }
+    
+    // Show assembly output panel
+    assemblyOutputDock_->show();
 }
 
 void MainWindow::onAssemblyFailed(const QString &errorMessage, int errorLine)
@@ -996,6 +1029,12 @@ void MainWindow::onAssemblyFailed(const QString &errorMessage, int errorLine)
     const QString message = tr("✗ Assembly failed: %1").arg(errorMessage);
     stateLabel_->setText(message);
     statusBar()->showMessage(message, 5000);  // Show for 5 seconds
+    
+    // Display error in assembly output panel
+    assemblyOutput_->displayError(errorMessage);
+    
+    // Show assembly output panel
+    assemblyOutputDock_->show();
     
     // TODO: Mark error line in editor (requires public CodeEditorPanel API)
 }
