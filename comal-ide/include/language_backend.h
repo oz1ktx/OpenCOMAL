@@ -3,6 +3,7 @@
 #include <optional>
 #include <QString>
 #include <vector>
+#include "language_profile.h"
 
 namespace comal::runtime { class Interpreter; }
 
@@ -67,5 +68,3 @@ public:
     /// Returns nullptr if language is not supported.
     static std::unique_ptr<ILanguageBackend> createBackend(LanguageId language);
 };
-
-#include "language_profile.h"

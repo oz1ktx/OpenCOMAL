@@ -158,10 +158,31 @@ void Engine::stopActiveImpl() {
 
 void Engine::stopImpl() {
     stopActiveImpl();
+    
+    // Wait for any active playbacks to complete (with timeout to prevent deadlock)
+    {
+        std::unique_lock<std::mutex> lk(play_mutex_);
+        int wait_count = 0;
+        while (!active_playbacks_.empty() && wait_count < 100) {
+            lk.unlock();
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            lk.lock();
+            wait_count++;
+        }
+        // Force-clean any remaining playbacks
+        active_playbacks_.clear();
+    }
+    
     std::unique_lock<std::mutex> lk(play_mutex_);
-    if (persistent_audio_) {
+    if (persistent_audio_ && QCoreApplication::instance()) {
         QAudioSink* sink = reinterpret_cast<QAudioSink*>(persistent_audio_);
-        delete sink;
+        try {
+            sink->stop();
+        } catch (...) {
+            // Ignore errors during stop
+        }
+        // Don't manually delete the QAudioSink; let Qt's framework manage it
+        // Manual deletion during static shutdown can crash the Qt audio subsystem
         persistent_audio_ = nullptr;
     }
 #ifdef USE_FLUIDSYNTH
@@ -179,12 +200,15 @@ void Engine::initImpl() {
     }
 #endif
 
+    // Note: For comal-run (CLI), we don't create QCoreApplication since there's no event loop.
+    // QAudioSink will be created on-demand in startToneOnQtThread if needed.
+    // For GUI applications (comal-ide), a QCoreApplication should already exist.
     if (!QCoreApplication::instance()) {
-        static int argc = 1;
-        static char arg0[] = "comal-sound";
-        static char* argv[] = { arg0, nullptr };
-        new QCoreApplication(argc, argv);
+        // Only try to access audio devices if QCoreApplication exists (GUI context)
+        // CLI tools will skip this and operate in fallback mode
+        return;
     }
+
     try {
         (void)QMediaDevices::defaultAudioOutput();
         (void)QMediaDevices::audioOutputs();
@@ -332,36 +356,7 @@ void Engine::startToneOnQtThread(int freq, int sampleCount, int sampleRate, doub
     std::thread([this, playbackId, wait_ms]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
 
-        auto cleanupOnQtThread = [this, playbackId]() {
-            QIODevice* dev = nullptr;
-            std::shared_ptr<std::promise<void>> done;
-            {
-                std::unique_lock<std::mutex> lk(play_mutex_);
-                auto it = active_playbacks_.find(playbackId);
-                if (it == active_playbacks_.end())
-                    return;
-                dev = reinterpret_cast<QIODevice*>(it->second.device);
-                done = it->second.completion;
-                active_playbacks_.erase(it);
-            }
-
-            if (dev) {
-                dev->close();
-                if (QCoreApplication::instance()) dev->deleteLater();
-                else delete dev;
-            }
-            if (done) {
-                try { done->set_value(); } catch (...) {}
-            }
-        };
-
-        bool queued = false;
-        if (QCoreApplication::instance()) {
-            queued = QMetaObject::invokeMethod(QCoreApplication::instance(), cleanupOnQtThread, Qt::QueuedConnection);
-        }
-
-        if (!queued) {
-            // No event loop available: resolve safely in this thread by id.
+        auto cleanupPlayback = [this, playbackId]() {
             QIODevice* dev = nullptr;
             std::shared_ptr<std::promise<void>> done;
             {
@@ -381,7 +376,11 @@ void Engine::startToneOnQtThread(int freq, int sampleCount, int sampleRate, doub
             if (done) {
                 try { done->set_value(); } catch (...) {}
             }
-        }
+        };
+
+        // Always do direct cleanup to avoid Qt event loop dependencies
+        // This prevents crashes during static shutdown when QCoreApplication is destroyed
+        cleanupPlayback();
     }).detach();
 }
 
