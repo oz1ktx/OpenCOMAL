@@ -996,6 +996,8 @@ void MainWindow::onAssemblyFailed(const QString &errorMessage, int errorLine)
     const QString message = tr("✗ Assembly failed: %1").arg(errorMessage);
     stateLabel_->setText(message);
     statusBar()->showMessage(message, 5000);  // Show for 5 seconds
+    
+    // TODO: Mark error line in editor (requires public CodeEditorPanel API)
 }
 
 void MainWindow::onAssemble()
@@ -1027,3 +1029,5 @@ void MainWindow::onRebuild()
     // Run the program (assembly will be re-done)
     onRun();
 }
+
+
