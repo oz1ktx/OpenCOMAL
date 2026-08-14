@@ -355,6 +355,25 @@ void MainWindow::createToolBar()
 
     tb->addSeparator();
 
+    // ── Assembly (Assemble, Rebuild) — Z80 only ──
+    assembleAction_ = tb->addAction(
+        makeIcon("media-record", Qt::darkRed),
+        tr("Assemble"));
+    assembleAction_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_F9));
+    assembleAction_->setToolTip(tr("Assemble Z80 source (Ctrl+F9)"));
+    assembleAction_->setVisible(false);  // Hidden by default, shown for .asm files
+    connect(assembleAction_, &QAction::triggered, this, &MainWindow::onAssemble);
+
+    rebuildAction_ = tb->addAction(
+        makeIcon("view-refresh", Qt::darkMagenta),
+        tr("Rebuild"));
+    rebuildAction_->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F9));
+    rebuildAction_->setToolTip(tr("Rebuild and run (Ctrl+Shift+F9)"));
+    rebuildAction_->setVisible(false);  // Hidden by default, shown for .asm files
+    connect(rebuildAction_, &QAction::triggered, this, &MainWindow::onRebuild);
+
+    tb->addSeparator();
+
     // ── Graphics (Clear Canvas, Save PNG, Save SVG) ──
     auto *clearGraphicsAction = tb->addAction(
         makeIcon("edit-clear", Qt::gray),
@@ -381,6 +400,17 @@ void MainWindow::updateRunActionVisual(bool running)
     runAction_->setIcon(running ? runActiveIcon_ : runIdleIcon_);
     runAction_->setText(running ? tr("Run (Active)") : tr("Run"));
     runAction_->setToolTip(running ? tr("Program is running") : tr("Run program"));
+}
+
+void MainWindow::updateAssemblyActionVisibility(const QString &filePath)
+{
+    const QString lower = filePath.toLower();
+    const bool isAssembly = lower.endsWith(".asm") || lower.endsWith(".z80") || lower.endsWith(".s");
+    
+    if (assembleAction_)
+        assembleAction_->setVisible(isAssembly);
+    if (rebuildAction_)
+        rebuildAction_->setVisible(isAssembly);
 }
 
 // ── Status bar ──────────────────────────────────────────────────────
@@ -435,6 +465,10 @@ void MainWindow::createPanels()
     // Cursor position tracking
     connect(codeEditor_, &CodeEditorPanel::cursorPositionChanged,
             this,        &MainWindow::updateCursorPos);
+    
+    // Assembly button visibility based on current file type
+    connect(codeEditor_, &CodeEditorPanel::currentFileChanged,
+           this,        &MainWindow::updateAssemblyActionVisibility);
 
     // Breakpoints → debug panel
     connect(codeEditor_, &CodeEditorPanel::breakpointsChanged,
@@ -962,4 +996,34 @@ void MainWindow::onAssemblyFailed(const QString &errorMessage, int errorLine)
     const QString message = tr("✗ Assembly failed: %1").arg(errorMessage);
     stateLabel_->setText(message);
     statusBar()->showMessage(message, 5000);  // Show for 5 seconds
+}
+
+void MainWindow::onAssemble()
+{
+    // Assemble without running (compile-only mode)
+    // For now, we just run the program, which triggers assembly as part of normal flow
+    // This is a placeholder for future "assembly only" mode
+    statusBar()->showMessage(tr("Assembling (compile-only mode not yet implemented)"), 2000);
+}
+
+void MainWindow::onRebuild()
+{
+    // Rebuild and run: delete output files, then run normally
+    // This forces re-assembly on the next run
+    if (!codeEditor_)
+        return;
+    
+    const auto currentPath = codeEditor_->currentFilePath();
+    if (currentPath.isEmpty())
+        return;
+    
+    const QString sourceDir = QFileInfo(currentPath).absolutePath();
+    const QString buildDir = QDir(sourceDir).filePath(".opencomal-build");
+    
+    // Delete the build directory to force re-assembly
+    QDir(buildDir).removeRecursively();
+    statusBar()->showMessage(tr("Rebuild initiated..."), 1000);
+    
+    // Run the program (assembly will be re-done)
+    onRun();
 }

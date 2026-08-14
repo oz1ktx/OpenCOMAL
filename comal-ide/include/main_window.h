@@ -41,6 +41,7 @@ private:
     void restoreDefaultLayout();
     void connectRunWorker();
     void updateRunActionVisual(bool running);
+    void updateAssemblyActionVisibility(const QString &filePath);
 
     void startSingleStepRun(const QString &title);
     
@@ -85,6 +86,10 @@ private:
     QAction *runAction_{nullptr};
     QIcon runIdleIcon_;
     QIcon runActiveIcon_;
+    
+    // Assembly toolbar actions
+    QAction *assembleAction_{nullptr};
+    QAction *rebuildAction_{nullptr};
 
 private slots:
     void onNew();
@@ -115,4 +120,8 @@ private slots:
     void onAssemblyStarted(const QString &sourcePath);
     void onAssemblySucceeded(const QString &outputPath, const QString &listingPath, double elapsedSeconds);
     void onAssemblyFailed(const QString &errorMessage, int errorLine);
+    
+    // Assembly toolbar actions
+    void onAssemble();
+    void onRebuild();
 };
