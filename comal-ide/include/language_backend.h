@@ -25,6 +25,7 @@ struct AssemblerResult {
     bool ok{false};
     QString outputPath;
     QString listingPath;
+    QString consoleOutput;  // Raw stdout/stderr from assembler
     std::vector<AssemblerDiagnostic> diagnostics;
 };
 
@@ -53,6 +54,7 @@ struct BackendRunResult {
     QString assemblyOutputPath;
     QString assemblyListingPath;
     double assemblyElapsedSeconds{0.0};
+    QString assemblyConsoleOutput;  // Raw stdout/stderr from sjasmplus
     std::vector<AssemblerDiagnostic> assemblyDiagnostics;
 };
 

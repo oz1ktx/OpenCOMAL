@@ -992,11 +992,16 @@ void MainWindow::onAssemblyStarted(const QString &sourcePath)
     assemblyOutput_->clearListing();
 }
 
-void MainWindow::onAssemblySucceeded(const QString &outputPath, const QString &listingPath, double elapsedSeconds)
+void MainWindow::onAssemblySucceeded(const QString &outputPath, const QString &listingPath, double elapsedSeconds, const QString &consoleOutput)
 {
     const QString message = tr("✓ Assembled in %.2fs").arg(elapsedSeconds);
     stateLabel_->setText(message);
     statusBar()->showMessage(message, 3000);  // Show for 3 seconds
+    
+    // Display console output in diagnostics tab
+    if (!consoleOutput.isEmpty()) {
+        assemblyOutput_->displayDiagnostics(consoleOutput);
+    }
     
     // Display listing in assembly output panel
     if (!listingPath.isEmpty()) {
@@ -1023,15 +1028,20 @@ void MainWindow::onAssemblySucceeded(const QString &outputPath, const QString &l
     assemblyOutputDock_->show();
 }
 
-void MainWindow::onAssemblyFailed(const QString &errorMessage, int errorLine)
+void MainWindow::onAssemblyFailed(const QString &errorMessage, int errorLine, const QString &consoleOutput)
 {
     Q_UNUSED(errorLine);
     const QString message = tr("✗ Assembly failed: %1").arg(errorMessage);
     stateLabel_->setText(message);
     statusBar()->showMessage(message, 5000);  // Show for 5 seconds
     
-    // Display error in assembly output panel
-    assemblyOutput_->displayError(errorMessage);
+    // Display error + console output in diagnostics tab
+    QString diagnostics = message + "\n\n";
+    if (!consoleOutput.isEmpty()) {
+        diagnostics += "Console output:\n";
+        diagnostics += consoleOutput;
+    }
+    assemblyOutput_->displayDiagnostics(diagnostics);
     
     // Show assembly output panel
     assemblyOutputDock_->show();

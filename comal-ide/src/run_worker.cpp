@@ -191,14 +191,14 @@ void RunWorker::run()
     // Emit assembly signals if assembly was attempted (Z80 only)
     if (result.assemblyAttempted) {
         if (!result.assemblyOk) {
-            emit assemblyFailed(result.errorMessage, result.errorLine);
+            emit assemblyFailed(result.errorMessage, result.errorLine, result.assemblyConsoleOutput);
             if (!result.ok) {
                 emit errorOccurred(result.errorMessage, result.errorLine);
                 return;
             }
         } else {
             emit assemblySucceeded(result.assemblyOutputPath, result.assemblyListingPath, 
-                                   result.assemblyElapsedSeconds);
+                                   result.assemblyElapsedSeconds, result.assemblyConsoleOutput);
         }
     }
 

@@ -121,8 +121,8 @@ private slots:
     
     // Assembly workflow handlers
     void onAssemblyStarted(const QString &sourcePath);
-    void onAssemblySucceeded(const QString &outputPath, const QString &listingPath, double elapsedSeconds);
-    void onAssemblyFailed(const QString &errorMessage, int errorLine);
+    void onAssemblySucceeded(const QString &outputPath, const QString &listingPath, double elapsedSeconds, const QString &consoleOutput);
+    void onAssemblyFailed(const QString &errorMessage, int errorLine, const QString &consoleOutput);
     
     // Assembly toolbar actions
     void onAssemble();

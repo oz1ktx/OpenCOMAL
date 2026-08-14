@@ -95,12 +95,12 @@ signals:
     void assemblyStarted(const QString &sourcePath);
 
     /// Emitted when assembly phase completes successfully.
-    /// Parameters: output (.COM) file path, listing file path, elapsed seconds
-    void assemblySucceeded(const QString &outputPath, const QString &listingPath, double elapsedSeconds);
+    /// Parameters: output (.COM) file path, listing file path, elapsed seconds, console output
+    void assemblySucceeded(const QString &outputPath, const QString &listingPath, double elapsedSeconds, const QString &consoleOutput);
 
     /// Emitted when assembly phase fails.
-    /// Parameters: error message, error line number (0 if unknown)
-    void assemblyFailed(const QString &errorMessage, int errorLine);
+    /// Parameters: error message, error line number (0 if unknown), console output
+    void assemblyFailed(const QString &errorMessage, int errorLine, const QString &consoleOutput);
 
 protected:
     void run() override;

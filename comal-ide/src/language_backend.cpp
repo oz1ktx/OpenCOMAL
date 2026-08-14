@@ -494,6 +494,8 @@ AssemblerResult SjasmplusAssembler::assembleFile(const QString& sourcePath, cons
     const int exitCode = pclose(pipe);
 
     const QString output = QString::fromUtf8(buffer);
+    result.consoleOutput = output;  // Store raw output for display
+    
     const QStringList lines = output.split('\n', Qt::SkipEmptyParts);
     for (const QString& rawLine : lines) {
         if (rawLine.isEmpty()) {
@@ -585,6 +587,7 @@ BackendRunResult Z80BackendStub::run(const BackendRunContext &ctx)
             result.assemblyAttempted = true;
             result.assemblyOk = false;
             result.assemblyElapsedSeconds = assemblyElapsed;
+            result.assemblyConsoleOutput = assembled.consoleOutput;
             result.assemblyDiagnostics = assembled.diagnostics;
             if (!assembled.diagnostics.empty()) {
                 result.errorMessage = assembled.diagnostics.front().message;
@@ -602,6 +605,7 @@ BackendRunResult Z80BackendStub::run(const BackendRunContext &ctx)
         execResult.assemblyOutputPath = assembled.outputPath;
         execResult.assemblyListingPath = assembled.listingPath;
         execResult.assemblyElapsedSeconds = assemblyElapsed;
+        execResult.assemblyConsoleOutput = assembled.consoleOutput;
         return execResult;
     }
 
