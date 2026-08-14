@@ -46,6 +46,14 @@ struct BackendRunResult {
     bool finished{true};
     QString errorMessage;
     int errorLine{0};
+    
+    // Assembly phase results (Z80 only)
+    bool assemblyAttempted{false};
+    bool assemblyOk{false};
+    QString assemblyOutputPath;
+    QString assemblyListingPath;
+    double assemblyElapsedSeconds{0.0};
+    std::vector<AssemblerDiagnostic> assemblyDiagnostics;
 };
 
 class ILanguageBackend {

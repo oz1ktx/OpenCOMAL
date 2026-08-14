@@ -178,8 +178,29 @@ void RunWorker::run()
         return;
     }
 
+    // Emit assemblyStarted signal for Z80 assembly files
+    const QString lowerPath = programPath_.toLower();
+    if ((lowerPath.endsWith(".asm") || lowerPath.endsWith(".z80") || lowerPath.endsWith(".s")) 
+        && language_ == LanguageId::Z80Assembly) {
+        emit assemblyStarted(programPath_);
+    }
+
     const BackendRunResult result = backend->run(
         BackendRunContext{getInterp(), source_, directCmd_, programPath_});
+
+    // Emit assembly signals if assembly was attempted (Z80 only)
+    if (result.assemblyAttempted) {
+        if (!result.assemblyOk) {
+            emit assemblyFailed(result.errorMessage, result.errorLine);
+            if (!result.ok) {
+                emit errorOccurred(result.errorMessage, result.errorLine);
+                return;
+            }
+        } else {
+            emit assemblySucceeded(result.assemblyOutputPath, result.assemblyListingPath, 
+                                   result.assemblyElapsedSeconds);
+        }
+    }
 
     if (result.finished) {
         emit finished();

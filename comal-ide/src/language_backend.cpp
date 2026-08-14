@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -565,14 +566,26 @@ BackendRunResult Z80BackendStub::run(const BackendRunContext &ctx)
     }
 
     if (lowerPath.endsWith(".asm") || lowerPath.endsWith(".z80") || lowerPath.endsWith(".s")) {
+        // Measure assembly time
+        const auto assemblyStart = std::chrono::high_resolution_clock::now();
+        
         SjasmplusAssembler assembler;
         const QString sourceDir = QFileInfo(ctx.programPath).absolutePath();
         const QString buildDir = QDir(sourceDir).filePath(".opencomal-build");
         const AssemblerResult assembled = assembler.assembleFile(ctx.programPath, buildDir);
+        
+        const auto assemblyEnd = std::chrono::high_resolution_clock::now();
+        const double assemblyElapsed = 
+            std::chrono::duration<double>(assemblyEnd - assemblyStart).count();
+        
         if (!assembled.ok) {
             BackendRunResult result;
             result.ok = false;
             result.finished = false;
+            result.assemblyAttempted = true;
+            result.assemblyOk = false;
+            result.assemblyElapsedSeconds = assemblyElapsed;
+            result.assemblyDiagnostics = assembled.diagnostics;
             if (!assembled.diagnostics.empty()) {
                 result.errorMessage = assembled.diagnostics.front().message;
                 result.errorLine = assembled.diagnostics.front().line;
@@ -581,7 +594,15 @@ BackendRunResult Z80BackendStub::run(const BackendRunContext &ctx)
             }
             return result;
         }
-        return runZ80ComProgram(assembled.outputPath, ctx.directCommand);
+        
+        // Assembly succeeded
+        BackendRunResult execResult = runZ80ComProgram(assembled.outputPath, ctx.directCommand);
+        execResult.assemblyAttempted = true;
+        execResult.assemblyOk = true;
+        execResult.assemblyOutputPath = assembled.outputPath;
+        execResult.assemblyListingPath = assembled.listingPath;
+        execResult.assemblyElapsedSeconds = assemblyElapsed;
+        return execResult;
     }
 
     BackendRunResult result;

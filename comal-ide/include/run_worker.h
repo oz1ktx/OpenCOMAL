@@ -88,6 +88,20 @@ signals:
     /// Emitted when execution is suspended, with current call stack.
     void callStackChanged(const QVariantList &frames);
 
+    // ── Assembly workflow signals (Z80Assembly only) ──
+    
+    /// Emitted when assembly phase begins for Z80 source.
+    /// Parameter: source file path
+    void assemblyStarted(const QString &sourcePath);
+
+    /// Emitted when assembly phase completes successfully.
+    /// Parameters: output (.COM) file path, listing file path, elapsed seconds
+    void assemblySucceeded(const QString &outputPath, const QString &listingPath, double elapsedSeconds);
+
+    /// Emitted when assembly phase fails.
+    /// Parameters: error message, error line number (0 if unknown)
+    void assemblyFailed(const QString &errorMessage, int errorLine);
+
 protected:
     void run() override;
 
