@@ -7,10 +7,18 @@
 
 namespace comal::runtime { class Interpreter; }
 
+enum class DiagnosticSeverity {
+    Error,
+    Warning,
+    Information,
+    Hint,
+};
+
 struct AssemblerDiagnostic {
     int line{0};
     int column{0};
     QString message;
+    DiagnosticSeverity severity{DiagnosticSeverity::Error};
 };
 
 struct AssemblerResult {

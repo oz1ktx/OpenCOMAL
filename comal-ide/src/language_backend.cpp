@@ -337,6 +337,48 @@ static std::optional<int> parseLineNumberFromMessage(const QString& line)
     return lineNumber;
 }
 
+/// Parse sjasmplus diagnostic output with format: filename(line): [error|warning]: message
+/// Returns a diagnostic with extracted line number, severity, and cleaned message
+static AssemblerDiagnostic parseAssemblerDiagnostic(const QString& rawLine)
+{
+    AssemblerDiagnostic diag;
+    diag.message = rawLine.trimmed();
+    diag.severity = DiagnosticSeverity::Error;  // default to error
+    
+    // Extract line number from (line) format
+    if (const auto lineNum = parseLineNumberFromMessage(rawLine)) {
+        diag.line = *lineNum;
+    }
+    
+    // Extract severity level and clean message
+    // Format: filename(line): error: message
+    const int colonAfterParen = rawLine.indexOf(':', rawLine.indexOf(')'));
+    if (colonAfterParen > 0) {
+        const int nextColon = rawLine.indexOf(':', colonAfterParen + 1);
+        if (nextColon > colonAfterParen) {
+            const QString severityPart = rawLine.mid(colonAfterParen + 1, nextColon - colonAfterParen - 1).trimmed();
+            const QString messageOnly = rawLine.mid(nextColon + 1).trimmed();
+            
+            // Set severity based on keyword
+            if (severityPart == "error") {
+                diag.severity = DiagnosticSeverity::Error;
+                diag.message = messageOnly;
+            } else if (severityPart == "warning") {
+                diag.severity = DiagnosticSeverity::Warning;
+                diag.message = messageOnly;
+            } else if (severityPart == "note" || severityPart == "info") {
+                diag.severity = DiagnosticSeverity::Information;
+                diag.message = messageOnly;
+            } else {
+                // No recognized severity keyword, keep original message
+                diag.message = messageOnly;
+            }
+        }
+    }
+    
+    return diag;
+}
+
 static BackendRunResult runZ80ComProgram(const QString& programPath, const QString& consoleInput)
 {
     BackendRunResult result;
@@ -453,15 +495,14 @@ AssemblerResult SjasmplusAssembler::assembleFile(const QString& sourcePath, cons
     const QString output = QString::fromUtf8(buffer);
     const QStringList lines = output.split('\n', Qt::SkipEmptyParts);
     for (const QString& rawLine : lines) {
-        const QString line = rawLine.trimmed();
-        if (line.isEmpty()) {
+        if (rawLine.isEmpty()) {
             continue;
         }
-        AssemblerDiagnostic diag;
-        diag.message = line;
-        if (const auto parsedLine = parseLineNumberFromMessage(line)) {
-            diag.line = *parsedLine;
+        // Skip the sjasmplus version/header line
+        if (rawLine.contains("SjASMPlus") || rawLine.contains("Cross-Assembler")) {
+            continue;
         }
+        const AssemblerDiagnostic diag = parseAssemblerDiagnostic(rawLine);
         result.diagnostics.push_back(diag);
     }
 
