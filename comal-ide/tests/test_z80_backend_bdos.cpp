@@ -64,7 +64,7 @@ void test_assemble_source_and_run(const std::filesystem::path& dir)
     const std::filesystem::path comPath = dir / ".opencomal-build" / "hello_loop.com";
     ASSERT_TRUE(std::filesystem::exists(comPath), "expected assembled .COM output was not created");
 
-    const std::string output = result.errorMessage.toStdString();
+    const std::string output = result.z80RuntimeOutput.toStdString();
     ASSERT_TRUE(output.find("HelloHelloHelloHello") != std::string::npos,
                 "expected Hello output from assembled source not found");
 
@@ -97,7 +97,7 @@ void test_hello_prints_four_times(const std::filesystem::path& dir)
 
     const BackendRunResult result = backend.run(ctx);
     ASSERT_TRUE(result.ok, "backend run failed unexpectedly");
-    const std::string output = result.errorMessage.toStdString();
+    const std::string output = result.z80RuntimeOutput.toStdString();
     ASSERT_TRUE(output.find("HelloHelloHelloHello") != std::string::npos,
                 "expected repeated Hello output not found");
 
@@ -130,7 +130,7 @@ void test_console_input_echo_roundtrip(const std::filesystem::path& dir)
 
     const BackendRunResult result = backend.run(ctx);
     ASSERT_TRUE(result.ok, "backend run failed unexpectedly");
-    const std::string output = result.errorMessage.toStdString();
+    const std::string output = result.z80RuntimeOutput.toStdString();
     ASSERT_TRUE(output.find("ZZ") != std::string::npos,
                 "expected echoed input output (ZZ) not found");
 
@@ -215,7 +215,7 @@ void test_bdos_file_and_misc_functions(const std::filesystem::path& dir)
 
     const BackendRunResult result = backend.run(ctx);
     ASSERT_TRUE(result.ok, "backend run failed unexpectedly");
-    const std::string output = result.errorMessage.toStdString();
+    const std::string output = result.z80RuntimeOutput.toStdString();
     ASSERT_TRUE(output.find("Hello0\"") != std::string::npos,
                 "expected combined output from read/drive/version not found");
 
@@ -295,7 +295,7 @@ void test_bdos_sequential_read_reports_eof(const std::filesystem::path& dir)
 
     const BackendRunResult result = backend.run(ctx);
     ASSERT_TRUE(result.ok, "backend run failed unexpectedly");
-    const std::string output = result.errorMessage.toStdString();
+    const std::string output = result.z80RuntimeOutput.toStdString();
     ASSERT_TRUE(output.find("H1") != std::string::npos,
                 "expected first DMA byte + EOF status output ('H1') not found");
 
