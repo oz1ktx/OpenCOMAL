@@ -56,12 +56,18 @@ Implemented so far:
 - Unsupported BDOS calls currently return deterministic diagnostics.
 - An assembler path is now present via a swappable adapter interface, with `sjasmplus` integrated as the first backend implementation.
 - `.asm` / `.z80` / `.s` files can now be assembled to `.COM` through the adapter and then executed through the same runtime path as raw `.COM` files.
+- The IDE assembly workflow is now explicit and user-visible:
+	- assembly lifecycle signals are wired (`started`, `succeeded`, `failed`)
+	- a dockable assembly output panel is present with listing/diagnostics/statistics tabs
+	- assembler (`sjasmplus`) stdout/stderr is captured and shown in assembly diagnostics
+	- Z80 runtime console output (for example BDOS function 9 string printing) is routed to the same direct command output panel used by COMAL `PRINT`
 - End-to-end tests now cover:
 	- `.COM` loader behavior
 	- BDOS console I/O
 	- BDOS file I/O through FCB + DMA
 	- sequential read EOF behavior
 	- assembly source -> `.COM` -> execution
+	- CI-aligned output assertions via `z80RuntimeOutput` for BDOS runtime-output checks
 
 Not implemented yet:
 

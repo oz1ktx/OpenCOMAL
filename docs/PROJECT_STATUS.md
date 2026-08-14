@@ -1,6 +1,6 @@
 # OpenCOMAL Project Status
 
-**Last Updated:** 12 Aug 2026
+**Last Updated:** 14 Aug 2026
 **Purpose:** Short, ordered snapshot of current project state and near-term work.
 
 ---
@@ -15,7 +15,7 @@
 | Sound (`libcomal-sound`) | Partial but usable | `TONE` works; `PLAY` has basic support, full MML remains TODO |
 | LSP (`comal-lsp`) | Stable | Diagnostics, completion, definition, hover; parser-backed diagnostics classification is now in place |
 | IDE (`comal-ide`) | In progress | Core workflow works; editor now shows live LSP diagnostics in saved and unsaved tabs |
-| Z80 / CP-M-style assembly path | Partial but usable | `.COM` loading/execution works, BDOS console/file subset works, `sjasmplus` adapter assembles `.asm` to `.COM` |
+| Z80 / CP-M-style assembly path | Partial but usable | `.COM` loading/execution works, BDOS console/file subset works, `sjasmplus` adapter assembles `.asm` to `.COM`, IDE assembly output panel is wired |
 | Test suite | Strong | 140 pass / 15 skip / 0 fail |
 
 ---
@@ -96,12 +96,18 @@ In parallel, the first Z80/CP-M-style teaching path is now active in the IDE/bac
   - BDOS file I/O through FCB + DMA
   - sequential read EOF behavior
   - assembly source -> `.COM` -> execution using the vendored `sjasmplus` adapter
+- Post-output-routing regression fix is in place: Z80 backend BDOS tests now validate `BackendRunResult.z80RuntimeOutput` (instead of `errorMessage`) so CI assertions match current runtime output routing.
 
 ### 5. Z80 assembly / CP-M-compatible path
 
 - redcode/Z80 is integrated as the current CPU execution core.
 - redcode/Zeta is vendored as the dependency required by redcode/Z80.
 - `sjasmplus` is integrated as the first assembler backend behind an adapter boundary.
+- IDE assembly UI flow is implemented end-to-end:
+  - assembly start/success/failure lifecycle signaling
+  - assembly output panel tabs for listing, diagnostics, and statistics
+  - assembler console output capture and display in diagnostics
+  - Z80 runtime console output routed into the same direct command output path used by COMAL `PRINT`
 - The current execution flow for source assembly is:
   - assemble `.asm` / `.z80` / `.s` into `.COM`
   - load the `.COM` image at `0100h`
@@ -326,4 +332,3 @@ Status
 Accepted as a future development direction.
 Initial work should prioritize shared abstractions and minimal disruption to existing COMAL behavior.
 Detailed planning will be maintained in a separate draft document.
-
