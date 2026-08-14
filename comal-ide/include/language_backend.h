@@ -56,6 +56,9 @@ struct BackendRunResult {
     double assemblyElapsedSeconds{0.0};
     QString assemblyConsoleOutput;  // Raw stdout/stderr from sjasmplus
     std::vector<AssemblerDiagnostic> assemblyDiagnostics;
+    
+    // Z80 runtime output (BDOS function 9 print)
+    QString z80RuntimeOutput;
 };
 
 class ILanguageBackend {

@@ -448,10 +448,9 @@ static BackendRunResult runZ80ComProgram(const QString& programPath, const QStri
         return result;
     }
 
+    // Capture Z80 runtime output (from BDOS function 9, etc.)
     if (!machine.consoleOutput.empty()) {
-        std::ostringstream msg;
-        msg << "Z80 program output:\n" << machine.consoleOutput;
-        result.errorMessage = QString::fromStdString(msg.str());
+        result.z80RuntimeOutput = QString::fromStdString(machine.consoleOutput);
     }
 
     return result;

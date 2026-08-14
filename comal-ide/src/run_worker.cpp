@@ -203,6 +203,10 @@ void RunWorker::run()
     }
 
     if (result.finished) {
+        // Emit Z80 runtime output if present
+        if (!result.z80RuntimeOutput.isEmpty()) {
+            emit z80RuntimeOutput(result.z80RuntimeOutput);
+        }
         emit finished();
         return;
     }
@@ -210,6 +214,11 @@ void RunWorker::run()
     if (!result.ok) {
         emit errorOccurred(result.errorMessage, result.errorLine);
         return;
+    }
+
+    // Emit Z80 runtime output if present
+    if (!result.z80RuntimeOutput.isEmpty()) {
+        emit z80RuntimeOutput(result.z80RuntimeOutput);
     }
 
     emit finished();

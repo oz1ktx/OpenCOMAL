@@ -102,6 +102,9 @@ signals:
     /// Parameters: error message, error line number (0 if unknown), console output
     void assemblyFailed(const QString &errorMessage, int errorLine, const QString &consoleOutput);
 
+    /// Emitted when Z80 program produces runtime output (BDOS function 9, etc.)
+    void z80RuntimeOutput(const QString &output);
+
 protected:
     void run() override;
 

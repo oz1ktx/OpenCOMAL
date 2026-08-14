@@ -595,6 +595,11 @@ void MainWindow::connectRunWorker()
     connect(worker_, &RunWorker::assemblyFailed,
             this, &MainWindow::onAssemblyFailed, Qt::QueuedConnection);
 
+    // Z80 runtime output → Direct Command panel
+    connect(worker_, &RunWorker::z80RuntimeOutput,
+            directCommand_, &DirectCommandPanel::appendOutput,
+            Qt::QueuedConnection);
+
     // Graphics scene changed — re-render the graphics panel
     connect(worker_, &RunWorker::sceneChanged, this, [this]() {
         graphics_->renderScene(worker_->graphicsScene());
