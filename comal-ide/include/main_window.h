@@ -110,4 +110,9 @@ private slots:
     void onDirectCommand(const QString &command);
     void updateCursorPos(int line, int col);
     void onSettings();
+    
+    // Assembly workflow handlers
+    void onAssemblyStarted(const QString &sourcePath);
+    void onAssemblySucceeded(const QString &outputPath, const QString &listingPath, double elapsedSeconds);
+    void onAssemblyFailed(const QString &errorMessage, int errorLine);
 };

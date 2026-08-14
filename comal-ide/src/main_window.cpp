@@ -543,6 +543,14 @@ void MainWindow::connectRunWorker()
     connect(worker_, &RunWorker::errorOccurred,
             this, &MainWindow::onRunError, Qt::QueuedConnection);
 
+    // Assembly workflow signals (Z80 only)
+    connect(worker_, &RunWorker::assemblyStarted,
+            this, &MainWindow::onAssemblyStarted, Qt::QueuedConnection);
+    connect(worker_, &RunWorker::assemblySucceeded,
+            this, &MainWindow::onAssemblySucceeded, Qt::QueuedConnection);
+    connect(worker_, &RunWorker::assemblyFailed,
+            this, &MainWindow::onAssemblyFailed, Qt::QueuedConnection);
+
     // Graphics scene changed — re-render the graphics panel
     connect(worker_, &RunWorker::sceneChanged, this, [this]() {
         graphics_->renderScene(worker_->graphicsScene());
@@ -928,4 +936,30 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
     saveWindowState();
     QMainWindow::closeEvent(event);
+}
+
+// ── Assembly Workflow Handlers ────────────────────────────────────────
+
+void MainWindow::onAssemblyStarted(const QString &sourcePath)
+{
+    Q_UNUSED(sourcePath);
+    stateLabel_->setText(tr("Assembling..."));
+    statusBar()->showMessage(tr("Assembling %1").arg(QFileInfo(sourcePath).fileName()));
+}
+
+void MainWindow::onAssemblySucceeded(const QString &outputPath, const QString &listingPath, double elapsedSeconds)
+{
+    Q_UNUSED(outputPath);
+    Q_UNUSED(listingPath);
+    const QString message = tr("✓ Assembled in %.2fs").arg(elapsedSeconds);
+    stateLabel_->setText(message);
+    statusBar()->showMessage(message, 3000);  // Show for 3 seconds
+}
+
+void MainWindow::onAssemblyFailed(const QString &errorMessage, int errorLine)
+{
+    Q_UNUSED(errorLine);
+    const QString message = tr("✗ Assembly failed: %1").arg(errorMessage);
+    stateLabel_->setText(message);
+    statusBar()->showMessage(message, 5000);  // Show for 5 seconds
 }
