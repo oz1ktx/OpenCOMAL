@@ -40,7 +40,6 @@ jobs:
   build-rpm:
     name: Build RPM Package
     runs-on: ubuntu-latest
-    container: fedora:latest
     
     steps:
     - name: Checkout code
@@ -50,7 +49,8 @@ jobs:
 
     - name: Install dependencies
       run: |
-        dnf install -y cmake gcc-c++ bison flex ncurses-devel readline-devel qt6-qtbase-devel qt6-qtsvg-devel qscintilla-qt6-devel qt6-qtmultimedia-devel fluidsynth-devel rpm-build
+        sudo apt-get update
+        sudo apt-get install -y cmake g++ bison flex libncurses-dev libreadline-dev qt6-base-dev qt6-svg-dev libqscintilla2-qt6-dev qt6-multimedia-dev libfluidsynth-dev rpm
 
     - name: Build RPM package
       run: |
