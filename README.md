@@ -1,6 +1,6 @@
 # OpenCOMAL project
 
-OpenCOMAL is a nostalgia project for people who grew up with microcomputers, but it is also a fun way for kids (an everyone else) to learn about programming. You can learn structured programming, debugging, etc.
+OpenCOMAL is a nostalgia project for people who grew up with microcomputers, but it is also a fun way for kids (and everyone else) to learn about programming. You can learn structured programming, debugging, etc.
 
 This project is a fork of OpenCOMAL from Darren Bane https://github.com/poldy/OpenCOMAL which was forked from Christian Pietsch https://github.com/pietsch/OpenCOMAL
 
@@ -11,9 +11,11 @@ This is a modern C++20 reconstruction of OpenCOMAL, originally built for microco
 
 - **Qt6 IDE** with syntax highlighting, multi-tab editor, and integrated run/debug workflow
 - **Full COMAL execution** with modern AST-based runtime, supporting numberless programs
+- **Z80 / CP/M-style assembly path** for assembling and running `.asm` / `.z80` / `.s` and raw `.com` programs
 - **Graphical output** via 13 DRAW commands (lines, circles, rectangles, text, color, fill, etc.)
 - **Audio support** (TONE + PLAY with ABC notation subset)
 - **Debug facilities** including breakpoints, variable inspection, call-stack tracing, and SPAWN-based concurrency
+- **Assembly debug views** including source-level stepping, line breakpoints, registers, flags, memory, and disassembly for paused Z80 programs
 - **LSP integration** enabling real-time diagnostics and IDE features
 - **Language Server Protocol** for VS Code, Kate, Vim, and other LSP-compatible editors
 
@@ -23,6 +25,7 @@ This is a modern C++20 reconstruction of OpenCOMAL, originally built for microco
 - **Variable modification in debugger** — Read-only inspection of variables during breakpoints (planned enhancement)
 - **Windows support** — Currently Linux/Unix only; Windows port requires Qt I/O abstraction work
 - **Conditional breakpoints** — Basic breakpoint support only; conditional variants planned
+- **CP/M compatibility** — The Z80 runtime currently implements only a limited BDOS subset, so many real CP/M `.COM` binaries will not run yet
 - **Find/Replace** — Editor has syntax highlighting and navigation but not Find/Replace (future enhancement)
 
 
