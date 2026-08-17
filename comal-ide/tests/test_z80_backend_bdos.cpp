@@ -40,6 +40,90 @@ bool writeTextFile(const std::filesystem::path& path, const std::string& text)
     return static_cast<bool>(out);
 }
 
+class BreakpointCaptureControl final : public IBackendExecutionControl {
+public:
+    explicit BreakpointCaptureControl(int breakpointLine)
+        : breakpointLine_(breakpointLine)
+    {
+    }
+
+    bool stopRequested() const override
+    {
+        return false;
+    }
+
+    bool shouldPause(std::uint16_t, int sourceLine) override
+    {
+        return !paused_ && sourceLine == breakpointLine_;
+    }
+
+    void waitUntilResumed(std::uint16_t, int sourceLine, const Z80DebugSnapshot& snapshot) override
+    {
+        paused_ = true;
+        pausedLine_ = sourceLine;
+        snapshot_ = snapshot;
+    }
+
+    int pausedLine() const
+    {
+        return pausedLine_;
+    }
+
+    const Z80DebugSnapshot& snapshot() const
+    {
+        return snapshot_;
+    }
+
+private:
+    int breakpointLine_{0};
+    bool paused_{false};
+    int pausedLine_{0};
+    Z80DebugSnapshot snapshot_;
+};
+
+class StepCaptureControl final : public IBackendExecutionControl {
+public:
+    explicit StepCaptureControl(std::size_t maxPauses)
+        : maxPauses_(maxPauses)
+    {
+    }
+
+    bool stopRequested() const override
+    {
+        return false;
+    }
+
+    bool shouldPause(std::uint16_t, int sourceLine) override
+    {
+        if (pauseCount_ >= maxPauses_) {
+            return false;
+        }
+        if (allowOneInstruction_) {
+            allowOneInstruction_ = false;
+            return false;
+        }
+        return sourceLine > 0;
+    }
+
+    void waitUntilResumed(std::uint16_t, int sourceLine, const Z80DebugSnapshot&) override
+    {
+        pausedLines_.push_back(sourceLine);
+        ++pauseCount_;
+        allowOneInstruction_ = true;
+    }
+
+    const std::vector<int>& pausedLines() const
+    {
+        return pausedLines_;
+    }
+
+private:
+    std::size_t maxPauses_{0};
+    std::size_t pauseCount_{0};
+    bool allowOneInstruction_{false};
+    std::vector<int> pausedLines_;
+};
+
 void test_assemble_source_and_run(const std::filesystem::path& dir)
 {
     TEST(assemble_source_and_run);
@@ -100,6 +184,68 @@ void test_hello_prints_four_times(const std::filesystem::path& dir)
     const std::string output = result.z80RuntimeOutput.toStdString();
     ASSERT_TRUE(output.find("HelloHelloHelloHello") != std::string::npos,
                 "expected repeated Hello output not found");
+
+    PASS();
+}
+
+void test_assembly_breakpoint_hits_source_line(const std::filesystem::path& dir)
+{
+    TEST(assembly_breakpoint_hits_source_line);
+
+    const std::filesystem::path fixturePath =
+        std::filesystem::path(OPENCOMAL_SOURCE_DIR) / "tests" / "assembly" / "hello_loop.asm";
+    ASSERT_TRUE(std::filesystem::exists(fixturePath), "repository assembly fixture is missing");
+
+    const std::filesystem::path asmPath = dir / "hello_loop_breakpoint.asm";
+    std::error_code copyEc;
+    std::filesystem::copy_file(fixturePath, asmPath, std::filesystem::copy_options::overwrite_existing, copyEc);
+    ASSERT_TRUE(!copyEc, "failed to copy hello_loop.asm fixture into temp directory");
+
+    BreakpointCaptureControl control(/* ld c,9 */ 7);
+
+    Z80BackendStub backend;
+    BackendRunContext ctx;
+    ctx.interpreter = nullptr;
+    ctx.programPath = QString::fromStdString(asmPath.string());
+    ctx.executionControl = &control;
+
+    const BackendRunResult result = backend.run(ctx);
+    ASSERT_TRUE(result.ok, "assembly-backed breakpoint run failed unexpectedly");
+    ASSERT_TRUE(control.pausedLine() == 7, "expected breakpoint pause on source line 7");
+    ASSERT_TRUE(!control.snapshot().registers.empty(), "expected register snapshot on breakpoint pause");
+    ASSERT_TRUE(!control.snapshot().flags.empty(), "expected flag snapshot on breakpoint pause");
+    ASSERT_TRUE(control.snapshot().memory.size() == 0x40, "expected 64-byte memory window on breakpoint pause");
+    ASSERT_TRUE(!control.snapshot().disassembly.empty(), "expected disassembly snapshot on breakpoint pause");
+
+    PASS();
+}
+
+void test_assembly_single_step_reports_instruction_lines(const std::filesystem::path& dir)
+{
+    TEST(assembly_single_step_reports_instruction_lines);
+
+    const std::filesystem::path fixturePath =
+        std::filesystem::path(OPENCOMAL_SOURCE_DIR) / "tests" / "assembly" / "hello_loop.asm";
+    ASSERT_TRUE(std::filesystem::exists(fixturePath), "repository assembly fixture is missing");
+
+    const std::filesystem::path asmPath = dir / "hello_loop_step.asm";
+    std::error_code copyEc;
+    std::filesystem::copy_file(fixturePath, asmPath, std::filesystem::copy_options::overwrite_existing, copyEc);
+    ASSERT_TRUE(!copyEc, "failed to copy hello_loop.asm fixture into temp directory");
+
+    StepCaptureControl control(3);
+
+    Z80BackendStub backend;
+    BackendRunContext ctx;
+    ctx.interpreter = nullptr;
+    ctx.programPath = QString::fromStdString(asmPath.string());
+    ctx.executionControl = &control;
+
+    const BackendRunResult result = backend.run(ctx);
+    ASSERT_TRUE(result.ok, "assembly-backed single-step run failed unexpectedly");
+    const std::vector<int> expectedLines{4, 7, 8};
+    ASSERT_TRUE(control.pausedLines() == expectedLines,
+                "expected first three stepped instruction lines to be 4, 7, 8");
 
     PASS();
 }
@@ -313,6 +459,8 @@ int main()
     std::cout << "Running Z80 backend BDOS tests\n";
     test_assemble_source_and_run(tmpDir);
     test_hello_prints_four_times(tmpDir);
+    test_assembly_breakpoint_hits_source_line(tmpDir);
+    test_assembly_single_step_reports_instruction_lines(tmpDir);
     test_console_input_echo_roundtrip(tmpDir);
     test_bdos_file_and_misc_functions(tmpDir);
     test_bdos_sequential_read_reports_eof(tmpDir);

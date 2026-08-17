@@ -40,6 +40,26 @@ DebugPanel::DebugPanel(QWidget *parent)
     breakpoints_->header()->setStretchLastSection(true);
     tabs_->addTab(breakpoints_, tr("Breakpoints"));
 
+    registers_ = new QTreeWidget;
+    registers_->setHeaderLabels({tr("Register"), tr("Value")});
+    registers_->header()->setStretchLastSection(true);
+    tabs_->addTab(registers_, tr("Registers"));
+
+    flags_ = new QTreeWidget;
+    flags_->setHeaderLabels({tr("Flag"), tr("Value")});
+    flags_->header()->setStretchLastSection(true);
+    tabs_->addTab(flags_, tr("Flags"));
+
+    memory_ = new QTreeWidget;
+    memory_->setHeaderLabels({tr("Address"), tr("Hex"), tr("ASCII")});
+    memory_->header()->setStretchLastSection(true);
+    tabs_->addTab(memory_, tr("Memory"));
+
+    disassembly_ = new QTreeWidget;
+    disassembly_->setHeaderLabels({tr("Address"), tr("Bytes"), tr("Instruction"), tr("Source")});
+    disassembly_->header()->setStretchLastSection(true);
+    tabs_->addTab(disassembly_, tr("Disassembly"));
+
     layout->addWidget(tabs_);
 }
 
@@ -87,4 +107,74 @@ void DebugPanel::updateBreakpoints(const QString &filePath, const QVector<int> &
         auto *item = new QTreeWidgetItem({filePath, QString::number(line), QString()});
         breakpoints_->addTopLevelItem(item);
     }
+}
+
+void DebugPanel::updateRegisters(const QVariantList &registers)
+{
+    registers_->clear();
+    for (const QVariant &entry : registers) {
+        const QVariantMap regMap = entry.toMap();
+        auto *item = new QTreeWidgetItem({
+            regMap.value("name").toString(),
+            regMap.value("value").toString()
+        });
+        registers_->addTopLevelItem(item);
+    }
+}
+
+void DebugPanel::updateFlags(const QVariantList &flags)
+{
+    flags_->clear();
+    for (const QVariant &entry : flags) {
+        const QVariantMap flagMap = entry.toMap();
+        auto *item = new QTreeWidgetItem({
+            flagMap.value("name").toString(),
+            flagMap.value("value").toString()
+        });
+        flags_->addTopLevelItem(item);
+    }
+}
+
+void DebugPanel::updateMemory(const QVariantList &memoryRows)
+{
+    memory_->clear();
+    for (const QVariant &entry : memoryRows) {
+        const QVariantMap rowMap = entry.toMap();
+        auto *item = new QTreeWidgetItem({
+            rowMap.value("address").toString(),
+            rowMap.value("hex").toString(),
+            rowMap.value("ascii").toString()
+        });
+        memory_->addTopLevelItem(item);
+    }
+}
+
+void DebugPanel::updateDisassembly(const QVariantList &lines)
+{
+    disassembly_->clear();
+    for (const QVariant &entry : lines) {
+        const QVariantMap lineMap = entry.toMap();
+        auto *item = new QTreeWidgetItem({
+            lineMap.value("address").toString(),
+            lineMap.value("bytes").toString(),
+            lineMap.value("instruction").toString(),
+            lineMap.value("source").toString()
+        });
+        if (lineMap.value("current").toBool()) {
+            QFont font = item->font(0);
+            font.setBold(true);
+            for (int column = 0; column < 4; ++column) {
+                item->setFont(column, font);
+            }
+        }
+        disassembly_->addTopLevelItem(item);
+    }
+}
+
+void DebugPanel::clearZ80State()
+{
+    registers_->clear();
+    flags_->clear();
+    memory_->clear();
+    disassembly_->clear();
 }

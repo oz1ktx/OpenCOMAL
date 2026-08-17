@@ -618,6 +618,15 @@ void MainWindow::connectRunWorker()
     connect(worker_, &RunWorker::callStackChanged, debug_, &DebugPanel::updateCallStack,
             Qt::QueuedConnection);
 
+    connect(worker_, &RunWorker::z80RegistersChanged, debug_, &DebugPanel::updateRegisters,
+            Qt::QueuedConnection);
+    connect(worker_, &RunWorker::z80FlagsChanged, debug_, &DebugPanel::updateFlags,
+            Qt::QueuedConnection);
+    connect(worker_, &RunWorker::z80MemoryChanged, debug_, &DebugPanel::updateMemory,
+            Qt::QueuedConnection);
+    connect(worker_, &RunWorker::z80DisassemblyChanged, debug_, &DebugPanel::updateDisassembly,
+            Qt::QueuedConnection);
+
     // Jump to source line when a call stack frame is activated
     connect(debug_, &DebugPanel::frameActivated, this, [this](int line) {
         codeEditor_->highlightExecutionLine(line);
@@ -636,6 +645,9 @@ void MainWindow::onRun()
     directCommand_->appendOutput("\n--- RUN ---\n");
     codeEditor_->clearErrorHighlight();
     codeEditor_->clearExecutionHighlight();
+    if (codeEditor_->currentLanguage() == LanguageId::Comal) {
+        debug_->clearZ80State();
+    }
     // Clear scene for full program runs
     persistentScene_->clear();
     graphics_->clearCanvas();
@@ -703,6 +715,9 @@ void MainWindow::onExecutionPaused(int lineNumber)
 {
     codeEditor_->clearErrorHighlight();
     codeEditor_->highlightExecutionLine(lineNumber);
+    if (codeEditor_->currentLanguage() == LanguageId::Comal) {
+        debug_->clearZ80State();
+    }
     stateLabel_->setText(tr("Paused"));
 }
 
@@ -731,6 +746,7 @@ void MainWindow::onDirectCommand(const QString &command)
         worker_->setExternalInterpreter(persistentInterp_);
         worker_->setLanguage(LanguageId::Comal);
     }
+    debug_->clearZ80State();
     worker_->setProgramPath(codeEditor_->currentFilePath());
     worker_->setDirectCommand(command);
     stateLabel_->setText(tr("Running"));
@@ -791,6 +807,9 @@ void MainWindow::startSingleStepRun(const QString &title)
     directCommand_->appendOutput("\n--- " + title + " ---\n");
     codeEditor_->clearErrorHighlight();
     codeEditor_->clearExecutionHighlight();
+    if (codeEditor_->currentLanguage() == LanguageId::Comal) {
+        debug_->clearZ80State();
+    }
     // Clear scene for full program runs
     persistentScene_->clear();
     graphics_->clearCanvas();
@@ -1083,5 +1102,4 @@ void MainWindow::onRebuild()
     // Run the program (assembly will be re-done)
     onRun();
 }
-
 

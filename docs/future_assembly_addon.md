@@ -61,6 +61,8 @@ Implemented so far:
 	- a dockable assembly output panel is present with listing/diagnostics/statistics tabs
 	- assembler (`sjasmplus`) stdout/stderr is captured and shown in assembly diagnostics
 	- Z80 runtime console output (for example BDOS function 9 string printing) is routed to the same direct command output panel used by COMAL `PRINT`
+- Source-level stepping and breakpoint mapping for assembled source are now wired through the IDE run/debug flow.
+- Paused Z80 execution now populates debug-panel views for registers, flags, memory, and disassembly.
 - End-to-end tests now cover:
 	- `.COM` loader behavior
 	- BDOS console I/O
@@ -71,8 +73,6 @@ Implemented so far:
 
 Not implemented yet:
 
-- Source-level stepping / breakpoint mapping for assembly source
-- Assembly debug views in the IDE UI (registers, memory, disassembly)
 - Assembly diagnostics surfaced as first-class editor problems instead of backend error strings only
 - Assembly formatting support in LSP/client path
 - A constrained OpenCOMAL-owned assembly dialect/profile layer on top of the assembler backend
@@ -139,6 +139,9 @@ Keep existing panes and add mode-specific tabs where needed.
 	- Z80 tab set (registers/memory/disassembly)
 - Optional assembly console panel for command interaction
 - Maintain consistent run controls across modes
+- Add a menu/settings option to choose the default working directory used when running
+  assembly and COMAL programs, so file-backed teaching examples are not forced to rely
+  on the source file location or generated build directory.
 
 ## Suggested Phases
 
@@ -210,6 +213,8 @@ Implementation note:
 - Improve completions, hover help, and quick-fix hints.
 - Expand assembly formatting rules and configurability once the instruction/directive subset stabilizes.
 - Add formatter support to the LSP server capabilities and IDE client request path if not already completed earlier.
+- Add an IDE menu action for configuring the default working directory for assembly and
+  COMAL execution.
 - Add tutorials and example projects.
 - Collect classroom feedback and refine UX.
 

@@ -1,6 +1,6 @@
 # OpenCOMAL Project Status
 
-**Last Updated:** 14 Aug 2026
+**Last Updated:** 17 Aug 2026
 **Purpose:** Short, ordered snapshot of current project state and near-term work.
 
 ---
@@ -15,7 +15,7 @@
 | Sound (`libcomal-sound`) | Partial but usable | `TONE` works; `PLAY` has basic support, full MML remains TODO |
 | LSP (`comal-lsp`) | Stable | Diagnostics, completion, definition, hover; parser-backed diagnostics classification is now in place |
 | IDE (`comal-ide`) | In progress | Core workflow works; editor now shows live LSP diagnostics in saved and unsaved tabs |
-| Z80 / CP-M-style assembly path | Partial but usable | `.COM` loading/execution works, BDOS console/file subset works, `sjasmplus` adapter assembles `.asm` to `.COM`, IDE assembly output panel is wired |
+| Z80 / CP-M-style assembly path | Partial but usable | `.COM` loading/execution works, BDOS console/file subset works, `sjasmplus` adapter assembles `.asm` to `.COM`, IDE assembly output panel is wired, source-level step/breakpoint mapping is active for assembled source, and paused Z80 runs expose registers/flags/memory/disassembly in the debug panel |
 | Test suite | Strong | 140 pass / 15 skip / 0 fail |
 
 ---
@@ -112,6 +112,14 @@ In parallel, the first Z80/CP-M-style teaching path is now active in the IDE/bac
   - assemble `.asm` / `.z80` / `.s` into `.COM`
   - load the `.COM` image at `0100h`
   - run it through the same Z80 backend path used for raw `.COM` files
+- IDE run/debug controls now stop on mapped assembly source lines for:
+  - single-step execution
+  - regular break requests
+  - line breakpoints on assembled source
+- When Z80 execution pauses, the debug panel now shows:
+  - register and flag values
+  - a memory window around the current PC
+  - disassembly rows sourced from assembler listings when available, with raw decode fallback for `.COM` programs
 - Current BDOS subset implemented in the runtime shim:
   - `0`, `1`, `2`, `6`, `9`, `12`, `15`, `16`, `20`, `25`, `26`
 - Unsupported BDOS functions return deterministic diagnostics.
@@ -140,7 +148,6 @@ In parallel, the first Z80/CP-M-style teaching path is now active in the IDE/bac
 - Breakpoint features are basic (no conditional breakpoints yet).
 - Scope/variable presentation can be improved.
 - LSP diagnostics/hover/completion are integrated; remaining work is polish (code actions, richer inline UX, and diagnostics controls).
-- Z80 debug views (registers, memory, disassembly, source-level stepping) are not yet surfaced in the IDE.
 - Assembly diagnostics are not yet surfaced as first-class editor diagnostics; current errors are still backend-run oriented.
 
 ### Sound roadmap

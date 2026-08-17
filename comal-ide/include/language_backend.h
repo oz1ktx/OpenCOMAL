@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <QString>
+#include <string>
 #include <vector>
 #include "language_profile.h"
 
@@ -35,11 +37,57 @@ public:
     virtual AssemblerResult assembleFile(const QString& sourcePath, const QString& outputDirectory) = 0;
 };
 
+struct Z80DebugRegister {
+    std::string name;
+    std::uint16_t value{0};
+    int width{4};
+};
+
+struct Z80DebugFlag {
+    std::string name;
+    bool value{false};
+};
+
+struct Z80DisassemblyLine {
+    std::uint16_t address{0};
+    std::vector<std::uint8_t> bytes;
+    std::string instruction;
+    int sourceLine{0};
+    bool current{false};
+};
+
+struct Z80DebugSnapshot {
+    std::vector<Z80DebugRegister> registers;
+    std::vector<Z80DebugFlag> flags;
+    std::uint16_t memoryStart{0};
+    std::vector<std::uint8_t> memory;
+    std::vector<Z80DisassemblyLine> disassembly;
+};
+
+class IBackendExecutionControl {
+public:
+    virtual ~IBackendExecutionControl() = default;
+
+    /// Return true when the currently running program should stop promptly.
+    virtual bool stopRequested() const = 0;
+
+    /// Return true when execution should suspend before running the instruction
+    /// at the supplied source location / program counter.
+    virtual bool shouldPause(std::uint16_t programCounter, int sourceLine) = 0;
+
+    /// Notify the control object that execution suspended, provide a debug
+    /// snapshot, and let it block until the program should resume.
+    virtual void waitUntilResumed(std::uint16_t programCounter,
+                                  int sourceLine,
+                                  const Z80DebugSnapshot& snapshot) = 0;
+};
+
 struct BackendRunContext {
     comal::runtime::Interpreter *interpreter;
     QString source;
     QString directCommand;
     QString programPath;
+    IBackendExecutionControl *executionControl{nullptr};
 };
 
 struct BackendRunResult {
