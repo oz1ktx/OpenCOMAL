@@ -40,8 +40,11 @@ jobs:
   build-rpm:
     name: Build RPM Package
     runs-on: ubuntu-latest
-    
+    container: fedora:latest
     steps:
+    - name: Install Git
+      run: dnf install -y git
+
     - name: Checkout code
       uses: actions/checkout@v6
       with:
