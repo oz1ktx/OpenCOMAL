@@ -24,9 +24,10 @@ jobs:
 
     - name: Build DEB package
       run: |
+        VERSION=${GITHUB_REF_NAME#v}
         mkdir -p build
         cd build
-        cmake -S .. -DCPACK_GENERATOR="DEB" -DCMAKE_BUILD_TYPE=Release
+        cmake -S .. -DCPACK_GENERATOR="DEB" -DCMAKE_BUILD_TYPE=Release -DCPACK_PACKAGE_VERSION="$VERSION"
         cmake --build . --config Release -j$(nproc)
         cpack -G DEB
 
@@ -55,9 +56,10 @@ jobs:
 
     - name: Build RPM package
       run: |
+        VERSION=${GITHUB_REF_NAME#v}
         mkdir -p build
         cd build
-        cmake -S .. -DCPACK_GENERATOR="RPM" -DCMAKE_BUILD_TYPE=Release
+        cmake -S .. -DCPACK_GENERATOR="RPM" -DCMAKE_BUILD_TYPE=Release -DCPACK_PACKAGE_VERSION="$VERSION"
         cmake --build . --config Release -j$(nproc)
         cpack -G RPM
 
