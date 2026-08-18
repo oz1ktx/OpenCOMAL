@@ -1,6 +1,6 @@
 # OpenCOMAL Project Status
 
-**Last Updated:** 8 Jun 2026
+**Last Updated:** 17 Aug 2026
 **Purpose:** Short, ordered snapshot of current project state and near-term work.
 
 ---
@@ -15,6 +15,7 @@
 | Sound (`libcomal-sound`) | Partial but usable | `TONE` works; `PLAY` has basic support, full MML remains TODO |
 | LSP (`comal-lsp`) | Stable | Diagnostics, completion, definition, hover; parser-backed diagnostics classification is now in place |
 | IDE (`comal-ide`) | In progress | Core workflow works; editor now shows live LSP diagnostics in saved and unsaved tabs |
+| Z80 / CP-M-style assembly path | Partial but usable | `.COM` loading/execution works, BDOS console/file subset works, `sjasmplus` adapter assembles `.asm` to `.COM`, IDE assembly output panel is wired, source-level step/breakpoint mapping is active for assembled source, and paused Z80 runs expose registers/flags/memory/disassembly in the debug panel |
 | Test suite | Strong | 140 pass / 15 skip / 0 fail |
 
 ---
@@ -26,6 +27,8 @@
 All earlier modernization phases are complete enough for daily development.
 Current work is mostly IDE ergonomics, debugger depth, and integration polish.
 The bytecode backend investigation is intentionally deferred while runtime hotspots are addressed with targeted optimizations.
+
+In parallel, the first Z80/CP-M-style teaching path is now active in the IDE/backend layer, but it is still below the maturity level of the COMAL workflow.
 
 ---
 
@@ -87,8 +90,42 @@ The bytecode backend investigation is intentionally deferred while runtime hotsp
 
 - Unified test runner in `tests/run_tests.sh`.
 - Current aggregate result: **140 pass, 15 skip, 0 fail**.
+- Dedicated assembly/Z80 backend tests now cover:
+  - `.COM` image loading
+  - BDOS console input/output
+  - BDOS file I/O through FCB + DMA
+  - sequential read EOF behavior
+  - assembly source -> `.COM` -> execution using the vendored `sjasmplus` adapter
+- Post-output-routing regression fix is in place: Z80 backend BDOS tests now validate `BackendRunResult.z80RuntimeOutput` (instead of `errorMessage`) so CI assertions match current runtime output routing.
 
-### 5. Help and discoverability
+### 5. Z80 assembly / CP-M-compatible path
+
+- redcode/Z80 is integrated as the current CPU execution core.
+- redcode/Zeta is vendored as the dependency required by redcode/Z80.
+- `sjasmplus` is integrated as the first assembler backend behind an adapter boundary.
+- IDE assembly UI flow is implemented end-to-end:
+  - assembly start/success/failure lifecycle signaling
+  - assembly output panel tabs for listing, diagnostics, and statistics
+  - assembler console output capture and display in diagnostics
+  - Z80 runtime console output routed into the same direct command output path used by COMAL `PRINT`
+- The current execution flow for source assembly is:
+  - assemble `.asm` / `.z80` / `.s` into `.COM`
+  - load the `.COM` image at `0100h`
+  - run it through the same Z80 backend path used for raw `.COM` files
+- IDE run/debug controls now stop on mapped assembly source lines for:
+  - single-step execution
+  - regular break requests
+  - line breakpoints on assembled source
+- When Z80 execution pauses, the debug panel now shows:
+  - register and flag values
+  - a memory window around the current PC
+  - disassembly rows sourced from assembler listings when available, with raw decode fallback for `.COM` programs
+- Current BDOS subset implemented in the runtime shim:
+  - `0`, `1`, `2`, `6`, `9`, `12`, `15`, `16`, `20`, `25`, `26`
+- Unsupported BDOS functions return deterministic diagnostics.
+- The assembler backend is intentionally abstracted so the project can switch away from `sjasmplus` later if needed.
+
+### 6. Help and discoverability
 
 - Keyword and built-in help text is now sourced from `docs/comal-keyword-docs.tsv`.
 - Packaged installs include this file at `/usr/share/doc/opencomal/comal-keyword-docs.tsv`.
@@ -111,6 +148,7 @@ The bytecode backend investigation is intentionally deferred while runtime hotsp
 - Breakpoint features are basic (no conditional breakpoints yet).
 - Scope/variable presentation can be improved.
 - LSP diagnostics/hover/completion are integrated; remaining work is polish (code actions, richer inline UX, and diagnostics controls).
+- Assembly diagnostics are not yet surfaced as first-class editor diagnostics; current errors are still backend-run oriented.
 
 ### Sound roadmap
 
@@ -123,6 +161,11 @@ The bytecode backend investigation is intentionally deferred while runtime hotsp
 
 - Legacy AST compatibility still exists in parser internals.
 - Full legacy AST retirement is planned but not started now.
+
+### Assembly path constraints
+
+- `sjasmplus` is a practical current choice, but it carries ZX Spectrum and retro-platform specific directives/features that must remain constrained behind the adapter.
+- The OpenCOMAL assembly subset/dialect is not yet formally enforced.
 
 ---
 
@@ -169,8 +212,9 @@ perf report --stdio --dsos comal-run
 1. Continue runtime hotspot reduction (symbol lookup caching and expression path optimizations).
 2. IDE debug experience polish (step controls, breakpoint UX, variable/call-stack clarity).
 3. IDE editor integration polish (code actions, richer diagnostics UX, completion tuning).
-4. Sound feature expansion (`PLAY` compatibility beyond current minimal support).
-5. Preparation work for future legacy AST retirement (no execution yet).
+4. Z80 assembly path tightening: constrain assembler-facing syntax/profile, improve diagnostics flow, and add debugger-facing state exposure.
+5. Sound feature expansion (`PLAY` compatibility beyond current minimal support).
+6. Preparation work for future legacy AST retirement (no execution yet).
 
 ---
 
@@ -255,16 +299,23 @@ Investigate supporting Windows by providing optional Qt-backed implementations t
 - `docs/PLAY_COMMAND.md`
 - `docs/comal-keyword-docs.tsv`
 - `docs/future_assembly_addon.md`
+
+## Related Ongoing Z80/Assembly Work
+
+- `third_party/Z80`
+- `third_party/Zeta`
+- `third_party/sjasmplus`
+- `tests/assembly/hello_loop.asm`
 ## Platform Ports (Deferred)
 
 # Future Development
 
-## Educational Multi-Language IDE Direction (COMAL + Z80/CP/M Assembly)
+## Educational Multi-Language IDE Direction (COMAL + Z80 with CP/M-Compatible Conventions)
 
 We plan to evolve the IDE into a language-flexible teaching environment that supports both:
 
 ### COMAL workflows (current)
-Z80 assembly programming with CP/M-oriented execution and debugging (future)
+Z80 assembly programming with console-first execution and CP/M-compatible conventions (future)
 
 ### Why this direction
 
@@ -275,11 +326,12 @@ Proposed architecture direction
 
 Introduce a backend abstraction layer so the IDE can host multiple execution engines.
 Keep COMAL as the first backend implementation.
-Add a Z80/CP/M backend for assemble, load, run, step, break, and inspect state.
+Add a Z80 backend for assemble, load, run, step, break, and inspect state, while preserving CP/M-style load and syscall conventions for forward compatibility.
 Expected teaching capabilities (future)
 
 Edit and assemble simple Z80 programs.
-Run in an emulated CP/M-like environment.
+Run with standardized console I/O behavior through a lightweight execution environment.
+Preserve CP/M-compatible load address and system-call conventions without requiring full CP/M emulation in the first iteration.
 Inspect registers, flags, stack, memory windows, and disassembly.
 Use breakpoints and stepping controls similar to existing IDE run/debug workflow.
 Status
@@ -287,4 +339,3 @@ Status
 Accepted as a future development direction.
 Initial work should prioritize shared abstractions and minimal disruption to existing COMAL behavior.
 Detailed planning will be maintained in a separate draft document.
-

@@ -5,7 +5,7 @@
 class QTreeView;
 class QFileSystemModel;
 
-// File browser panel showing .lst/.prl/.prc files.
+// File browser panel showing COMAL and assembly source files.
 class FileBrowserPanel : public QWidget {
     Q_OBJECT
 

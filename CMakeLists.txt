@@ -5,6 +5,20 @@ include(GNUInstallDirs)
 
 enable_testing()
 
+# Third-party CPU emulation dependencies used by the IDE Z80 backend.
+set(Z80_SHARED_LIBS NO CACHE BOOL "Build Z80 as a static library" FORCE)
+set(Z80_WITH_EXECUTE YES CACHE BOOL "Enable Z80 execute loop" FORCE)
+set(Z80_WITH_FULL_IM0 YES CACHE BOOL "Enable full IM0 behavior" FORCE)
+set(Z80_WITH_IM0_RETX_NOTIFICATIONS YES CACHE BOOL "Enable RETI/RETN IM0 notifications" FORCE)
+set(Z80_WITH_Q YES CACHE BOOL "Enable Z80 Q flag behavior" FORCE)
+set(Z80_WITH_ZILOG_NMOS_LD_A_IR_BUG YES CACHE BOOL "Enable NMOS LD A,{I|R} bug behavior" FORCE)
+set(ENABLE_LUA OFF CACHE BOOL "Disable sjasmplus Lua support in OpenCOMAL" FORCE)
+set(ADD_UNIT_TESTS OFF CACHE BOOL "Disable sjasmplus embedded unit tests in OpenCOMAL" FORCE)
+
+add_subdirectory(third_party/Zeta)
+add_subdirectory(third_party/Z80)
+add_subdirectory(third_party/sjasmplus)
+
 add_subdirectory(libcomal-parser)
 
 add_subdirectory(libcomal-runtime)

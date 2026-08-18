@@ -1,0 +1,20 @@
+# file opened: hello_loop.asm
+ 1    0000                  ORG $0100
+ 2    0100
+ 3    0100              start:
+ 4    0100 06 04            ld b,4
+ 5    0102
+ 6    0102              loop:
+ 7    0102 0E 09            ld c,9
+ 8    0104 11 12 01         ld de,msg
+ 9    0107 CD 05 00         call 5
+10    010A 10 F6            djnz loop
+11    010C
+12    010C 0E 00            ld c,0
+13    010E CD 05 00         call 5
+14    0111 76               halt
+15    0112
+16    0112              msg:
+17    0112 48 65 6C 6C      db "Hello", '$'
+17    0116 6F 24
+# file closed: hello_loop.asm

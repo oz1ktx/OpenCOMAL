@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 #include <csignal>
+#include <cstdlib>
 
 // Global pointer for signal handler → interpreter bridge.
 static comal::runtime::Interpreter* g_interp = nullptr;
@@ -33,24 +34,30 @@ int main(int argc, char* argv[]) {
     sigemptyset(&sa.sa_mask);
     sigaction(SIGINT, &sa, nullptr);
 
+    int exit_code = 0;
     try {
         interp.loadFile(filename);
         interp.run();
     } catch (const comal::runtime::EscapeSignal&) {
         std::cerr << "Escape\n";
-        return 0;
+        exit_code = 0;
     } catch (const comal::runtime::StopSignal&) {
-        return 0;
+        exit_code = 0;
     } catch (const comal::runtime::ComalError& e) {
         std::cerr << "Runtime error";
         if (e.line() > 0)
             std::cerr << " at line " << e.line();
         std::cerr << ": " << e.what() << "\n";
-        return 1;
+        exit_code = 1;
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << "\n";
-        return 1;
+        exit_code = 1;
     }
 
-    return 0;
+    // Use std::_Exit() to bypass destructors and avoid crashes during Qt/audio cleanup.
+    // This prevents the Interpreter destructor from running, which would otherwise
+    // destroy the sound engine and trigger crashes in Qt's audio infrastructure
+    // during static shutdown.
+    std::_Exit(exit_code);
+    return exit_code;  // unreachable
 }

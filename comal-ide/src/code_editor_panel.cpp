@@ -88,6 +88,7 @@ QsciScintilla *CodeEditorPanel::currentEditor() const
 void CodeEditorPanel::newTab(const QString &title)
 {
     auto *editor = createEditor();
+    applyLanguageToEditor(editor, LanguageId::Comal);
     int idx = tabs_->addTab(editor, title);
     tabs_->setCurrentIndex(idx);
 }
@@ -137,6 +138,7 @@ QsciScintilla *CodeEditorPanel::createEditor()
     // Connect signals for LSP integration
     connect(editor, &QsciScintilla::textChanged, this, [this, editor]{
         if (!lspClient_) return;
+        if (!isLspEnabledForEditor(editor)) return;
         const QString uri = lspUriForEditor(editor);
         if (uri.isEmpty()) return;
         QString text = editor->text();
@@ -146,6 +148,7 @@ QsciScintilla *CodeEditorPanel::createEditor()
         emit cursorPositionChanged(line, col);
         emit keywordUnderCursorChanged(wordAtCursor(editor->text(line), col));
         if (!lspClient_) return;
+        if (!isLspEnabledForEditor(editor)) return;
         const QString uri = lspUriForEditor(editor);
         if (uri.isEmpty()) return;
         lspClient_->requestHover(uri, line, col);
@@ -157,9 +160,8 @@ QsciScintilla *CodeEditorPanel::createEditor()
     editor->setBraceMatching(QsciScintilla::StrictBraceMatch);
     editor->setCaretLineVisible(true);
 
-    // Syntax highlighting
-    auto *lexer = new QsciLexerComal(editor);
-    editor->setLexer(lexer);
+    // Syntax highlighting is selected by language profile.
+    editor->setLexer(nullptr);
 
     // Apply persisted editor font to freshly created tabs.
     QSettings settings("OpenCOMAL", "IDE");
@@ -167,12 +169,7 @@ QsciScintilla *CodeEditorPanel::createEditor()
     int editorFontSize = settings.value("EditorFont/Size", 11).toInt();
     QFont persistedFont(editorFontFamily, editorFontSize);
     editor->setFont(persistedFont);
-    for (int style = QsciLexerComal::Default; style <= QsciLexerComal::GraphicsCmd; ++style) {
-        QFont styleFont = persistedFont;
-        if (style == QsciLexerComal::Keyword)
-            styleFont.setBold(true);
-        lexer->setFont(styleFont, style);
-    }
+    Q_UNUSED(persistedFont);
 
     connectEditorSignals(editor);
     return editor;
@@ -182,13 +179,15 @@ void CodeEditorPanel::setLspClient(ComalLspClient *client) {
     lspClient_ = client;
     // Send didOpen for current tab
     if (auto *editor = currentEditor()) {
-        QString text = editor->text();
-        QString uri = lspUriForEditor(editor);
-        qDebug() << "Editor: Setting LSP client, current URI:" << uri;
-        if (!uri.isEmpty()) {
-            lspClient_->sendDidOpen(uri, text);
-        } else {
-            qDebug() << "  (skipped didOpen - no document URI)";
+        if (isLspEnabledForEditor(editor)) {
+            QString text = editor->text();
+            QString uri = lspUriForEditor(editor);
+            qDebug() << "Editor: Setting LSP client, current URI:" << uri;
+            if (!uri.isEmpty()) {
+                lspClient_->sendDidOpen(uri, text);
+            } else {
+                qDebug() << "  (skipped didOpen - no document URI)";
+            }
         }
     }
 
@@ -333,38 +332,44 @@ void CodeEditorPanel::openFile(const QString &filePath)
     QTextStream stream(&file);
     QString content = stream.readAll();
 
-    // Strip COMAL line numbers (leading digits + optional space)
-    // e.g. "0010 PRINT ..." -> "PRINT ..."
-    const bool hadTerminalNewline = content.endsWith('\n');
-    QStringList strippedLines;
-    const auto lines = content.split('\n', Qt::KeepEmptyParts);
-    const int limit = hadTerminalNewline ? lines.size() - 1 : lines.size();
-    strippedLines.reserve(limit);
+    const LanguageId language = detectLanguageFromFilePath(filePath);
+    QString loadedText = content;
 
-    for (int i = 0; i < limit; ++i) {
-        QString line = lines[i];
-        if (line.endsWith('\r'))
-            line.chop(1);
+    if (isComalLanguage(language)) {
+        // Strip COMAL line numbers (leading digits + optional space)
+        // e.g. "0010 PRINT ..." -> "PRINT ..."
+        const bool hadTerminalNewline = content.endsWith('\n');
+        QStringList strippedLines;
+        const auto lines = content.split('\n', Qt::KeepEmptyParts);
+        const int limit = hadTerminalNewline ? lines.size() - 1 : lines.size();
+        strippedLines.reserve(limit);
 
-        QString trimmed = line.trimmed();
-        // Match optional leading digits followed by space (or end of line)
-        int pos = 0;
-        while (pos < trimmed.size() && trimmed[pos].isDigit())
-            pos++;
-        if (pos > 0 && pos < trimmed.size() && trimmed[pos] == ' ')
-            strippedLines.append(trimmed.mid(pos + 1));
-        else if (pos > 0 && pos == trimmed.size())
-            strippedLines.append(QString()); // blank numbered line (e.g. "  80 ")
-        else
-            strippedLines.append(line);
+        for (int i = 0; i < limit; ++i) {
+            QString line = lines[i];
+            if (line.endsWith('\r'))
+                line.chop(1);
+
+            QString trimmed = line.trimmed();
+            // Match optional leading digits followed by space (or end of line)
+            int pos = 0;
+            while (pos < trimmed.size() && trimmed[pos].isDigit())
+                pos++;
+            if (pos > 0 && pos < trimmed.size() && trimmed[pos] == ' ')
+                strippedLines.append(trimmed.mid(pos + 1));
+            else if (pos > 0 && pos == trimmed.size())
+                strippedLines.append(QString()); // blank numbered line (e.g. "  80 ")
+            else
+                strippedLines.append(line);
+        }
+
+        loadedText = strippedLines.join('\n');
+        if (hadTerminalNewline)
+            loadedText += '\n';
     }
 
-    QString stripped = strippedLines.join('\n');
-    if (hadTerminalNewline)
-        stripped += '\n';
-
     auto *editor = createEditor();
-    editor->setText(stripped);
+    applyLanguageToEditor(editor, language);
+    editor->setText(loadedText);
     editor->setModified(false);
     QFileInfo info(filePath);
     int idx = tabs_->addTab(editor, info.fileName());
@@ -374,13 +379,26 @@ void CodeEditorPanel::openFile(const QString &filePath)
 
     // Apply any existing breakpoints for this file in the editor gutter.
     applyBreakpointsToEditor(editor, filePath);
-    applyLspDiagnostics(editor, filePath);
+    if (isLspEnabledForEditor(editor)) {
+        applyLspDiagnostics(editor, filePath);
+    } else {
+        clearLspDiagnostics(editor);
+    }
 
-    if (lspClient_) {
+    if (lspClient_ && isLspEnabledForEditor(editor)) {
         QString uri = filePathToUri(filePath);
         qDebug() << "Editor: File opened:" << filePath << "uri:" << uri;
         lspClient_->sendDidOpen(uri, editor->text());
     }
+}
+
+LanguageId CodeEditorPanel::currentLanguage() const
+{
+    auto *editor = currentEditor();
+    if (!editor) {
+        return LanguageId::Comal;
+    }
+    return languageForEditor(editor);
 }
 
 QString CodeEditorPanel::currentFilePath() const
@@ -416,7 +434,7 @@ bool CodeEditorPanel::saveFile()
     file.write(editor->text().toUtf8());
     editor->setModified(false);
     updateTabTitle(tabs_->currentIndex());
-    if (lspClient_ && !path.isEmpty()) {
+    if (lspClient_ && !path.isEmpty() && isLspEnabledForEditor(editor)) {
         lspClient_->sendDidOpen(filePathToUri(path), editor->text());
     }
     return true;
@@ -429,7 +447,7 @@ bool CodeEditorPanel::saveFileAs()
 
     QString path = QFileDialog::getSaveFileName(
         this, tr("Save As"), QString(),
-        tr("COMAL Files (*.lst *.cml);;All Files (*)"));
+        tr("Source Files (*.lst *.cml *.prl *.prc *.asm *.z80 *.s *.com);;All Files (*)"));
     if (path.isEmpty()) return false;
 
     QFile file(path);
@@ -454,14 +472,21 @@ bool CodeEditorPanel::saveFileAs()
 
     tabs_->setTabToolTip(idx, path);
     untitledUriByEditor_.remove(editor);
+    applyLanguageToEditor(editor, detectLanguageFromFilePath(path));
     updateTabTitle(idx);
     applyBreakpointsToEditor(currentEditor(), path);
-    applyLspDiagnostics(currentEditor(), path);
+    if (isLspEnabledForEditor(editor)) {
+        applyLspDiagnostics(currentEditor(), path);
+    } else {
+        clearLspDiagnostics(editor);
+    }
     if (lspClient_) {
         if (!oldUri.isEmpty()) {
             lspClient_->sendDidClose(oldUri);
         }
-        lspClient_->sendDidOpen(filePathToUri(path), editor->text());
+        if (isLspEnabledForEditor(editor)) {
+            lspClient_->sendDidOpen(filePathToUri(path), editor->text());
+        }
     }
     return true;
 }
@@ -527,7 +552,11 @@ void CodeEditorPanel::onCurrentTabChanged(int /*index*/)
 {
     auto *editor = currentEditor();
     if (editor) {
-        applyLspDiagnostics(editor, uriToFilePath(lspUriForEditor(editor)));
+        if (isLspEnabledForEditor(editor)) {
+            applyLspDiagnostics(editor, uriToFilePath(lspUriForEditor(editor)));
+        } else {
+            clearLspDiagnostics(editor);
+        }
         int line, col;
         editor->getCursorPosition(&line, &col);
         emit cursorPositionChanged(line + 1, col + 1);
@@ -549,6 +578,50 @@ QString CodeEditorPanel::filePathForEditor(QsciScintilla *editor) const
     }
 
     return tabs_->tabToolTip(idx);
+}
+
+LanguageId CodeEditorPanel::languageForEditor(QsciScintilla *editor) const
+{
+    const QString path = filePathForEditor(editor);
+    if (path.isEmpty()) {
+        return LanguageId::Comal;
+    }
+    return detectLanguageFromFilePath(path);
+}
+
+bool CodeEditorPanel::isLspEnabledForEditor(QsciScintilla *editor) const
+{
+    return isComalLanguage(languageForEditor(editor));
+}
+
+void CodeEditorPanel::applyLanguageToEditor(QsciScintilla *editor, LanguageId language)
+{
+    if (!editor) {
+        return;
+    }
+
+    if (!isComalLanguage(language)) {
+        editor->setLexer(nullptr);
+        return;
+    }
+
+    auto *lexer = qobject_cast<QsciLexerComal *>(editor->lexer());
+    if (!lexer) {
+        lexer = new QsciLexerComal(editor);
+        editor->setLexer(lexer);
+    }
+
+    QSettings settings("OpenCOMAL", "IDE");
+    QString editorFontFamily = settings.value("EditorFont/Family", "Monospace").toString();
+    int editorFontSize = settings.value("EditorFont/Size", 11).toInt();
+    QFont persistedFont(editorFontFamily, editorFontSize);
+
+    for (int style = QsciLexerComal::Default; style <= QsciLexerComal::GraphicsCmd; ++style) {
+        QFont styleFont = persistedFont;
+        if (style == QsciLexerComal::Keyword)
+            styleFont.setBold(true);
+        lexer->setFont(styleFont, style);
+    }
 }
 
 QString CodeEditorPanel::lspUriForEditor(QsciScintilla *editor)

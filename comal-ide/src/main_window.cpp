@@ -5,6 +5,7 @@
 #include "debug_panel.h"
 #include "file_browser_panel.h"
 #include "help_panel.h"
+#include "assembly_output_panel.h"
 #include "run_worker.h"
 #include "qt_io.h"
 #include "settings_dialog.h"
@@ -355,6 +356,25 @@ void MainWindow::createToolBar()
 
     tb->addSeparator();
 
+    // ── Assembly (Assemble, Rebuild) — Z80 only ──
+    assembleAction_ = tb->addAction(
+        makeIcon("media-record", Qt::darkRed),
+        tr("Assemble"));
+    assembleAction_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_F9));
+    assembleAction_->setToolTip(tr("Assemble Z80 source (Ctrl+F9)"));
+    assembleAction_->setVisible(false);  // Hidden by default, shown for .asm files
+    connect(assembleAction_, &QAction::triggered, this, &MainWindow::onAssemble);
+
+    rebuildAction_ = tb->addAction(
+        makeIcon("view-refresh", Qt::darkMagenta),
+        tr("Rebuild"));
+    rebuildAction_->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F9));
+    rebuildAction_->setToolTip(tr("Rebuild and run (Ctrl+Shift+F9)"));
+    rebuildAction_->setVisible(false);  // Hidden by default, shown for .asm files
+    connect(rebuildAction_, &QAction::triggered, this, &MainWindow::onRebuild);
+
+    tb->addSeparator();
+
     // ── Graphics (Clear Canvas, Save PNG, Save SVG) ──
     auto *clearGraphicsAction = tb->addAction(
         makeIcon("edit-clear", Qt::gray),
@@ -381,6 +401,17 @@ void MainWindow::updateRunActionVisual(bool running)
     runAction_->setIcon(running ? runActiveIcon_ : runIdleIcon_);
     runAction_->setText(running ? tr("Run (Active)") : tr("Run"));
     runAction_->setToolTip(running ? tr("Program is running") : tr("Run program"));
+}
+
+void MainWindow::updateAssemblyActionVisibility(const QString &filePath)
+{
+    const QString lower = filePath.toLower();
+    const bool isAssembly = lower.endsWith(".asm") || lower.endsWith(".z80") || lower.endsWith(".s");
+    
+    if (assembleAction_)
+        assembleAction_->setVisible(isAssembly);
+    if (rebuildAction_)
+        rebuildAction_->setVisible(isAssembly);
 }
 
 // ── Status bar ──────────────────────────────────────────────────────
@@ -435,6 +466,10 @@ void MainWindow::createPanels()
     // Cursor position tracking
     connect(codeEditor_, &CodeEditorPanel::cursorPositionChanged,
             this,        &MainWindow::updateCursorPos);
+    
+    // Assembly button visibility based on current file type
+    connect(codeEditor_, &CodeEditorPanel::currentFileChanged,
+           this,        &MainWindow::updateAssemblyActionVisibility);
 
     // Breakpoints → debug panel
     connect(codeEditor_, &CodeEditorPanel::breakpointsChanged,
@@ -463,6 +498,12 @@ void MainWindow::createPanels()
         // Contextual keyword help from editor cursor position (independent of LSP hover).
         connect(codeEditor_, &CodeEditorPanel::keywordUnderCursorChanged,
             help_, &HelpPanel::showKeywordHelp);
+
+    // Assembly output — bottom (tabbed with direct command)
+    assemblyOutput_ = new AssemblyOutputPanel;
+    assemblyOutputDock_ = new QDockWidget(tr("Assembly Output"), this);
+    assemblyOutputDock_->setObjectName("AssemblyOutputDock");
+    assemblyOutputDock_->setWidget(assemblyOutput_);
 
     // Direct command execution (when no program is running)
     connect(directCommand_, &DirectCommandPanel::lineEntered,
@@ -496,15 +537,18 @@ void MainWindow::restoreDefaultLayout()
     addDockWidget(Qt::RightDockWidgetArea,  graphicsDock_);
     addDockWidget(Qt::RightDockWidgetArea,  helpDock_);
     addDockWidget(Qt::BottomDockWidgetArea, debugDock_);
+    addDockWidget(Qt::BottomDockWidgetArea, assemblyOutputDock_);
 
     // Stack help below graphics on the right
     splitDockWidget(graphicsDock_, helpDock_, Qt::Vertical);
 
-    // Put debug to the right of direct command at the bottom
+    // Put debug and assembly output to the right of direct command at the bottom
     splitDockWidget(directCommandDock_, debugDock_, Qt::Horizontal);
+    splitDockWidget(debugDock_, assemblyOutputDock_, Qt::Horizontal);
 
-    // Start with help hidden (user can show via View menu)
+    // Start with help and assembly output hidden (user can show via View menu)
     helpDock_->hide();
+    assemblyOutputDock_->hide();
 }
 
 // ── Run / Stop ────────────────────────────────────────────────────────
@@ -543,6 +587,19 @@ void MainWindow::connectRunWorker()
     connect(worker_, &RunWorker::errorOccurred,
             this, &MainWindow::onRunError, Qt::QueuedConnection);
 
+    // Assembly workflow signals (Z80 only)
+    connect(worker_, &RunWorker::assemblyStarted,
+            this, &MainWindow::onAssemblyStarted, Qt::QueuedConnection);
+    connect(worker_, &RunWorker::assemblySucceeded,
+            this, &MainWindow::onAssemblySucceeded, Qt::QueuedConnection);
+    connect(worker_, &RunWorker::assemblyFailed,
+            this, &MainWindow::onAssemblyFailed, Qt::QueuedConnection);
+
+    // Z80 runtime output → Direct Command panel
+    connect(worker_, &RunWorker::z80RuntimeOutput,
+            directCommand_, &DirectCommandPanel::appendOutput,
+            Qt::QueuedConnection);
+
     // Graphics scene changed — re-render the graphics panel
     connect(worker_, &RunWorker::sceneChanged, this, [this]() {
         graphics_->renderScene(worker_->graphicsScene());
@@ -559,6 +616,15 @@ void MainWindow::connectRunWorker()
 
     // Call stack changed — update debug panel
     connect(worker_, &RunWorker::callStackChanged, debug_, &DebugPanel::updateCallStack,
+            Qt::QueuedConnection);
+
+    connect(worker_, &RunWorker::z80RegistersChanged, debug_, &DebugPanel::updateRegisters,
+            Qt::QueuedConnection);
+    connect(worker_, &RunWorker::z80FlagsChanged, debug_, &DebugPanel::updateFlags,
+            Qt::QueuedConnection);
+    connect(worker_, &RunWorker::z80MemoryChanged, debug_, &DebugPanel::updateMemory,
+            Qt::QueuedConnection);
+    connect(worker_, &RunWorker::z80DisassemblyChanged, debug_, &DebugPanel::updateDisassembly,
             Qt::QueuedConnection);
 
     // Jump to source line when a call stack frame is activated
@@ -579,6 +645,9 @@ void MainWindow::onRun()
     directCommand_->appendOutput("\n--- RUN ---\n");
     codeEditor_->clearErrorHighlight();
     codeEditor_->clearExecutionHighlight();
+    if (codeEditor_->currentLanguage() == LanguageId::Comal) {
+        debug_->clearZ80State();
+    }
     // Clear scene for full program runs
     persistentScene_->clear();
     graphics_->clearCanvas();
@@ -589,6 +658,8 @@ void MainWindow::onRun()
     delete worker_;
     worker_ = new RunWorker(this);
     worker_->setGraphicsScene(persistentScene_.get());
+    worker_->setLanguage(codeEditor_->currentLanguage());
+    worker_->setProgramPath(codeEditor_->currentFilePath());
     worker_->setSource(source);
     {
         auto bps = codeEditor_->breakpointsForCurrentFile();
@@ -644,6 +715,9 @@ void MainWindow::onExecutionPaused(int lineNumber)
 {
     codeEditor_->clearErrorHighlight();
     codeEditor_->highlightExecutionLine(lineNumber);
+    if (codeEditor_->currentLanguage() == LanguageId::Comal) {
+        debug_->clearZ80State();
+    }
     stateLabel_->setText(tr("Paused"));
 }
 
@@ -665,11 +739,15 @@ void MainWindow::onDirectCommand(const QString &command)
         worker_ = new RunWorker(this);
         worker_->setGraphicsScene(persistentScene_.get());
         worker_->setExternalInterpreter(persistentInterp_);
+        worker_->setLanguage(LanguageId::Comal);
         connectRunWorker();
     } else {
         // Reuse existing worker; just set external interpreter again to ensure consistency
         worker_->setExternalInterpreter(persistentInterp_);
+        worker_->setLanguage(LanguageId::Comal);
     }
+    debug_->clearZ80State();
+    worker_->setProgramPath(codeEditor_->currentFilePath());
     worker_->setDirectCommand(command);
     stateLabel_->setText(tr("Running"));
     updateRunActionVisual(true);
@@ -685,7 +763,7 @@ void MainWindow::onOpen()
 {
     QString path = QFileDialog::getOpenFileName(
         this, tr("Open File"), QString(),
-        tr("COMAL Files (*.lst *.cml *.prl *.prc);;All Files (*)"));
+        tr("Source Files (*.lst *.cml *.prl *.prc *.asm *.z80 *.s *.com);;All Files (*)"));
     if (!path.isEmpty())
         codeEditor_->openFile(path);
 }
@@ -729,6 +807,9 @@ void MainWindow::startSingleStepRun(const QString &title)
     directCommand_->appendOutput("\n--- " + title + " ---\n");
     codeEditor_->clearErrorHighlight();
     codeEditor_->clearExecutionHighlight();
+    if (codeEditor_->currentLanguage() == LanguageId::Comal) {
+        debug_->clearZ80State();
+    }
     // Clear scene for full program runs
     persistentScene_->clear();
     graphics_->clearCanvas();
@@ -736,6 +817,8 @@ void MainWindow::startSingleStepRun(const QString &title)
     delete worker_;
     worker_ = new RunWorker(this);
     worker_->setGraphicsScene(persistentScene_.get());
+    worker_->setLanguage(codeEditor_->currentLanguage());
+    worker_->setProgramPath(codeEditor_->currentFilePath());
     worker_->setSource(source);
     {
         auto bps = codeEditor_->breakpointsForCurrentFile();
@@ -922,3 +1005,101 @@ void MainWindow::closeEvent(QCloseEvent *event)
     saveWindowState();
     QMainWindow::closeEvent(event);
 }
+
+// ── Assembly Workflow Handlers ────────────────────────────────────────
+
+void MainWindow::onAssemblyStarted(const QString &sourcePath)
+{
+    Q_UNUSED(sourcePath);
+    stateLabel_->setText(tr("Assembling..."));
+    statusBar()->showMessage(tr("Assembling %1").arg(QFileInfo(sourcePath).fileName()));
+    assemblyOutput_->clearListing();
+}
+
+void MainWindow::onAssemblySucceeded(const QString &outputPath, const QString &listingPath, double elapsedSeconds, const QString &consoleOutput)
+{
+    const QString message = tr("✓ Assembled in %.2fs").arg(elapsedSeconds);
+    stateLabel_->setText(message);
+    statusBar()->showMessage(message, 3000);  // Show for 3 seconds
+    
+    // Display console output in diagnostics tab
+    if (!consoleOutput.isEmpty()) {
+        assemblyOutput_->displayDiagnostics(consoleOutput);
+    }
+    
+    // Display listing in assembly output panel
+    if (!listingPath.isEmpty()) {
+        QFile listFile(listingPath);
+        if (listFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QString listing = QString::fromUtf8(listFile.readAll());
+            assemblyOutput_->displayListing(listing);
+            listFile.close();
+        }
+    }
+    
+    // Display statistics
+    QFileInfo outputInfo(outputPath);
+    if (outputInfo.exists()) {
+        assemblyOutput_->displayStatistics(
+            codeEditor_->currentFilePath(),
+            elapsedSeconds,
+            outputPath,
+            outputInfo.size()
+        );
+    }
+    
+    // Show assembly output panel
+    assemblyOutputDock_->show();
+}
+
+void MainWindow::onAssemblyFailed(const QString &errorMessage, int errorLine, const QString &consoleOutput)
+{
+    Q_UNUSED(errorLine);
+    const QString message = tr("✗ Assembly failed: %1").arg(errorMessage);
+    stateLabel_->setText(message);
+    statusBar()->showMessage(message, 5000);  // Show for 5 seconds
+    
+    // Display error + console output in diagnostics tab
+    QString diagnostics = message + "\n\n";
+    if (!consoleOutput.isEmpty()) {
+        diagnostics += "Console output:\n";
+        diagnostics += consoleOutput;
+    }
+    assemblyOutput_->displayDiagnostics(diagnostics);
+    
+    // Show assembly output panel
+    assemblyOutputDock_->show();
+    
+    // TODO: Mark error line in editor (requires public CodeEditorPanel API)
+}
+
+void MainWindow::onAssemble()
+{
+    // Assemble without running (compile-only mode)
+    // For now, we just run the program, which triggers assembly as part of normal flow
+    // This is a placeholder for future "assembly only" mode
+    statusBar()->showMessage(tr("Assembling (compile-only mode not yet implemented)"), 2000);
+}
+
+void MainWindow::onRebuild()
+{
+    // Rebuild and run: delete output files, then run normally
+    // This forces re-assembly on the next run
+    if (!codeEditor_)
+        return;
+    
+    const auto currentPath = codeEditor_->currentFilePath();
+    if (currentPath.isEmpty())
+        return;
+    
+    const QString sourceDir = QFileInfo(currentPath).absolutePath();
+    const QString buildDir = QDir(sourceDir).filePath(".opencomal-build");
+    
+    // Delete the build directory to force re-assembly
+    QDir(buildDir).removeRecursively();
+    statusBar()->showMessage(tr("Rebuild initiated..."), 1000);
+    
+    // Run the program (assembly will be re-done)
+    onRun();
+}
+

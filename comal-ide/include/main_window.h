@@ -15,6 +15,7 @@ class GraphicsPanel;
 class DebugPanel;
 class FileBrowserPanel;
 class HelpPanel;
+class AssemblyOutputPanel;
 class RunWorker;
 class QtIO;
 class SettingsDialog;
@@ -41,6 +42,7 @@ private:
     void restoreDefaultLayout();
     void connectRunWorker();
     void updateRunActionVisual(bool running);
+    void updateAssemblyActionVisibility(const QString &filePath);
 
     void startSingleStepRun(const QString &title);
     
@@ -58,12 +60,14 @@ private:
     QDockWidget *debugDock_;
     QDockWidget *fileBrowserDock_;
     QDockWidget *helpDock_;
+    QDockWidget *assemblyOutputDock_;
 
     DirectCommandPanel *directCommand_;
     GraphicsPanel      *graphics_;
     DebugPanel         *debug_;
     FileBrowserPanel   *fileBrowser_;
     HelpPanel          *help_;
+    AssemblyOutputPanel *assemblyOutput_;
 
     // Runtime worker
     RunWorker *worker_{nullptr};
@@ -85,6 +89,10 @@ private:
     QAction *runAction_{nullptr};
     QIcon runIdleIcon_;
     QIcon runActiveIcon_;
+    
+    // Assembly toolbar actions
+    QAction *assembleAction_{nullptr};
+    QAction *rebuildAction_{nullptr};
 
 private slots:
     void onNew();
@@ -110,4 +118,13 @@ private slots:
     void onDirectCommand(const QString &command);
     void updateCursorPos(int line, int col);
     void onSettings();
+    
+    // Assembly workflow handlers
+    void onAssemblyStarted(const QString &sourcePath);
+    void onAssemblySucceeded(const QString &outputPath, const QString &listingPath, double elapsedSeconds, const QString &consoleOutput);
+    void onAssemblyFailed(const QString &errorMessage, int errorLine, const QString &consoleOutput);
+    
+    // Assembly toolbar actions
+    void onAssemble();
+    void onRebuild();
 };

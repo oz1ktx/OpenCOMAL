@@ -1,0 +1,9 @@
+[submodule "third_party/Z80"]
+	path = third_party/Z80
+	url = https://github.com/redcode/Z80.git
+[submodule "third_party/Zeta"]
+	path = third_party/Zeta
+	url = https://github.com/redcode/Zeta.git
+[submodule "third_party/sjasmplus"]
+	path = third_party/sjasmplus
+	url = https://github.com/z00m128/sjasmplus.git
