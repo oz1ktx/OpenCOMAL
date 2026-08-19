@@ -368,6 +368,79 @@ void test_bdos_file_and_misc_functions(const std::filesystem::path& dir)
     PASS();
 }
 
+void test_bdos_uses_mapped_drive_folder(const std::filesystem::path& dir)
+{
+    TEST(bdos_uses_mapped_drive_folder);
+
+    const std::filesystem::path driveDir = dir / "mapped-drive";
+    std::error_code ec;
+    std::filesystem::create_directories(driveDir, ec);
+    ASSERT_TRUE(!ec, "failed to create mapped-drive test directory");
+
+    const std::filesystem::path dataPath = driveDir / "DATA.TXT";
+    ASSERT_TRUE(writeTextFile(dataPath, "Hello"), "failed to write DATA.TXT mapped fixture");
+
+    const std::filesystem::path comDir = dir / "program-dir";
+    std::filesystem::create_directories(comDir, ec);
+    ASSERT_TRUE(!ec, "failed to create program-dir test directory");
+
+    const std::filesystem::path comPath = comDir / "bdos_mapped_drive.com";
+    std::vector<unsigned char> program = {
+        0x11, 0x80, 0x01,
+        0x0E, 0x1A,
+        0xCD, 0x05, 0x00,
+        0x11, 0xA0, 0x01,
+        0x0E, 0x0F,
+        0xCD, 0x05, 0x00,
+        0x11, 0xA0, 0x01,
+        0x0E, 0x14,
+        0xCD, 0x05, 0x00,
+        0x21, 0x80, 0x01,
+        0x06, 0x05,
+        0x5E,
+        0x0E, 0x02,
+        0xCD, 0x05, 0x00,
+        0x23,
+        0x10, 0xF7,
+        0x0E, 0x00,
+        0xCD, 0x05, 0x00,
+        0x76
+    };
+
+    while (program.size() < (0x01A0 - 0x0100)) {
+        program.push_back(0x00);
+    }
+
+    const std::vector<unsigned char> fcb = {
+        0x00,
+        'D', 'A', 'T', 'A', ' ', ' ', ' ', ' ',
+        'T', 'X', 'T',
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00
+    };
+    program.insert(program.end(), fcb.begin(), fcb.end());
+
+    ASSERT_TRUE(writeComFile(comPath, program), "failed to write mapped-drive .com fixture");
+
+    Z80BackendStub backend;
+    BackendRunContext ctx;
+    ctx.interpreter = nullptr;
+    ctx.programPath = QString::fromStdString(comPath.string());
+    ctx.cpmDrivePath = QString::fromStdString(driveDir.string());
+
+    const BackendRunResult result = backend.run(ctx);
+    ASSERT_TRUE(result.ok, "backend run with mapped drive failed unexpectedly");
+    const std::string output = result.z80RuntimeOutput.toStdString();
+    ASSERT_TRUE(output.find("Hello") != std::string::npos,
+                "expected output from mapped CP/M drive folder not found");
+
+    PASS();
+}
+
 void test_bdos_sequential_read_reports_eof(const std::filesystem::path& dir)
 {
     TEST(bdos_sequential_read_reports_eof);
@@ -463,6 +536,7 @@ int main()
     test_assembly_single_step_reports_instruction_lines(tmpDir);
     test_console_input_echo_roundtrip(tmpDir);
     test_bdos_file_and_misc_functions(tmpDir);
+    test_bdos_uses_mapped_drive_folder(tmpDir);
     test_bdos_sequential_read_reports_eof(tmpDir);
 
     std::cout << "Passed: " << gPassed << " Failed: " << gFailed << "\n";

@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <string>
 
+namespace comal::cpm {
+
 struct Z80ComImage {
     static constexpr std::size_t kMemorySize = 65536;
     static constexpr std::uint16_t kLoadAddress = 0x0100;
@@ -19,7 +21,9 @@ struct Z80ComImage {
     std::size_t imageSize{0};
 };
 
-bool loadZ80ComImage(const std::string &filePath,
-                     Z80ComImage &outImage,
-                     std::string &error,
+bool loadZ80ComImage(const std::string& filePath,
+                     Z80ComImage& outImage,
+                     std::string& error,
                      std::size_t maxProgramBytes = Z80ComImage::kMemorySize - Z80ComImage::kLoadAddress);
+
+} // namespace comal::cpm

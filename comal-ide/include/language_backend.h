@@ -1,92 +1,31 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
+#include <memory>
 #include <QString>
 #include <string>
 #include <vector>
+#include "comal_cpm_backend.h"
 #include "language_profile.h"
 
 namespace comal::runtime { class Interpreter; }
 
-enum class DiagnosticSeverity {
-    Error,
-    Warning,
-    Information,
-    Hint,
-};
-
-struct AssemblerDiagnostic {
-    int line{0};
-    int column{0};
-    QString message;
-    DiagnosticSeverity severity{DiagnosticSeverity::Error};
-};
-
-struct AssemblerResult {
-    bool ok{false};
-    QString outputPath;
-    QString listingPath;
-    QString consoleOutput;  // Raw stdout/stderr from assembler
-    std::vector<AssemblerDiagnostic> diagnostics;
-};
-
-class IZ80Assembler {
-public:
-    virtual ~IZ80Assembler() = default;
-    virtual AssemblerResult assembleFile(const QString& sourcePath, const QString& outputDirectory) = 0;
-};
-
-struct Z80DebugRegister {
-    std::string name;
-    std::uint16_t value{0};
-    int width{4};
-};
-
-struct Z80DebugFlag {
-    std::string name;
-    bool value{false};
-};
-
-struct Z80DisassemblyLine {
-    std::uint16_t address{0};
-    std::vector<std::uint8_t> bytes;
-    std::string instruction;
-    int sourceLine{0};
-    bool current{false};
-};
-
-struct Z80DebugSnapshot {
-    std::vector<Z80DebugRegister> registers;
-    std::vector<Z80DebugFlag> flags;
-    std::uint16_t memoryStart{0};
-    std::vector<std::uint8_t> memory;
-    std::vector<Z80DisassemblyLine> disassembly;
-};
-
-class IBackendExecutionControl {
-public:
-    virtual ~IBackendExecutionControl() = default;
-
-    /// Return true when the currently running program should stop promptly.
-    virtual bool stopRequested() const = 0;
-
-    /// Return true when execution should suspend before running the instruction
-    /// at the supplied source location / program counter.
-    virtual bool shouldPause(std::uint16_t programCounter, int sourceLine) = 0;
-
-    /// Notify the control object that execution suspended, provide a debug
-    /// snapshot, and let it block until the program should resume.
-    virtual void waitUntilResumed(std::uint16_t programCounter,
-                                  int sourceLine,
-                                  const Z80DebugSnapshot& snapshot) = 0;
-};
+using DiagnosticSeverity = comal::cpm::DiagnosticSeverity;
+using AssemblerDiagnostic = comal::cpm::AssemblerDiagnostic;
+using AssemblerResult = comal::cpm::AssemblerResult;
+using IZ80Assembler = comal::cpm::IZ80Assembler;
+using Z80DebugRegister = comal::cpm::Z80DebugRegister;
+using Z80DebugFlag = comal::cpm::Z80DebugFlag;
+using Z80DisassemblyLine = comal::cpm::Z80DisassemblyLine;
+using Z80DebugSnapshot = comal::cpm::Z80DebugSnapshot;
+using IBackendExecutionControl = comal::cpm::IExecutionControl;
 
 struct BackendRunContext {
     comal::runtime::Interpreter *interpreter;
     QString source;
     QString directCommand;
     QString programPath;
+    QString cpmDrivePath;
     IBackendExecutionControl *executionControl{nullptr};
 };
 
@@ -123,11 +62,6 @@ public:
 class Z80BackendStub final : public ILanguageBackend {
 public:
     BackendRunResult run(const BackendRunContext &ctx) override;
-};
-
-class SjasmplusAssembler final : public IZ80Assembler {
-public:
-    AssemblerResult assembleFile(const QString& sourcePath, const QString& outputDirectory) override;
 };
 
 /// Factory for creating language backends based on language ID.

@@ -51,7 +51,6 @@ add_executable(comal-ide
     src/qt_io.cpp
     src/run_worker.cpp
     src/language_backend.cpp
-    src/z80_com_loader.cpp
     src/qsci_lexer_comal.cpp
     src/settings_dialog.cpp
     include/main_window.h
@@ -68,12 +67,9 @@ add_executable(comal-ide
     include/run_worker.h
     include/language_backend.h
     include/language_profile.h
-    include/z80_com_loader.h
     include/qsci_lexer_comal.h
     include/settings_dialog.h
 )
-
-add_dependencies(comal-ide sjasmplus)
 
 target_include_directories(comal-ide PRIVATE
     include
@@ -81,27 +77,20 @@ target_include_directories(comal-ide PRIVATE
     ${QSCINTILLA_INCLUDE_DIR}
 )
 
-target_compile_definitions(comal-ide PRIVATE
-    OPENCOMAL_SJASMPLUS_PATH="$<TARGET_FILE:sjasmplus>"
-)
-
 target_link_libraries(comal-ide PRIVATE
     Qt6::Widgets
     Qt6::PrintSupport
     Qt6::Svg
     ${QSCINTILLA_LIBRARY}
-    Z80
     comal-runtime
+    comal-cpm
     comal-graphics
 )
 
 add_executable(test_z80_com_loader
     tests/test_z80_com_loader.cpp
-    src/z80_com_loader.cpp
 )
-target_include_directories(test_z80_com_loader PRIVATE
-    include
-)
+target_link_libraries(test_z80_com_loader PRIVATE comal-cpm)
 add_test(
     NAME z80_com_loader
     COMMAND test_z80_com_loader ${CMAKE_SOURCE_DIR}/tests/assembly/demo.com
@@ -110,21 +99,18 @@ add_test(
 add_executable(test_z80_backend_bdos
     tests/test_z80_backend_bdos.cpp
     src/language_backend.cpp
-    src/z80_com_loader.cpp
 )
-add_dependencies(test_z80_backend_bdos sjasmplus)
 target_include_directories(test_z80_backend_bdos PRIVATE
     include
     ${CMAKE_SOURCE_DIR}/libcomal-runtime/include
 )
 target_compile_definitions(test_z80_backend_bdos PRIVATE
-    OPENCOMAL_SJASMPLUS_PATH="$<TARGET_FILE:sjasmplus>"
     OPENCOMAL_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 )
 target_link_libraries(test_z80_backend_bdos PRIVATE
     Qt6::Core
     comal-runtime
-    Z80
+    comal-cpm
 )
 add_test(
     NAME z80_backend_bdos

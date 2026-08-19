@@ -6,15 +6,16 @@ Qt6 graphical IDE for writing, running, and debugging COMAL programs.
 
 - **Multi-tab editor** with syntax highlighting (custom `QsciLexerComal` via QScintilla)
 - **Run / Stop** — execute programs and interrupt them with a single button
-- **Format Source** — auto-indent and keyword capitalisation
+- **Format Source** — COMAL auto-indentation/keyword capitalisation plus conservative Z80 assembly formatting
 - **Live LSP diagnostics** — parse errors shown inline in the editor as you type (via embedded `comal-lsp`)
 - **Graphics panel** — renders `DRAW` output from running programs
 - **Direct command panel** — REPL-style command entry while a program's definitions are retained
 - **File browser panel** — navigate and open `.lst` files
 - **Debug panel** — breakpoints, step, variable inspection; Z80 register/memory/disassembly view for assembly programs
 - **Assembly output panel** — assembles Z80 `.asm` source via `sjasmplus` and runs the resulting `.COM` file
+- **CP/M drive mapping** — assembly/`.COM` programs can read and write through a user-selected host folder mapped as the active CP/M drive
 - **Sound** — `TONE` and `PLAY` statements produce audio via `libcomal-sound`
-- **Settings dialog** — font, theme, LSP path, and interpreter options
+- **Settings dialog** — editor/output fonts and persistent CP/M drive folder selection
 
 ## Architecture
 
@@ -23,7 +24,7 @@ Qt6 graphical IDE for writing, running, and debugging COMAL programs.
 | `main_window.cpp` | Top-level window, menu bar, panel wiring |
 | `code_editor_panel.cpp` | QScintilla-based editor with LSP annotation |
 | `qsci_lexer_comal.cpp` | Custom QScintilla lexer for COMAL syntax |
-| `run_worker.cpp` | Background thread that drives `libcomal-runtime` |
+| `run_worker.cpp` | Background thread that drives `libcomal-runtime` and `libcomal-cpm` |
 | `graphics_panel.cpp` | `QGraphicsScene` renderer for `libcomal-graphics` output |
 | `direct_command_panel.cpp` | Interactive command entry and output |
 | `debug_panel.cpp` | Breakpoint and variable inspector |
@@ -34,7 +35,7 @@ Qt6 graphical IDE for writing, running, and debugging COMAL programs.
 
 - Qt 6 (Base, SVG, Multimedia)
 - QScintilla2 for Qt6 (`libqscintilla2-qt6-dev`)
-- `libcomal-parser`, `libcomal-runtime`, `libcomal-graphics`, `libcomal-sound` (internal)
+- `libcomal-parser`, `libcomal-runtime`, `libcomal-cpm`, `libcomal-graphics`, `libcomal-sound` (internal)
 
 ## Building
 

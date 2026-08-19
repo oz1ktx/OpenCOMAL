@@ -1,6 +1,6 @@
 # OpenCOMAL Project Status
 
-**Last Updated:** 17 Aug 2026
+**Last Updated:** 19 Aug 2026
 **Purpose:** Short, ordered snapshot of current project state and near-term work.
 
 ---
@@ -15,7 +15,7 @@
 | Sound (`libcomal-sound`) | Partial but usable | `TONE` works; `PLAY` has basic support, full MML remains TODO |
 | LSP (`comal-lsp`) | Stable | Diagnostics, completion, definition, hover; parser-backed diagnostics classification is now in place |
 | IDE (`comal-ide`) | In progress | Core workflow works; editor now shows live LSP diagnostics in saved and unsaved tabs |
-| Z80 / CP-M-style assembly path | Partial but usable | `.COM` loading/execution works, BDOS console/file subset works, `sjasmplus` adapter assembles `.asm` to `.COM`, IDE assembly output panel is wired, source-level step/breakpoint mapping is active for assembled source, and paused Z80 runs expose registers/flags/memory/disassembly in the debug panel |
+| Z80 / CP-M-style assembly path | Partial but usable | `libcomal-cpm` now owns `.COM` loading/execution and BDOS console/file subset behavior; `sjasmplus` assembles `.asm` to `.COM`; the IDE has assembly-specific output/help/formatting behavior; source-level step/breakpoint mapping is active; and CP/M file I/O can be mapped to a user-selected host folder |
 | Test suite | Strong | 140 pass / 15 skip / 0 fail |
 
 ---
@@ -29,6 +29,7 @@ Current work is mostly IDE ergonomics, debugger depth, and integration polish.
 The bytecode backend investigation is intentionally deferred while runtime hotspots are addressed with targeted optimizations.
 
 In parallel, the first Z80/CP-M-style teaching path is now active in the IDE/backend layer, but it is still below the maturity level of the COMAL workflow.
+The CP/M/Z80 execution path is now also separated from the COMAL interpreter runtime into its own library boundary (`libcomal-cpm`), reducing IDE-local backend ownership.
 
 ---
 
@@ -94,12 +95,14 @@ In parallel, the first Z80/CP-M-style teaching path is now active in the IDE/bac
   - `.COM` image loading
   - BDOS console input/output
   - BDOS file I/O through FCB + DMA
+  - explicit mapped-drive host folder selection for CP/M file access
   - sequential read EOF behavior
   - assembly source -> `.COM` -> execution using the vendored `sjasmplus` adapter
 - Post-output-routing regression fix is in place: Z80 backend BDOS tests now validate `BackendRunResult.z80RuntimeOutput` (instead of `errorMessage`) so CI assertions match current runtime output routing.
 
 ### 5. Z80 assembly / CP-M-compatible path
 
+- `libcomal-cpm` now owns the extracted CP/M/Z80 execution path, including `.COM` loading, BDOS shims, assembler integration, and source-map-aware stepping data.
 - redcode/Z80 is integrated as the current CPU execution core.
 - redcode/Zeta is vendored as the dependency required by redcode/Z80.
 - `sjasmplus` is integrated as the first assembler backend behind an adapter boundary.
@@ -108,6 +111,7 @@ In parallel, the first Z80/CP-M-style teaching path is now active in the IDE/bac
   - assembly output panel tabs for listing, diagnostics, and statistics
   - assembler console output capture and display in diagnostics
   - Z80 runtime console output routed into the same direct command output path used by COMAL `PRINT`
+  - matching Program menu and toolbar actions for assemble / rebuild-and-run
 - The current execution flow for source assembly is:
   - assemble `.asm` / `.z80` / `.s` into `.COM`
   - load the `.COM` image at `0100h`
@@ -120,8 +124,14 @@ In parallel, the first Z80/CP-M-style teaching path is now active in the IDE/bac
   - register and flag values
   - a memory window around the current PC
   - disassembly rows sourced from assembler listings when available, with raw decode fallback for `.COM` programs
+- Assembly-aware editor polish is now in place:
+  - COMAL help no longer stays active for assembly buffers; the Help panel shows an assembly placeholder instead
+  - the Format Source action uppercases mnemonics/directives, keeps labels flush-left, indents instruction lines, and preserves comments conservatively
 - Current BDOS subset implemented in the runtime shim:
   - `0`, `1`, `2`, `6`, `9`, `12`, `15`, `16`, `20`, `25`, `26`
+- CP/M file I/O remains host-backed rather than disk-image-backed:
+  - by default it uses the program directory
+  - the IDE can now persist a user-selected host folder and map it as the active CP/M drive root for BDOS file access
 - Unsupported BDOS functions return deterministic diagnostics.
 - The assembler backend is intentionally abstracted so the project can switch away from `sjasmplus` later if needed.
 
@@ -149,6 +159,7 @@ In parallel, the first Z80/CP-M-style teaching path is now active in the IDE/bac
 - Scope/variable presentation can be improved.
 - LSP diagnostics/hover/completion are integrated; remaining work is polish (code actions, richer inline UX, and diagnostics controls).
 - Assembly diagnostics are not yet surfaced as first-class editor diagnostics; current errors are still backend-run oriented.
+- Assembly help is currently a placeholder only; there is not yet an instruction-reference help database.
 
 ### Sound roadmap
 
@@ -212,7 +223,7 @@ perf report --stdio --dsos comal-run
 1. Continue runtime hotspot reduction (symbol lookup caching and expression path optimizations).
 2. IDE debug experience polish (step controls, breakpoint UX, variable/call-stack clarity).
 3. IDE editor integration polish (code actions, richer diagnostics UX, completion tuning).
-4. Z80 assembly path tightening: constrain assembler-facing syntax/profile, improve diagnostics flow, and add debugger-facing state exposure.
+4. Z80 assembly path tightening: constrain assembler-facing syntax/profile, improve diagnostics flow, add real assembly help/reference content, and deepen debugger-facing state exposure.
 5. Sound feature expansion (`PLAY` compatibility beyond current minimal support).
 6. Preparation work for future legacy AST retirement (no execution yet).
 

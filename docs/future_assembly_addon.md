@@ -34,6 +34,7 @@ The project has moved beyond design-only exploration and now contains an initial
 Implemented so far:
 
 - Backend abstraction is in place in `comal-ide` and COMAL execution already runs through it.
+- CP/M/Z80 execution support has been extracted into a dedicated `libcomal-cpm` library instead of remaining IDE-local.
 - Z80 `.COM` loading is implemented with CP/M-compatible startup conventions:
 	- load at `0100h`
 	- warm-boot vector at `0000h`
@@ -61,12 +62,18 @@ Implemented so far:
 	- a dockable assembly output panel is present with listing/diagnostics/statistics tabs
 	- assembler (`sjasmplus`) stdout/stderr is captured and shown in assembly diagnostics
 	- Z80 runtime console output (for example BDOS function 9 string printing) is routed to the same direct command output panel used by COMAL `PRINT`
+- Assembly-specific editor behavior is now present:
+	- COMAL keyword help no longer remains active when editing assembly files
+	- the Help panel shows an assembly placeholder instead of stale COMAL help
+	- the Format Source action applies conservative assembly indentation/case normalization
 - Source-level stepping and breakpoint mapping for assembled source are now wired through the IDE run/debug flow.
 - Paused Z80 execution now populates debug-panel views for registers, flags, memory, and disassembly.
+- CP/M file I/O can now be mapped to a user-selected host folder, providing a simple "drive root" without full disk emulation.
 - End-to-end tests now cover:
 	- `.COM` loader behavior
 	- BDOS console I/O
 	- BDOS file I/O through FCB + DMA
+	- mapped host-folder drive selection for BDOS file access
 	- sequential read EOF behavior
 	- assembly source -> `.COM` -> execution
 	- CI-aligned output assertions via `z80RuntimeOutput` for BDOS runtime-output checks
@@ -75,6 +82,7 @@ Not implemented yet:
 
 - Assembly diagnostics surfaced as first-class editor problems instead of backend error strings only
 - Assembly formatting support in LSP/client path
+- Assembly instruction help/reference content beyond the current placeholder panel
 - A constrained OpenCOMAL-owned assembly dialect/profile layer on top of the assembler backend
 
 ## Core Refactor Proposal
@@ -295,6 +303,7 @@ These choices are already reflected in the repository state:
 	- Reason: keeps source assembly and binary execution loosely coupled.
 - Current CP/M file strategy: host-backed minimal FCB/DMA behavior
 	- Reason: enough for deterministic teaching workflows and tests without full disk emulation.
+	- Current implementation: default to the program directory, with an IDE setting that can remap the active drive to a selected host folder.
 
 ## Startup Suggestions (Implementation Kickoff)
 

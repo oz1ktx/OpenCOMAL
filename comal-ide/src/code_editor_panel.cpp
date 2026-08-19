@@ -898,10 +898,142 @@ static QString fixAssignment(const QString &line)
     return result;
 }
 
+static bool isAssemblyLabelOnly(const QString& line)
+{
+    const QString trimmed = line.trimmed();
+    return trimmed.endsWith(':') && !trimmed.contains(' ');
+}
+
+static int findAssemblyCommentStart(const QString& line)
+{
+    bool inDoubleQuotes = false;
+    bool inSingleQuotes = false;
+    for (int i = 0; i < line.size(); ++i) {
+        const QChar ch = line[i];
+        if (ch == '"' && !inSingleQuotes) {
+            inDoubleQuotes = !inDoubleQuotes;
+            continue;
+        }
+        if (ch == '\'' && !inDoubleQuotes) {
+            inSingleQuotes = !inSingleQuotes;
+            continue;
+        }
+        if (ch == ';' && !inDoubleQuotes && !inSingleQuotes) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static QString uppercaseAssemblyMnemonic(const QString& text)
+{
+    if (text.isEmpty()) {
+        return text;
+    }
+
+    int firstTokenStart = -1;
+    int firstTokenEnd = -1;
+    for (int i = 0; i < text.size(); ++i) {
+        if (!text[i].isSpace()) {
+            firstTokenStart = i;
+            break;
+        }
+    }
+    if (firstTokenStart < 0) {
+        return text;
+    }
+    firstTokenEnd = firstTokenStart;
+    while (firstTokenEnd < text.size() &&
+           (text[firstTokenEnd].isLetterOrNumber() || text[firstTokenEnd] == '.' || text[firstTokenEnd] == '_')) {
+        ++firstTokenEnd;
+    }
+
+    QString result = text;
+    result.replace(firstTokenStart, firstTokenEnd - firstTokenStart,
+                   text.mid(firstTokenStart, firstTokenEnd - firstTokenStart).toUpper());
+    return result;
+}
+
+static QString normalizeAssemblyOperandSpacing(const QString& text)
+{
+    QString normalized = text;
+    normalized.replace(QRegularExpression("\\s*,\\s*"), ", ");
+    normalized.replace(QRegularExpression("\\s+"), " ");
+    return normalized.trimmed();
+}
+
+static QString formatAssemblyLine(const QString& rawLine)
+{
+    const QString trimmed = rawLine.trimmed();
+    if (trimmed.isEmpty()) {
+        return QString();
+    }
+
+    const int commentStart = findAssemblyCommentStart(trimmed);
+    QString codePart = commentStart >= 0 ? trimmed.left(commentStart).trimmed() : trimmed;
+    QString commentPart = commentStart >= 0 ? trimmed.mid(commentStart).trimmed() : QString();
+
+    if (codePart.isEmpty()) {
+        return "    " + commentPart;
+    }
+
+    QString labelPart;
+    QString bodyPart = codePart;
+    const int colonPos = codePart.indexOf(':');
+    if (colonPos >= 0) {
+        labelPart = codePart.left(colonPos + 1).trimmed();
+        bodyPart = codePart.mid(colonPos + 1).trimmed();
+    }
+
+    QString formatted;
+    if (!labelPart.isEmpty()) {
+        formatted += labelPart;
+    }
+
+    if (!bodyPart.isEmpty()) {
+        bodyPart = uppercaseAssemblyMnemonic(bodyPart);
+        bodyPart = normalizeAssemblyOperandSpacing(bodyPart);
+        if (!formatted.isEmpty()) {
+            formatted += ' ';
+        } else {
+            formatted += "    ";
+        }
+        formatted += bodyPart;
+    } else if (formatted.isEmpty()) {
+        formatted = isAssemblyLabelOnly(codePart) ? codePart : ("    " + codePart);
+    }
+
+    if (!commentPart.isEmpty()) {
+        formatted += formatted.endsWith(' ') ? QString() : QString(" ");
+        formatted += commentPart;
+    }
+
+    return formatted;
+}
+
 void CodeEditorPanel::formatSource()
 {
     auto *editor = currentEditor();
     if (!editor) return;
+
+    if (currentLanguage() == LanguageId::Z80Assembly) {
+        const QString text = editor->text();
+        const QStringList lines = text.split('\n');
+        QStringList result;
+        result.reserve(lines.size());
+
+        for (const QString& rawLine : lines) {
+            result << formatAssemblyLine(rawLine);
+        }
+
+        const QString formatted = result.join('\n');
+        int line, col;
+        editor->getCursorPosition(&line, &col);
+        editor->selectAll();
+        editor->replaceSelectedText(formatted);
+        editor->setCursorPosition(line, col);
+        return;
+    }
 
     const int step = 2;
     int indent = 0;

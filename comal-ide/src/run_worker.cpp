@@ -200,6 +200,11 @@ void RunWorker::setProgramPath(const QString &programPath)
     programPath_ = programPath;
 }
 
+void RunWorker::setCpmDrivePath(const QString &cpmDrivePath)
+{
+    cpmDrivePath_ = cpmDrivePath;
+}
+
 void RunWorker::setGraphicsScene(comal::graphics::Scene* scene)
 {
     getInterp()->setGraphicsScene(scene);
@@ -315,7 +320,7 @@ void RunWorker::run()
     }
 
     const BackendRunResult result = backend->run(
-        BackendRunContext{getInterp(), source_, directCmd_, programPath_,
+        BackendRunContext{getInterp(), source_, directCmd_, programPath_, cpmDrivePath_,
                           language_ == LanguageId::Z80Assembly ? this : nullptr});
 
     // Emit assembly signals if assembly was attempted (Z80 only)

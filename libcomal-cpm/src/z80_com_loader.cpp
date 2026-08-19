@@ -5,9 +5,10 @@
 #include <iterator>
 #include <vector>
 
+namespace comal::cpm {
 namespace {
 
-void initializeCpmVectors(Z80ComImage &image)
+void initializeCpmVectors(Z80ComImage& image)
 {
     image.memory.fill(0);
     image.memory[0x0000] = 0xC3;
@@ -21,9 +22,9 @@ void initializeCpmVectors(Z80ComImage &image)
 
 } // namespace
 
-bool loadZ80ComImage(const std::string &filePath,
-                     Z80ComImage &outImage,
-                     std::string &error,
+bool loadZ80ComImage(const std::string& filePath,
+                     Z80ComImage& outImage,
+                     std::string& error,
                      std::size_t maxProgramBytes)
 {
     std::ifstream input(filePath, std::ios::binary);
@@ -63,3 +64,5 @@ bool loadZ80ComImage(const std::string &filePath,
     error.clear();
     return true;
 }
+
+} // namespace comal::cpm

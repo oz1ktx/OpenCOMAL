@@ -4,6 +4,7 @@
         ORG 0100h
 
 START:  LD DE,MSG
+        LD H, 43
         LD C,9
         CALL 5
 

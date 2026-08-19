@@ -109,3 +109,12 @@ void HelpPanel::showLspHoverHelp(const QString &hoverText)
         "_Tip: move cursor to update contextual help. If LSP info is unavailable, keyword docs are shown._"
     );
 }
+
+void HelpPanel::showAssemblyHelpPlaceholder()
+{
+    browser_->setHtml(
+        "<h3>Z80 Assembly Help</h3>"
+        "<p>Contextual help for assembly instructions is not available yet.</p>"
+        "<p><i>Formatting is available for assembly source, including mnemonic uppercasing and indentation.</i></p>"
+    );
+}

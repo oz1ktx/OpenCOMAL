@@ -31,6 +31,8 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonValue>
+#include <QSettings>
+#include <QStyle>
 #include <Qsci/qsciscintilla.h>
 
 namespace {
@@ -177,6 +179,9 @@ MainWindow::MainWindow(QWidget *parent)
     codeEditor_->setLspClient(lspClient_);
     connect(lspClient_, &ComalLspClient::hoverReceived, this,
             [this](const QString &, const QJsonObject &hover) {
+                if (codeEditor_->currentLanguage() != LanguageId::Comal) {
+                    return;
+                }
                 const QString hoverText = extractHoverText(hover);
                 if (!hoverText.trimmed().isEmpty()) {
                     help_->showLspHoverHelp(hoverText);
@@ -234,16 +239,24 @@ void MainWindow::createMenus()
     auto *progMenu = menuBar()->addMenu(tr("&Program"));
     progMenu->addAction(tr("&Run"),               this, &MainWindow::onRun,
                          QKeySequence(Qt::Key_F5));
+    assembleAction_ = progMenu->addAction(tr("&Assemble"), this, &MainWindow::onAssemble,
+                                          QKeySequence(Qt::CTRL | Qt::Key_F9));
+    assembleAction_->setVisible(false);
+    rebuildAction_ = progMenu->addAction(tr("&Rebuild and Run"), this, &MainWindow::onRebuild,
+                                         QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F9));
+    rebuildAction_->setVisible(false);
+    progMenu->addSeparator();
     progMenu->addAction(tr("&Stop"),              this, &MainWindow::onStop,
                          QKeySequence(Qt::SHIFT | Qt::Key_F5));
     progMenu->addAction(tr("&Break"),             this, &MainWindow::onBreak,
                          QKeySequence(Qt::Key_F6));
+    progMenu->addAction(tr("&Continue"),          this, &MainWindow::onContinue,
+                         QKeySequence(Qt::Key_F5));
+    progMenu->addSeparator();
     progMenu->addAction(tr("Step &Into"),         this, &MainWindow::onStepInto,
                          QKeySequence(Qt::Key_F11));
     progMenu->addAction(tr("Step &Over"),         this, &MainWindow::onStepOver,
                          QKeySequence(Qt::Key_F10));
-    progMenu->addAction(tr("&Continue"),          this, &MainWindow::onContinue,
-                         QKeySequence(Qt::Key_F5));
     progMenu->addSeparator();
     progMenu->addAction(tr("Toggle &Breakpoint"), this, [this]{
         if (codeEditor_)
@@ -264,6 +277,7 @@ void MainWindow::createMenus()
     viewMenu->addAction(debugDock_->toggleViewAction());
     viewMenu->addAction(fileBrowserDock_->toggleViewAction());
     viewMenu->addAction(helpDock_->toggleViewAction());
+    viewMenu->addAction(assemblyOutputDock_->toggleViewAction());
     viewMenu->addSeparator();
     viewMenu->addAction(tr("&Reset Layout"), this, &MainWindow::onResetLayout);
 
@@ -289,109 +303,106 @@ void MainWindow::createToolBar()
     tb->setObjectName("MainToolBar");
     tb->setIconSize(QSize(20, 20));
 
-    // Helper to create simple colored square icons (theme-aware fallback)
-    auto makeIcon = [](const QString &themeIcon, const QColor &color = Qt::transparent) -> QIcon {
-        // Try theme icon first (more robust)
+    // Prefer desktop theme icons, with Qt standard icons as coherent fallbacks.
+    auto makeActionIcon = [this](const QString &themeIcon, QStyle::StandardPixmap fallback) -> QIcon {
         QIcon icon = QIcon::fromTheme(themeIcon);
         if (!icon.isNull()) {
             return icon;
         }
-        // Fallback: create a simple colored square pixmap
-        if (color != Qt::transparent) {
-            QPixmap pm(20, 20);
-            pm.fill(color);
-            return QIcon(pm);
-        }
-        return QIcon();
+        return style()->standardIcon(fallback);
     };
 
     runIdleIcon_ = makeRunStateIcon(false);
     runActiveIcon_ = makeRunStateIcon(true);
 
-    // ── Program Control (Run, Stop, Break) ──
+    // ── Run / Build ──
     runAction_ = tb->addAction(runIdleIcon_, tr("Run"));
     runAction_->setShortcut(QKeySequence(Qt::Key_F5));
+    runAction_->setToolTip(tr("Run program (F5)"));
     connect(runAction_, &QAction::triggered, this, &MainWindow::onRun);
 
+    // ── Assembly (Assemble, Rebuild) — Z80 only ──
+    assembleAction_->setIcon(makeActionIcon("run-build", QStyle::SP_ArrowRight));
+    assembleAction_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_F9));
+    assembleAction_->setToolTip(tr("Assemble Z80 source (Ctrl+F9)"));
+    tb->addAction(assembleAction_);
+
+    rebuildAction_->setIcon(makeActionIcon("view-refresh", QStyle::SP_BrowserReload));
+    rebuildAction_->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F9));
+    rebuildAction_->setToolTip(tr("Rebuild and run (Ctrl+Shift+F9)"));
+    tb->addAction(rebuildAction_);
+
+    tb->addSeparator();
+
+    // ── Execution Control (Stop, Break, Continue) ──
     auto *stopAction = tb->addAction(
-        makeIcon("media-playback-stop", Qt::red),
+        makeActionIcon("media-playback-stop", QStyle::SP_MediaStop),
         tr("Stop"));
     stopAction->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F5));
+    stopAction->setToolTip(tr("Stop program (Shift+F5)"));
     connect(stopAction, &QAction::triggered, this, &MainWindow::onStop);
 
     auto *breakAction = tb->addAction(
-        makeIcon("media-playback-pause", Qt::yellow),
+        makeActionIcon("media-playback-pause", QStyle::SP_MediaPause),
         tr("Break"));
     breakAction->setShortcut(QKeySequence(Qt::Key_F6));
+    breakAction->setToolTip(tr("Break execution (F6)"));
     connect(breakAction, &QAction::triggered, this, &MainWindow::onBreak);
+
+    // ── Stepping (Step Into, Step Over, Continue) ──
+    auto *stepIntoAction = tb->addAction(
+        makeActionIcon("go-down", QStyle::SP_ArrowDown),
+        tr("Step Into"));
+    stepIntoAction->setShortcut(QKeySequence(Qt::Key_F11));
+    stepIntoAction->setToolTip(tr("Step into (F11)"));
+    connect(stepIntoAction, &QAction::triggered, this, &MainWindow::onStepInto);
+
+    auto *stepOverAction = tb->addAction(
+        makeActionIcon("go-next", QStyle::SP_ArrowForward),
+        tr("Step Over"));
+    stepOverAction->setShortcut(QKeySequence(Qt::Key_F10));
+    stepOverAction->setToolTip(tr("Step over (F10)"));
+    connect(stepOverAction, &QAction::triggered, this, &MainWindow::onStepOver);
+
+    auto *continueAction = tb->addAction(
+        makeActionIcon("media-playback-start", QStyle::SP_MediaPlay),
+        tr("Continue"));
+    continueAction->setShortcut(QKeySequence(Qt::Key_F5));
+    continueAction->setToolTip(tr("Continue execution (F5)"));
+    connect(continueAction, &QAction::triggered, this, &MainWindow::onContinue);
 
     tb->addSeparator();
 
     // ── Source Code (Format) ──
     auto *formatAction = tb->addAction(
-        makeIcon("document-properties", Qt::blue),
+        makeActionIcon("document-properties", QStyle::SP_FileDialogDetailedView),
         tr("Format Source"));
+    formatAction->setToolTip(tr("Format source (Ctrl+Shift+F)"));
     connect(formatAction, &QAction::triggered, this, &MainWindow::onFormatSource);
-
-    tb->addSeparator();
-
-    // ── Stepping (Step Into, Step Over, Continue) ──
-    auto *stepIntoAction = tb->addAction(
-        makeIcon("go-down", Qt::cyan),
-        tr("Step Into"));
-    stepIntoAction->setShortcut(QKeySequence(Qt::Key_F11));
-    connect(stepIntoAction, &QAction::triggered, this, &MainWindow::onStepInto);
-
-    auto *stepOverAction = tb->addAction(
-        makeIcon("go-next", Qt::magenta),
-        tr("Step Over"));
-    stepOverAction->setShortcut(QKeySequence(Qt::Key_F10));
-    connect(stepOverAction, &QAction::triggered, this, &MainWindow::onStepOver);
-
-    auto *continueAction = tb->addAction(
-        makeIcon("media-playback-start", Qt::green),
-        tr("Continue"));
-    continueAction->setShortcut(QKeySequence(Qt::Key_F5));
-    connect(continueAction, &QAction::triggered, this, &MainWindow::onContinue);
-
-    tb->addSeparator();
-
-    // ── Assembly (Assemble, Rebuild) — Z80 only ──
-    assembleAction_ = tb->addAction(
-        makeIcon("media-record", Qt::darkRed),
-        tr("Assemble"));
-    assembleAction_->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_F9));
-    assembleAction_->setToolTip(tr("Assemble Z80 source (Ctrl+F9)"));
-    assembleAction_->setVisible(false);  // Hidden by default, shown for .asm files
-    connect(assembleAction_, &QAction::triggered, this, &MainWindow::onAssemble);
-
-    rebuildAction_ = tb->addAction(
-        makeIcon("view-refresh", Qt::darkMagenta),
-        tr("Rebuild"));
-    rebuildAction_->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F9));
-    rebuildAction_->setToolTip(tr("Rebuild and run (Ctrl+Shift+F9)"));
-    rebuildAction_->setVisible(false);  // Hidden by default, shown for .asm files
-    connect(rebuildAction_, &QAction::triggered, this, &MainWindow::onRebuild);
 
     tb->addSeparator();
 
     // ── Graphics (Clear Canvas, Save PNG, Save SVG) ──
     auto *clearGraphicsAction = tb->addAction(
-        makeIcon("edit-clear", Qt::gray),
+        makeActionIcon("edit-clear", QStyle::SP_DialogResetButton),
         tr("Clear Canvas"));
+    clearGraphicsAction->setToolTip(tr("Clear graphics canvas"));
     connect(clearGraphicsAction, &QAction::triggered, this, &MainWindow::onClearGraphics);
 
     auto *savePngAction = tb->addAction(
-        makeIcon("document-save", Qt::darkGreen),
-        tr("Save PNG"));
+        makeActionIcon("document-save", QStyle::SP_DialogSaveButton),
+        tr("Save as PNG..."));
+    savePngAction->setToolTip(tr("Save graphics as PNG"));
     connect(savePngAction, &QAction::triggered, this, &MainWindow::onSavePngGraphics);
 
     auto *saveSvgAction = tb->addAction(
-        makeIcon("document-save-as", Qt::darkBlue),
-        tr("Save SVG"));
+        makeActionIcon("document-save-as", QStyle::SP_DialogSaveButton),
+        tr("Save as SVG..."));
+    saveSvgAction->setToolTip(tr("Save graphics as SVG"));
     connect(saveSvgAction, &QAction::triggered, this, &MainWindow::onSaveSvgGraphics);
 
     updateRunActionVisual(false);
+    updateAssemblyActionVisibility(codeEditor_->currentFilePath());
 }
 
 void MainWindow::updateRunActionVisual(bool running)
@@ -399,8 +410,8 @@ void MainWindow::updateRunActionVisual(bool running)
     if (!runAction_) return;
 
     runAction_->setIcon(running ? runActiveIcon_ : runIdleIcon_);
-    runAction_->setText(running ? tr("Run (Active)") : tr("Run"));
-    runAction_->setToolTip(running ? tr("Program is running") : tr("Run program"));
+    runAction_->setText(tr("Run"));
+    runAction_->setToolTip(running ? tr("Program is running") : tr("Run program (F5)"));
 }
 
 void MainWindow::updateAssemblyActionVisibility(const QString &filePath)
@@ -495,9 +506,19 @@ void MainWindow::createPanels()
     helpDock_->setObjectName("HelpDock");
     helpDock_->setWidget(help_);
 
-        // Contextual keyword help from editor cursor position (independent of LSP hover).
-        connect(codeEditor_, &CodeEditorPanel::keywordUnderCursorChanged,
-            help_, &HelpPanel::showKeywordHelp);
+    // Contextual keyword help from editor cursor position (independent of LSP hover).
+    connect(codeEditor_, &CodeEditorPanel::keywordUnderCursorChanged, this, [this](const QString &keyword) {
+        if (codeEditor_->currentLanguage() == LanguageId::Comal) {
+            help_->showKeywordHelp(keyword);
+        }
+    });
+    connect(codeEditor_, &CodeEditorPanel::currentFileChanged, this, [this](const QString &) {
+        if (codeEditor_->currentLanguage() == LanguageId::Comal) {
+            help_->showKeywordHelp(QString());
+            return;
+        }
+        help_->showAssemblyHelpPlaceholder();
+    });
 
     // Assembly output — bottom (tabbed with direct command)
     assemblyOutput_ = new AssemblyOutputPanel;
@@ -660,6 +681,7 @@ void MainWindow::onRun()
     worker_->setGraphicsScene(persistentScene_.get());
     worker_->setLanguage(codeEditor_->currentLanguage());
     worker_->setProgramPath(codeEditor_->currentFilePath());
+    worker_->setCpmDrivePath(currentCpmDrivePath());
     worker_->setSource(source);
     {
         auto bps = codeEditor_->breakpointsForCurrentFile();
@@ -748,6 +770,7 @@ void MainWindow::onDirectCommand(const QString &command)
     }
     debug_->clearZ80State();
     worker_->setProgramPath(codeEditor_->currentFilePath());
+    worker_->setCpmDrivePath(currentCpmDrivePath());
     worker_->setDirectCommand(command);
     stateLabel_->setText(tr("Running"));
     updateRunActionVisual(true);
@@ -819,6 +842,7 @@ void MainWindow::startSingleStepRun(const QString &title)
     worker_->setGraphicsScene(persistentScene_.get());
     worker_->setLanguage(codeEditor_->currentLanguage());
     worker_->setProgramPath(codeEditor_->currentFilePath());
+    worker_->setCpmDrivePath(currentCpmDrivePath());
     worker_->setSource(source);
     {
         auto bps = codeEditor_->breakpointsForCurrentFile();
@@ -1000,6 +1024,12 @@ void MainWindow::applyFontSettingsFromDialog(SettingsDialog *dialog)
     }
 }
 
+QString MainWindow::currentCpmDrivePath() const
+{
+    QSettings settings("OpenCOMAL", "IDE");
+    return settings.value("CpmDrive/HostPath", QString()).toString().trimmed();
+}
+
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     saveWindowState();
@@ -1102,4 +1132,3 @@ void MainWindow::onRebuild()
     // Run the program (assembly will be re-done)
     onRun();
 }
-

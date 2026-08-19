@@ -41,6 +41,9 @@ public:
     /// Set the current program path (used by non-COMAL backends).
     void setProgramPath(const QString &programPath);
 
+    /// Set the host folder mapped as the CP/M drive for Z80 file I/O.
+    void setCpmDrivePath(const QString &cpmDrivePath);
+
     /// Use an external (persistent) graphics scene.
     void setGraphicsScene(comal::graphics::Scene* scene);
 
@@ -139,6 +142,7 @@ private:
     QString  source_;
     QString  directCmd_;
     QString  programPath_;
+    QString  cpmDrivePath_;
     LanguageId language_{LanguageId::Comal};
     std::atomic<bool> sceneSignalPending_{false};
     std::atomic<bool> sceneSignalDirty_{false};

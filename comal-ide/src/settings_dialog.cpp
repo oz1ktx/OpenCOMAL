@@ -8,6 +8,8 @@
 #include <QFontComboBox>
 #include <QSpinBox>
 #include <QPushButton>
+#include <QLineEdit>
+#include <QFileDialog>
 #include <QStandardPaths>
 #include <QSettings>
 #include <QApplication>
@@ -15,6 +17,7 @@
 namespace {
 constexpr const char *kDefaultFontFamily = "Monospace";
 constexpr int kDefaultFontSize = 11;
+constexpr const char *kCpmDrivePathKey = "CpmDrive/HostPath";
 }
 
 SettingsDialog::SettingsDialog(QWidget *parent)
@@ -22,7 +25,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 {
     setWindowTitle(tr("Settings"));
     setModal(true);
-    resize(500, 300);
+    resize(560, 380);
 
     createWidgets();
     connectSignals();
@@ -73,6 +76,25 @@ void SettingsDialog::createWidgets()
 
     mainLayout->addWidget(outputGroup);
 
+    // ── CP/M Drive Mapping Group ──────────────────────────────────────
+    auto *cpmGroup = new QGroupBox(tr("CP/M Drive Mapping"), this);
+    auto *cpmLayout = new QGridLayout(cpmGroup);
+
+    auto *cpmLabel = new QLabel(tr("Host folder:"), this);
+    cpmDrivePathEdit_ = new QLineEdit(this);
+    cpmDrivePathEdit_->setPlaceholderText(tr("Leave empty to use the program folder"));
+    browseCpmDrivePathButton_ = new QPushButton(tr("Browse..."), this);
+    cpmLayout->addWidget(cpmLabel, 0, 0);
+    cpmLayout->addWidget(cpmDrivePathEdit_, 0, 1);
+    cpmLayout->addWidget(browseCpmDrivePathButton_, 0, 2);
+
+    auto *cpmHint = new QLabel(
+        tr("Z80/CP-M file operations will read and write files in this folder when set."), this);
+    cpmHint->setWordWrap(true);
+    cpmLayout->addWidget(cpmHint, 1, 0, 1, 3);
+
+    mainLayout->addWidget(cpmGroup);
+
     // ── Buttons ──────────────────────────────────────────────────────
     mainLayout->addStretch();
 
@@ -97,6 +119,7 @@ void SettingsDialog::connectSignals()
     connect(cancelButton_, &QPushButton::clicked, this, &SettingsDialog::onCancelClicked);
     connect(applyButton_, &QPushButton::clicked, this, &SettingsDialog::onApply);
     connect(resetDefaultsButton_, &QPushButton::clicked, this, &SettingsDialog::onResetDefaultsClicked);
+    connect(browseCpmDrivePathButton_, &QPushButton::clicked, this, &SettingsDialog::onBrowseCpmDrivePath);
 }
 
 void SettingsDialog::loadSettings()
@@ -118,6 +141,8 @@ void SettingsDialog::loadSettings()
 
     outputFontCombo_->setCurrentFont(QFont(outputFontFamily));
     outputFontSizeSpinBox_->setValue(outputFontSize);
+
+    cpmDrivePathEdit_->setText(settings.value(kCpmDrivePathKey, QString()).toString());
 }
 
 void SettingsDialog::saveSettings()
@@ -131,6 +156,7 @@ void SettingsDialog::saveSettings()
     // Save output font settings
     settings.setValue("OutputFont/Family", outputFontCombo_->currentFont().family());
     settings.setValue("OutputFont/Size", outputFontSizeSpinBox_->value());
+    settings.setValue(kCpmDrivePathKey, cpmDrivePathEdit_->text().trimmed());
 
     settings.sync();
 }
@@ -160,9 +186,23 @@ void SettingsDialog::onResetDefaultsClicked()
     editorFontSizeSpinBox_->setValue(kDefaultFontSize);
     outputFontCombo_->setCurrentFont(QFont(kDefaultFontFamily));
     outputFontSizeSpinBox_->setValue(kDefaultFontSize);
+    cpmDrivePathEdit_->clear();
 
     // Apply immediately so users can preview defaults without closing the dialog.
     onApply();
+}
+
+void SettingsDialog::onBrowseCpmDrivePath()
+{
+    const QString startDir = cpmDrivePathEdit_->text().trimmed().isEmpty()
+        ? QStandardPaths::writableLocation(QStandardPaths::HomeLocation)
+        : cpmDrivePathEdit_->text().trimmed();
+    const QString folder = QFileDialog::getExistingDirectory(
+        this, tr("Select CP/M Drive Folder"), startDir,
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    if (!folder.isEmpty()) {
+        cpmDrivePathEdit_->setText(folder);
+    }
 }
 
 QFont SettingsDialog::editorFont() const
@@ -173,4 +213,9 @@ QFont SettingsDialog::editorFont() const
 QFont SettingsDialog::outputFont() const
 {
     return outputFont_;
+}
+
+QString SettingsDialog::cpmDrivePath() const
+{
+    return cpmDrivePathEdit_->text().trimmed();
 }

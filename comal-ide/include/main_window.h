@@ -50,6 +50,7 @@ private:
     void saveWindowState();
     void restoreWindowState();
     void applyFontSettingsFromDialog(SettingsDialog *dialog);
+    QString currentCpmDrivePath() const;
 
     // Central widget
     CodeEditorPanel *codeEditor_;

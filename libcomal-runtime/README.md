@@ -2,6 +2,8 @@
 
 C++20 runtime library that executes parsed COMAL programs from the modern AST.
 
+This module intentionally excludes the Z80 / CP-M-compatible assembly path, which lives in [`libcomal-cpm`](../libcomal-cpm/README.md).
+
 ## Responsibilities
 
 - **Statement execution** — full dispatch of all COMAL statement types (loops, conditionals, PROC/FUNC calls, I/O, file operations, SPAWN)
@@ -43,4 +45,5 @@ cd build && cmake .. && make comal-run -j$(nproc)
 ## See Also
 
 - [`libcomal-parser`](../libcomal-parser/README.md) — provides the AST consumed by this library
+- [`libcomal-cpm`](../libcomal-cpm/README.md) — separate Z80 / CP-M-compatible assembly and `.COM` execution path
 - [`docs/PROJECT_STATUS.md`](../docs/PROJECT_STATUS.md) — overall project status

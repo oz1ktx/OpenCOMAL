@@ -22,6 +22,7 @@ add_subdirectory(third_party/sjasmplus)
 add_subdirectory(libcomal-parser)
 
 add_subdirectory(libcomal-runtime)
+add_subdirectory(libcomal-cpm)
 
 add_subdirectory(libcomal-graphics)
  

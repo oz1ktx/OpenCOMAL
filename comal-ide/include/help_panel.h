@@ -14,6 +14,7 @@ public:
 
     void showKeywordHelp(const QString &keyword);
     void showLspHoverHelp(const QString &hoverText);
+    void showAssemblyHelpPlaceholder();
 
 private:
     QTextBrowser *browser_;

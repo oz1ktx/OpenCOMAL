@@ -7,6 +7,9 @@
 
 namespace {
 
+using comal::cpm::Z80ComImage;
+using comal::cpm::loadZ80ComImage;
+
 int gPassed = 0;
 int gFailed = 0;
 

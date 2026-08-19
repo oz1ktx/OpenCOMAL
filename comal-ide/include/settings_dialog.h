@@ -1,10 +1,12 @@
 #pragma once
 #include <QDialog>
 #include <QFont>
+#include <QString>
 
 class QFontComboBox;
 class QSpinBox;
 class QPushButton;
+class QLineEdit;
 
 // Settings dialog for configuring editor/output fonts and sizes.
 // Uses QSettings with XDG_CONFIG_HOME support.
@@ -16,6 +18,7 @@ public:
 
     QFont editorFont() const;
     QFont outputFont() const;
+    QString cpmDrivePath() const;
 
 signals:
     void fontsApplied(const QFont &editorFont, const QFont &outputFont);
@@ -25,6 +28,7 @@ private slots:
     void onOkClicked();
     void onCancelClicked();
     void onResetDefaultsClicked();
+    void onBrowseCpmDrivePath();
     void loadSettings();
     void saveSettings();
 
@@ -41,6 +45,10 @@ private:
     QFontComboBox *outputFontCombo_;
     QSpinBox      *outputFontSizeSpinBox_;
     QFont         outputFont_;
+
+    // CP/M drive mapping
+    QLineEdit     *cpmDrivePathEdit_;
+    QPushButton   *browseCpmDrivePathButton_;
 
     // Buttons
     QPushButton *okButton_;
