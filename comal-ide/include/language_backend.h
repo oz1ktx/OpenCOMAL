@@ -23,6 +23,7 @@ using IBackendExecutionControl = comal::cpm::IExecutionControl;
 struct BackendRunContext {
     comal::runtime::Interpreter *interpreter;
     QString source;
+    bool hasSourceText{false};
     QString directCommand;
     QString programPath;
     QString cpmDrivePath;

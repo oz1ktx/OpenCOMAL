@@ -320,7 +320,7 @@ void RunWorker::run()
     }
 
     const BackendRunResult result = backend->run(
-        BackendRunContext{getInterp(), source_, directCmd_, programPath_, cpmDrivePath_,
+        BackendRunContext{getInterp(), source_, true, directCmd_, programPath_, cpmDrivePath_,
                           language_ == LanguageId::Z80Assembly ? this : nullptr});
 
     // Emit assembly signals if assembly was attempted (Z80 only)

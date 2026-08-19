@@ -49,7 +49,7 @@ BackendRunResult Z80BackendStub::run(const BackendRunContext& ctx)
 {
     const comal::cpm::Z80CpmBackend backend;
     const comal::cpm::RunResult cpmResult = backend.run(
-        comal::cpm::RunRequest{ctx.programPath, ctx.directCommand, ctx.cpmDrivePath, ctx.executionControl});
+        comal::cpm::RunRequest{ctx.programPath, ctx.source, ctx.hasSourceText, ctx.directCommand, ctx.cpmDrivePath, ctx.executionControl});
 
     BackendRunResult result;
     result.ok = cpmResult.ok;

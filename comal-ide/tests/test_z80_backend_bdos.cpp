@@ -220,6 +220,58 @@ void test_assembly_breakpoint_hits_source_line(const std::filesystem::path& dir)
     PASS();
 }
 
+void test_assembly_prefers_editor_buffer_over_disk_file(const std::filesystem::path& dir)
+{
+    TEST(assembly_prefers_editor_buffer_over_disk_file);
+
+    const std::filesystem::path fixturePath =
+        std::filesystem::path(OPENCOMAL_SOURCE_DIR) / "tests" / "assembly" / "hello_loop.asm";
+    ASSERT_TRUE(std::filesystem::exists(fixturePath), "repository assembly fixture is missing");
+
+    const std::filesystem::path asmPath = dir / "buffer_vs_disk.asm";
+    std::error_code copyEc;
+    std::filesystem::copy_file(fixturePath, asmPath, std::filesystem::copy_options::overwrite_existing, copyEc);
+    ASSERT_TRUE(!copyEc, "failed to copy hello_loop.asm fixture into temp directory");
+
+    Z80BackendStub backend;
+    BackendRunContext ctx;
+    ctx.interpreter = nullptr;
+    ctx.programPath = QString::fromStdString(asmPath.string());
+    ctx.hasSourceText = true;
+    ctx.source = R"(    ORG $0100
+
+start:
+    ld b,1
+
+loop:
+    ld c,9
+    ld de,msg
+    call 5
+    djnz loop
+
+    ld c,0
+    call 5
+    halt
+
+msg:
+    db "Edited", '$'
+)";
+
+    const BackendRunResult result = backend.run(ctx);
+    ASSERT_TRUE(result.ok,
+                std::string("assembly-backed run using editor buffer failed unexpectedly: ") +
+                    result.errorMessage.toStdString() + "\n" +
+                    result.assemblyConsoleOutput.toStdString());
+
+    const std::string output = result.z80RuntimeOutput.toStdString();
+    ASSERT_TRUE(output.find("Edited") != std::string::npos,
+                "expected assembly to use the editor buffer, not the on-disk file");
+    ASSERT_TRUE(output.find("HelloHelloHelloHello") == std::string::npos,
+                "unexpected on-disk assembly output was used");
+
+    PASS();
+}
+
 void test_assembly_single_step_reports_instruction_lines(const std::filesystem::path& dir)
 {
     TEST(assembly_single_step_reports_instruction_lines);
@@ -531,6 +583,7 @@ int main()
 
     std::cout << "Running Z80 backend BDOS tests\n";
     test_assemble_source_and_run(tmpDir);
+    test_assembly_prefers_editor_buffer_over_disk_file(tmpDir);
     test_hello_prints_four_times(tmpDir);
     test_assembly_breakpoint_hits_source_line(tmpDir);
     test_assembly_single_step_reports_instruction_lines(tmpDir);

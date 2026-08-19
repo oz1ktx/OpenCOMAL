@@ -3,8 +3,10 @@
 #include <Z80.h>
 
 #include <QByteArray>
+#include <QFile>
 #include <QDir>
 #include <QFileInfo>
+#include <QTemporaryFile>
 #include <QStringList>
 
 #include <algorithm>
@@ -105,7 +107,9 @@ bool isHexToken(const std::string& token, std::size_t expectedDigits)
     });
 }
 
-std::optional<Z80SourceMap> loadZ80SourceMap(const QString& listingPath, const QString& sourcePath)
+std::optional<Z80SourceMap> loadZ80SourceMap(const QString& listingPath,
+                                             const QString& sourcePath,
+                                             const QString& sourceText = {})
 {
     std::ifstream input(listingPath.toStdString());
     if (!input) {
@@ -113,7 +117,19 @@ std::optional<Z80SourceMap> loadZ80SourceMap(const QString& listingPath, const Q
     }
 
     Z80SourceMap sourceMap;
-    if (!sourcePath.isEmpty()) {
+    if (!sourceText.isEmpty()) {
+        const bool hadTerminalNewline = sourceText.endsWith('\n');
+        const QStringList lines = sourceText.split('\n', Qt::KeepEmptyParts);
+        const int limit = hadTerminalNewline ? lines.size() - 1 : lines.size();
+        sourceMap.sourceLines.reserve(static_cast<std::size_t>(limit));
+        for (int i = 0; i < limit; ++i) {
+            QString line = lines[i];
+            if (line.endsWith('\r')) {
+                line.chop(1);
+            }
+            sourceMap.sourceLines.push_back(line.toStdString());
+        }
+    } else if (!sourcePath.isEmpty()) {
         std::ifstream sourceInput(sourcePath.toStdString());
         std::string sourceLine;
         while (std::getline(sourceInput, sourceLine)) {
@@ -853,7 +869,38 @@ RunResult Z80CpmBackend::run(const RunRequest& request) const
         SjasmplusAssembler assembler;
         const QString sourceDir = QFileInfo(request.programPath).absolutePath();
         const QString buildDir = QDir(sourceDir).filePath(".opencomal-build");
-        const AssemblerResult assembled = assembler.assembleFile(request.programPath, buildDir);
+        QString sourcePathForAssembly = request.programPath;
+        std::optional<QTemporaryFile> tempSource;
+        if (request.hasSourceText) {
+            const QFileInfo sourceInfo(request.programPath);
+            const QString suffix = sourceInfo.suffix().isEmpty() ? QString() : "." + sourceInfo.suffix();
+            const QString tempTemplate = QDir(sourceInfo.absolutePath()).filePath(
+                sourceInfo.completeBaseName() + ".XXXXXX" + suffix);
+            tempSource.emplace(tempTemplate);
+            if (!tempSource->open()) {
+                RunResult result;
+                result.ok = false;
+                result.finished = false;
+                result.assemblyAttempted = true;
+                result.errorMessage = "Failed to create temporary assembly source file.";
+                return result;
+            }
+            const QByteArray sourceBytes = request.sourceText.toUtf8();
+            if (tempSource->write(sourceBytes) != sourceBytes.size() || !tempSource->flush()) {
+                RunResult result;
+                result.ok = false;
+                result.finished = false;
+                result.assemblyAttempted = true;
+                result.errorMessage = "Failed to write temporary assembly source file.";
+                return result;
+            }
+            sourcePathForAssembly = tempSource->fileName();
+        }
+
+        const QFileInfo originalSourceInfo(request.programPath);
+        const QString desiredOutputPath = QDir(buildDir).filePath(originalSourceInfo.completeBaseName() + ".com");
+        const QString desiredListingPath = QDir(buildDir).filePath(originalSourceInfo.completeBaseName() + ".lst");
+        const AssemblerResult assembled = assembler.assembleFile(sourcePathForAssembly, buildDir);
 
         const auto assemblyEnd = std::chrono::high_resolution_clock::now();
         const double assemblyElapsed = std::chrono::duration<double>(assemblyEnd - assemblyStart).count();
@@ -876,14 +923,46 @@ RunResult Z80CpmBackend::run(const RunRequest& request) const
             return result;
         }
 
-        const std::optional<Z80SourceMap> sourceMap = loadZ80SourceMap(assembled.listingPath, request.programPath);
+        QString finalOutputPath = assembled.outputPath;
+        QString finalListingPath = assembled.listingPath;
+        if (request.hasSourceText) {
+            QFile::remove(desiredOutputPath);
+            QFile::remove(desiredListingPath);
+            if (finalOutputPath != desiredOutputPath && !QFile::rename(finalOutputPath, desiredOutputPath)) {
+                RunResult result;
+                result.ok = false;
+                result.finished = false;
+                result.assemblyAttempted = true;
+                result.assemblyOk = false;
+                result.assemblyElapsedSeconds = assemblyElapsed;
+                result.assemblyConsoleOutput = assembled.consoleOutput;
+                result.errorMessage = "Failed to move assembled .COM output into the build directory.";
+                return result;
+            }
+            if (finalListingPath != desiredListingPath && !QFile::rename(finalListingPath, desiredListingPath)) {
+                RunResult result;
+                result.ok = false;
+                result.finished = false;
+                result.assemblyAttempted = true;
+                result.assemblyOk = false;
+                result.assemblyElapsedSeconds = assemblyElapsed;
+                result.assemblyConsoleOutput = assembled.consoleOutput;
+                result.errorMessage = "Failed to move assembly listing into the build directory.";
+                return result;
+            }
+            finalOutputPath = desiredOutputPath;
+            finalListingPath = desiredListingPath;
+        }
+
+        const std::optional<Z80SourceMap> sourceMap = loadZ80SourceMap(
+            finalListingPath, request.programPath, request.hasSourceText ? request.sourceText : QString());
         RunResult execResult = runZ80ComProgram(
-            assembled.outputPath, request.consoleInput, request.hostDirectory,
+            finalOutputPath, request.consoleInput, request.hostDirectory,
             sourceMap ? &*sourceMap : nullptr, request.executionControl);
         execResult.assemblyAttempted = true;
         execResult.assemblyOk = true;
-        execResult.assemblyOutputPath = assembled.outputPath;
-        execResult.assemblyListingPath = assembled.listingPath;
+        execResult.assemblyOutputPath = finalOutputPath;
+        execResult.assemblyListingPath = finalListingPath;
         execResult.assemblyElapsedSeconds = assemblyElapsed;
         execResult.assemblyConsoleOutput = assembled.consoleOutput;
         return execResult;

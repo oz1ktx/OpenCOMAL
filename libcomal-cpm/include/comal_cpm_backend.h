@@ -77,6 +77,8 @@ public:
 
 struct RunRequest {
     QString programPath;
+    QString sourceText;
+    bool hasSourceText{false};
     QString consoleInput;
     QString hostDirectory;
     IExecutionControl* executionControl{nullptr};
