@@ -52,6 +52,11 @@ endif()
 add_executable(test_sound_commands tests/test_commands.cpp)
 target_link_libraries(test_sound_commands PRIVATE comal-sound)
 add_test(NAME sound_commands COMMAND test_sound_commands)
+# Use the "file" audio driver in headless/CI environments to avoid crashes
+# when pipewire/pulseaudio/ALSA are unavailable.
+set_tests_properties(sound_commands PROPERTIES
+    ENVIRONMENT "COMAL_FLUID_AUDIO_DRIVER=file"
+)
 
 add_executable(test_sound_engine tests/test_engine.cpp)
 target_link_libraries(test_sound_engine PRIVATE comal-sound)

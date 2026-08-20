@@ -90,6 +90,9 @@ public:
         appendUnique(preferredDrivers, "portaudio");
         appendUnique(preferredDrivers, "sdl2");
         appendUnique(preferredDrivers, "oss");
+        // "file" driver always works (writes to /dev/null by default) and
+        // serves as a silent fallback when no audio hardware is available.
+        appendUnique(preferredDrivers, "file");
 
         const std::vector<std::string> availableDrivers = listFluidAudioDriverOptions(settings);
         std::vector<std::string> driverCandidates;
