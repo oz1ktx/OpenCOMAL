@@ -7,6 +7,7 @@
 #include <QVariantMap>
 #include <algorithm>
 #include <cctype>
+#include <utility>
 
 using namespace comal::runtime;
 
@@ -232,6 +233,16 @@ void RunWorker::requestStop()
     getInterp()->interrupt().request();
 }
 
+void RunWorker::provideZ80Input(const QString &line)
+{
+    {
+        std::lock_guard<std::mutex> lock(z80DebugMutex_);
+        z80Input_ = line.toStdString() + "\r";
+        z80InputReady_ = true;
+    }
+    z80DebugCv_.notify_all();
+}
+
 void RunWorker::requestBreak()
 {
     if (language_ == LanguageId::Z80Assembly) {
@@ -321,6 +332,7 @@ void RunWorker::run()
 
     const BackendRunResult result = backend->run(
         BackendRunContext{getInterp(), source_, true, directCmd_, programPath_, cpmDrivePath_,
+                          [this] { return readZ80Input(); },
                           language_ == LanguageId::Z80Assembly ? this : nullptr});
 
     // Emit assembly signals if assembly was attempted (Z80 only)
@@ -436,6 +448,28 @@ void RunWorker::resetZ80ExecutionState()
         z80PausedLine_ = 0;
         z80PausedAddress_ = 0;
         z80SkipBreakpointAddress_ = std::nullopt;
+        z80InputReady_ = false;
+        z80Input_.clear();
     }
     z80DebugCv_.notify_all();
+}
+
+std::string RunWorker::readZ80Input()
+{
+    {
+        std::lock_guard<std::mutex> lock(z80DebugMutex_);
+        z80InputReady_ = false;
+        z80Input_.clear();
+    }
+
+    emit z80InputRequested(QString());
+
+    std::unique_lock<std::mutex> lock(z80DebugMutex_);
+    z80DebugCv_.wait(lock, [this] {
+        return z80InputReady_ || z80StopRequested_.load(std::memory_order_acquire);
+    });
+    if (z80StopRequested_.load(std::memory_order_acquire)) {
+        return "\r";
+    }
+    return std::exchange(z80Input_, std::string());
 }

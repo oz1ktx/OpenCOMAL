@@ -53,6 +53,9 @@ public:
     /// Access the interpreter's graphics scene (for rendering after signals).
     const comal::graphics::Scene& graphicsScene() const;
 
+        /// Supply a line requested by a running Z80 program.
+        void provideZ80Input(const QString &line);
+
     /// Request the interpreter to stop (thread-safe).
     void requestStop();
 
@@ -125,6 +128,9 @@ signals:
     /// Emitted when Z80 program produces runtime output (BDOS function 9, etc.)
     void z80RuntimeOutput(const QString &output);
 
+        /// Emitted when a running Z80 program needs console input.
+        void z80InputRequested(const QString &prompt);
+
 protected:
     void run() override;
 
@@ -135,6 +141,7 @@ private:
                           int sourceLine,
                           const Z80DebugSnapshot& snapshot) override;
     void resetZ80ExecutionState();
+        std::string readZ80Input();
 
     std::unique_ptr<comal::runtime::Interpreter> interp_;
     std::shared_ptr<comal::runtime::Interpreter> externalInterp_;
@@ -154,6 +161,8 @@ private:
     std::vector<int> z80Breakpoints_;
     bool z80Paused_{false};
     bool z80AllowOneInstruction_{false};
+        bool z80InputReady_{false};
+        std::string z80Input_;
     int z80PausedLine_{0};
     std::uint16_t z80PausedAddress_{0};
     std::optional<std::uint16_t> z80SkipBreakpointAddress_;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <QString>
 #include <string>
@@ -27,6 +28,7 @@ struct BackendRunContext {
     QString directCommand;
     QString programPath;
     QString cpmDrivePath;
+    std::function<std::string()> z80InputProvider;
     IBackendExecutionControl *executionControl{nullptr};
 };
 

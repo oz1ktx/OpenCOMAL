@@ -621,6 +621,13 @@ void MainWindow::connectRunWorker()
             directCommand_, &DirectCommandPanel::appendOutput,
             Qt::QueuedConnection);
 
+    connect(worker_, &RunWorker::z80InputRequested, this, [this](const QString &prompt) {
+        directCommandDock_->show();
+        directCommandDock_->raise();
+        directCommand_->showInputMarker(prompt);
+        directCommand_->setInputEnabled(true);
+    }, Qt::QueuedConnection);
+
     // Graphics scene changed — re-render the graphics panel
     connect(worker_, &RunWorker::sceneChanged, this, [this]() {
         graphics_->renderScene(worker_->graphicsScene());
@@ -664,6 +671,10 @@ void MainWindow::onRun()
     QString source = editor->text();
     lastActionWasDirectCommand_ = false;
     directCommand_->appendOutput("\n--- RUN ---\n");
+    if (codeEditor_->currentLanguage() == LanguageId::Z80Assembly) {
+        directCommandDock_->show();
+        directCommandDock_->raise();
+    }
     codeEditor_->clearErrorHighlight();
     codeEditor_->clearExecutionHighlight();
     if (codeEditor_->currentLanguage() == LanguageId::Comal) {
@@ -750,7 +761,11 @@ void MainWindow::onDirectCommand(const QString &command)
         if (directCommand_->isInputForProgram()) {
             directCommand_->echoInput(command);
             directCommand_->setInputEnabled(false);
-            worker_->io()->provideInput(command);
+            if (codeEditor_->currentLanguage() == LanguageId::Z80Assembly) {
+                worker_->provideZ80Input(command);
+            } else {
+                worker_->io()->provideInput(command);
+            }
         }
         return;
     }

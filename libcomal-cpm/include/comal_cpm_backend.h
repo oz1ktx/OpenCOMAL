@@ -3,6 +3,7 @@
 #include "z80_com_loader.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <QString>
 #include <string>
@@ -80,6 +81,7 @@ struct RunRequest {
     QString sourceText;
     bool hasSourceText{false};
     QString consoleInput;
+    std::function<std::string()> consoleInputProvider;
     QString hostDirectory;
     IExecutionControl* executionControl{nullptr};
 };

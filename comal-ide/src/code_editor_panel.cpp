@@ -325,15 +325,38 @@ void CodeEditorPanel::openFile(const QString &filePath)
         }
     }
 
+    const bool isComImage = filePath.toLower().endsWith(".com");
     QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    if (!file.open(QIODevice::ReadOnly))
         return;
 
-    QTextStream stream(&file);
-    QString content = stream.readAll();
-
     const LanguageId language = detectLanguageFromFilePath(filePath);
-    QString loadedText = content;
+    QString content;
+    QString loadedText;
+    if (isComImage) {
+        const QByteArray bytes = file.readAll();
+        QStringList lines;
+        lines << tr("Z80 .COM binary image")
+              << tr("Size: %1 bytes").arg(bytes.size())
+              << QString();
+
+        for (int offset = 0; offset < bytes.size(); offset += 16) {
+            QString line = QString("%1: ").arg(offset, 4, 16, QChar('0')).toUpper();
+            for (int index = 0; index < 16 && offset + index < bytes.size(); ++index) {
+                if (index > 0) {
+                    line += ' ';
+                }
+                line += QString("%1").arg(static_cast<unsigned char>(bytes.at(offset + index)),
+                                           2, 16, QChar('0')).toUpper();
+            }
+            lines << line;
+        }
+        loadedText = lines.join('\n');
+    } else {
+        QTextStream stream(&file);
+        content = stream.readAll();
+        loadedText = content;
+    }
 
     if (isComalLanguage(language)) {
         // Strip COMAL line numbers (leading digits + optional space)
@@ -370,6 +393,7 @@ void CodeEditorPanel::openFile(const QString &filePath)
     auto *editor = createEditor();
     applyLanguageToEditor(editor, language);
     editor->setText(loadedText);
+    editor->setReadOnly(isComImage);
     editor->setModified(false);
     QFileInfo info(filePath);
     int idx = tabs_->addTab(editor, info.fileName());

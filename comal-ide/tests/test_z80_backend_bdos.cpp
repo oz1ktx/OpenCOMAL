@@ -188,6 +188,56 @@ void test_hello_prints_four_times(const std::filesystem::path& dir)
     PASS();
 }
 
+void test_load_checked_in_com_and_execute()
+{
+    TEST(load_checked_in_com_and_execute);
+
+    const std::filesystem::path comPath =
+        std::filesystem::path(OPENCOMAL_SOURCE_DIR) / "tests" / "assembly" / "demo.com";
+    ASSERT_TRUE(std::filesystem::exists(comPath), "repository .COM fixture is missing");
+
+    Z80BackendStub backend;
+    BackendRunContext ctx;
+    ctx.interpreter = nullptr;
+    ctx.programPath = QString::fromStdString(comPath.string());
+
+    const BackendRunResult result = backend.run(ctx);
+    ASSERT_TRUE(result.ok, "raw .COM execution failed unexpectedly");
+    ASSERT_TRUE(!result.assemblyAttempted, "raw .COM execution should not invoke the assembler");
+    ASSERT_TRUE(result.z80RuntimeOutput.toStdString().find("HELLO F") != std::string::npos,
+                "expected output from checked-in .COM fixture not found");
+
+    PASS();
+}
+
+void test_bdos_console_read_uses_input_provider(const std::filesystem::path& dir)
+{
+    TEST(bdos_console_read_uses_input_provider);
+
+    const std::filesystem::path comPath = dir / "console_read.com";
+    const std::vector<unsigned char> program = {
+        0x0E, 0x01,             // LD C,1 (console input with echo)
+        0xCD, 0x05, 0x00,       // CALL 0005h
+        0x0E, 0x00,             // LD C,0 (terminate)
+        0xCD, 0x05, 0x00,       // CALL 0005h
+        0x76                    // HALT
+    };
+    ASSERT_TRUE(writeComFile(comPath, program), "failed to write console_read.com test fixture");
+
+    Z80BackendStub backend;
+    BackendRunContext ctx;
+    ctx.interpreter = nullptr;
+    ctx.programPath = QString::fromStdString(comPath.string());
+    ctx.z80InputProvider = [] { return std::string("Q\r"); };
+
+    const BackendRunResult result = backend.run(ctx);
+    ASSERT_TRUE(result.ok, "backend console-read run failed unexpectedly");
+    ASSERT_TRUE(result.z80RuntimeOutput.toStdString().find("Q") != std::string::npos,
+                "expected provider input to be echoed by BDOS function 1");
+
+    PASS();
+}
+
 void test_assembly_breakpoint_hits_source_line(const std::filesystem::path& dir)
 {
     TEST(assembly_breakpoint_hits_source_line);
@@ -585,6 +635,8 @@ int main()
     test_assemble_source_and_run(tmpDir);
     test_assembly_prefers_editor_buffer_over_disk_file(tmpDir);
     test_hello_prints_four_times(tmpDir);
+    test_load_checked_in_com_and_execute();
+    test_bdos_console_read_uses_input_provider(tmpDir);
     test_assembly_breakpoint_hits_source_line(tmpDir);
     test_assembly_single_step_reports_instruction_lines(tmpDir);
     test_console_input_echo_roundtrip(tmpDir);
