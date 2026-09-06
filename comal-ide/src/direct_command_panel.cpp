@@ -1,8 +1,7 @@
 #include "direct_command_panel.h"
 
+#include <qtermwidget.h>
 #include <QVBoxLayout>
-#include <QTextEdit>
-#include <QTextCursor>
 #include <QLineEdit>
 #include <QLabel>
 #include <QMenu>
@@ -11,20 +10,48 @@
 #include <QApplication>
 #include <QClipboard>
 
+#include <unistd.h>
+
+namespace {
+
+void writeTerminalOutput(QTermWidget *terminal, const QString &text)
+{
+    const int fd = terminal->getPtySlaveFd();
+    if (fd < 0) {
+        return;
+    }
+
+    const QByteArray bytes = text.toUtf8();
+    const char *data = bytes.constData();
+    qsizetype remaining = bytes.size();
+    while (remaining > 0) {
+        const ssize_t written = ::write(fd, data, static_cast<size_t>(remaining));
+        if (written <= 0) {
+            return;
+        }
+        data += written;
+        remaining -= written;
+    }
+}
+
+} // namespace
+
 DirectCommandPanel::DirectCommandPanel(QWidget *parent)
     : QWidget(parent)
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
 
-    // Read-only output area
-    output_ = new QTextEdit(this);
-    output_->setReadOnly(true);
-    output_->setFont(QFont("Monospace", 10));
-    output_->setPlaceholderText(tr("Program output appears here..."));
+    // Terminal-emulation output area. Teletype mode accepts data from the
+    // application without starting a shell process.
+    output_ = new QTermWidget(0, this);
+    output_->setTerminalFont(QFont("Monospace", 10));
+    output_->setScrollBarPosition(QTermWidget::ScrollBarRight);
+    output_->setHistorySize(2000);
     output_->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(output_, &QTextEdit::customContextMenuRequested,
+    connect(output_, &QTermWidget::customContextMenuRequested,
             this,    &DirectCommandPanel::showOutputContextMenu);
+    output_->startTerminalTeletype();
     layout->addWidget(output_, /*stretch=*/1);
 
     // Command input line
@@ -47,12 +74,8 @@ DirectCommandPanel::DirectCommandPanel(QWidget *parent)
 
 void DirectCommandPanel::appendOutput(const QString &text)
 {
-    // Use insertPlainText to avoid QTextEdit::append() adding a new paragraph
-    QTextCursor cursor = output_->textCursor();
-    cursor.movePosition(QTextCursor::End);
-    cursor.insertText(text, QTextCharFormat());  // explicit default format
-    output_->setTextCursor(cursor);
-    output_->ensureCursorVisible();
+    writeTerminalOutput(output_, text);
+    output_->scrollToEnd();
 }
 
 void DirectCommandPanel::clearOutputPanel()
@@ -69,11 +92,6 @@ void DirectCommandPanel::onCommandEntered()
 {
     QString cmd = input_->text();
     if (cmd.isEmpty()) return;
-
-    // Don't echo "> cmd" when program is waiting for input —
-    // echoInput() handles that case
-    if (!inputForProgram_)
-        appendOutput("> " + cmd + "\n");
 
     input_->clear();
     emit lineEntered(cmd);
@@ -95,49 +113,18 @@ bool DirectCommandPanel::isInputForProgram() const
 
 void DirectCommandPanel::showInputMarker(const QString &prompt)
 {
-    // Show the prompt in the input line label
     if (!prompt.isEmpty())
         promptLabel_->setText(prompt);
     else
         promptLabel_->setText(tr(">"));
-
-    // Insert a solid block marker (█) in the output at the current position
-    QTextCursor cursor = output_->textCursor();
-    cursor.movePosition(QTextCursor::End);
-    markerPos_ = cursor.position();
-
-    QTextCharFormat markerFmt;
-    markerFmt.setForeground(QColor(0, 120, 215));  // blue marker
-    cursor.insertText(QString::fromUtf8("\u2588"), markerFmt);
-
-    output_->setTextCursor(cursor);
-    output_->ensureCursorVisible();
 }
 
 void DirectCommandPanel::echoInput(const QString &text)
 {
-    // Replace the block marker with the actual input text
-    if (markerPos_ >= 0) {
-        QTextCursor cursor = output_->textCursor();
-        cursor.setPosition(markerPos_);
-        cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor, 1);
-        cursor.removeSelectedText();
+    writeTerminalOutput(output_, text + "\r\n");
+    output_->scrollToEnd();
 
-        QTextCharFormat inputFmt;
-        inputFmt.setForeground(QColor(0, 120, 215));  // blue for user input
-        cursor.insertText(text + "\n", inputFmt);
-
-        // Reset to default format so subsequent output isn't blue
-        cursor.setCharFormat(QTextCharFormat());
-        output_->setTextCursor(cursor);
-
-        markerPos_ = -1;
-    }
-
-    // Reset prompt label
     promptLabel_->setText(tr(">"));
-
-    output_->ensureCursorVisible();
 }
 
 void DirectCommandPanel::showOutputContextMenu(const QPoint &pos)
@@ -146,24 +133,19 @@ void DirectCommandPanel::showOutputContextMenu(const QPoint &pos)
 
     QAction *copyAct = menu.addAction(tr("&Copy"));
     copyAct->setShortcut(QKeySequence::Copy);
-    copyAct->setEnabled(output_->textCursor().hasSelection());
-    connect(copyAct, &QAction::triggered, output_, &QTextEdit::copy);
-
-    QAction *selectAllAct = menu.addAction(tr("Select &All"));
-    selectAllAct->setShortcut(QKeySequence::SelectAll);
-    selectAllAct->setEnabled(!output_->toPlainText().isEmpty());
-    connect(selectAllAct, &QAction::triggered, output_, &QTextEdit::selectAll);
+    copyAct->setEnabled(!output_->selectedText().isEmpty());
+    connect(copyAct, &QAction::triggered, output_, &QTermWidget::copyClipboard);
 
     menu.addSeparator();
 
     QAction *clearAct = menu.addAction(tr("C&lear"));
-    clearAct->setEnabled(!output_->toPlainText().isEmpty());
+    clearAct->setEnabled(true);
     connect(clearAct, &QAction::triggered, this, &DirectCommandPanel::clearOutput);
 
     menu.addSeparator();
 
     QAction *saveAct = menu.addAction(tr("&Save Output..."));
-    saveAct->setEnabled(!output_->toPlainText().isEmpty());
+    saveAct->setEnabled(true);
     connect(saveAct, &QAction::triggered, this, &DirectCommandPanel::saveOutput);
 
     menu.exec(output_->mapToGlobal(pos));
@@ -172,7 +154,6 @@ void DirectCommandPanel::showOutputContextMenu(const QPoint &pos)
 void DirectCommandPanel::clearOutput()
 {
     output_->clear();
-    markerPos_ = -1;
     promptLabel_->setText(tr(">"));
 }
 
@@ -184,12 +165,12 @@ void DirectCommandPanel::saveOutput()
 
     QFile file(path);
     if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        file.write(output_->toPlainText().toUtf8());
+        file.write(output_->selectedText(true).toUtf8());
     }
 }
 
 void DirectCommandPanel::applyFont(const QFont &font)
 {
-    output_->setFont(font);
+    output_->setTerminalFont(font);
     input_->setFont(font);
 }

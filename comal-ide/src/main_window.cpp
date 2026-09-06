@@ -166,7 +166,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(persistentIO_, &QtIO::cursorMoved, directCommand_, [this](int r, int c) {
         directCommand_->appendOutput(
-            QString("[CURSOR %1,%2]").arg(r).arg(c));
+            QString("\033[%1;%2H").arg(r).arg(c));
     }, Qt::QueuedConnection);
 
     connect(persistentIO_, &QtIO::inputRequested, directCommand_, [this](const QString &prompt) {
@@ -449,7 +449,7 @@ void MainWindow::createPanels()
 
     // Direct Command / Output — bottom
     directCommand_ = new DirectCommandPanel;
-    directCommandDock_ = new QDockWidget(tr("Direct Command"), this);
+    directCommandDock_ = new QDockWidget(tr("Console"), this);
     directCommandDock_->setObjectName("DirectCommandDock");
     directCommandDock_->setWidget(directCommand_);
 
@@ -592,7 +592,7 @@ void MainWindow::connectRunWorker()
 
         connect(io, &QtIO::cursorMoved, directCommand_, [this](int r, int c) {
             directCommand_->appendOutput(
-                QString("[CURSOR %1,%2]").arg(r).arg(c));
+                QString("\033[%1;%2H").arg(r).arg(c));
         }, Qt::QueuedConnection);
 
         // Input request: show marker in output and enable the input line

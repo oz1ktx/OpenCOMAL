@@ -61,11 +61,20 @@ struct Z80Machine {
     std::string consoleInput;
     std::size_t consoleInputPos{0};
     std::function<std::string()> consoleInputProvider;
+    std::function<void(const std::string&)> consoleOutputSink;
     std::filesystem::path hostBaseDir;
     std::unordered_map<std::uint16_t, OpenFileState> openFiles;
     std::uint16_t dmaAddress{Z80ComImage::kDefaultDmaAddress};
     std::uint8_t currentDrive{0};
 };
+
+void appendConsoleOutput(Z80Machine& machine, char ch)
+{
+    machine.consoleOutput.push_back(ch);
+    if (machine.consoleOutputSink) {
+        machine.consoleOutputSink(std::string(1, ch));
+    }
+}
 
 struct Z80SourceMap {
     struct Entry {
@@ -332,11 +341,11 @@ std::uint8_t z80FetchOpcode(void* context, zuint16 address)
         case 1: {
             const std::uint8_t ch = popConsoleInputChar(*machine);
             Z80_A((*machine->cpu)) = ch;
-            machine->consoleOutput.push_back(static_cast<char>(ch));
+            appendConsoleOutput(*machine, static_cast<char>(ch));
             break;
         }
         case 2:
-            machine->consoleOutput.push_back(static_cast<char>(Z80_E((*machine->cpu))));
+            appendConsoleOutput(*machine, static_cast<char>(Z80_E((*machine->cpu))));
             break;
         case 6:
             if (Z80_E((*machine->cpu)) == 0xFF) {
@@ -347,7 +356,7 @@ std::uint8_t z80FetchOpcode(void* context, zuint16 address)
                     Z80_A((*machine->cpu)) = 0;
                 }
             } else {
-                machine->consoleOutput.push_back(static_cast<char>(Z80_E((*machine->cpu))));
+                appendConsoleOutput(*machine, static_cast<char>(Z80_E((*machine->cpu))));
                 Z80_A((*machine->cpu)) = Z80_E((*machine->cpu));
             }
             break;
@@ -358,7 +367,7 @@ std::uint8_t z80FetchOpcode(void* context, zuint16 address)
                 if (ch == '$') {
                     break;
                 }
-                machine->consoleOutput.push_back(static_cast<char>(ch));
+                appendConsoleOutput(*machine, static_cast<char>(ch));
                 addr = static_cast<std::uint16_t>(addr + 1);
             }
             break;
@@ -707,6 +716,7 @@ Z80DebugSnapshot buildZ80DebugSnapshot(const Z80Machine& machine, const Z80Sourc
 RunResult runZ80ComProgram(const QString& programPath,
                            const QString& consoleInput,
                            const std::function<std::string()>& consoleInputProvider,
+                           const std::function<void(const std::string&)>& consoleOutputSink,
                            const QString& hostDirectory,
                            const Z80SourceMap* sourceMap,
                            IExecutionControl* executionControl)
@@ -728,6 +738,7 @@ RunResult runZ80ComProgram(const QString& programPath,
     machine.memory = image.memory;
     machine.consoleInput = consoleInput.toStdString();
     machine.consoleInputProvider = consoleInputProvider;
+    machine.consoleOutputSink = consoleOutputSink;
     if (!hostDirectory.trimmed().isEmpty()) {
         machine.hostBaseDir = std::filesystem::path(hostDirectory.toStdString());
     } else {
@@ -799,7 +810,7 @@ RunResult runZ80ComProgram(const QString& programPath,
         return result;
     }
 
-    if (!machine.consoleOutput.empty()) {
+    if (!machine.consoleOutput.empty() && !consoleOutputSink) {
         result.z80RuntimeOutput = QString::fromStdString(machine.consoleOutput);
     }
 
@@ -875,7 +886,7 @@ RunResult Z80CpmBackend::run(const RunRequest& request) const
     if (lowerPath.endsWith(".com")) {
         return runZ80ComProgram(
             request.programPath, request.consoleInput, request.consoleInputProvider,
-            request.hostDirectory, nullptr, request.executionControl);
+            request.consoleOutputSink, request.hostDirectory, nullptr, request.executionControl);
     }
 
     if (lowerPath.endsWith(".asm") || lowerPath.endsWith(".z80") || lowerPath.endsWith(".s")) {
@@ -972,8 +983,9 @@ RunResult Z80CpmBackend::run(const RunRequest& request) const
         const std::optional<Z80SourceMap> sourceMap = loadZ80SourceMap(
             finalListingPath, request.programPath, request.hasSourceText ? request.sourceText : QString());
         RunResult execResult = runZ80ComProgram(
-            finalOutputPath, request.consoleInput, request.consoleInputProvider, request.hostDirectory,
-            sourceMap ? &*sourceMap : nullptr, request.executionControl);
+            finalOutputPath, request.consoleInput, request.consoleInputProvider,
+            request.consoleOutputSink, request.hostDirectory, sourceMap ? &*sourceMap : nullptr,
+            request.executionControl);
         execResult.assemblyAttempted = true;
         execResult.assemblyOk = true;
         execResult.assemblyOutputPath = finalOutputPath;

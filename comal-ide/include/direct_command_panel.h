@@ -2,7 +2,7 @@
 
 #include <QWidget>
 
-class QTextEdit;
+class QTermWidget;
 class QLineEdit;
 class QLabel;
 
@@ -40,9 +40,8 @@ private slots:
     void saveOutput();
 
 private:
-    QTextEdit *output_;
+    QTermWidget *output_;
     QLineEdit *input_;
     QLabel    *promptLabel_;
     bool inputForProgram_{false};
-    int  markerPos_{-1};    // character position of the block marker
 };

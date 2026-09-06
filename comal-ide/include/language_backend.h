@@ -29,6 +29,7 @@ struct BackendRunContext {
     QString programPath;
     QString cpmDrivePath;
     std::function<std::string()> z80InputProvider;
+    std::function<void(const QString&)> z80OutputSink;
     IBackendExecutionControl *executionControl{nullptr};
 };
 

@@ -14,6 +14,7 @@ set(CMAKE_AUTOMOC ON)
 # ─────────────────────────────────────────────────────────────────────
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets PrintSupport Svg)
+find_package(qtermwidget6 CONFIG REQUIRED)
 
 # ── QScintilla (headers + library) ──────────────────────────────────
 find_path(QSCINTILLA_INCLUDE_DIR
@@ -81,6 +82,7 @@ target_link_libraries(comal-ide PRIVATE
     Qt6::Widgets
     Qt6::PrintSupport
     Qt6::Svg
+    qtermwidget6
     ${QSCINTILLA_LIBRARY}
     comal-runtime
     comal-cpm

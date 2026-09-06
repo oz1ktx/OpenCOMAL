@@ -91,6 +91,7 @@ set(CPACK_DEBIAN_PACKAGE_DEPENDS
     qt6-svg
   qt6-multimedia
     libqscintilla2-qt6
+  libqtermwidget6-2
     libncurses6
     readline)
 
@@ -107,6 +108,7 @@ set(CPACK_RPM_SPEC_MORE_DEFINE
 Requires: qt6-qtsvg
 Requires: qt6-qtmultimedia
 Requires: qscintilla-qt6
+Requires: qtermwidget
 Requires: ncurses
 Requires: readline")
 set(CPACK_RPM_SPEC_MORE_DEFINE "${CPACK_RPM_SPEC_MORE_DEFINE}\nRequires: fluidsynth\nSuggests: fluid-soundfont-gm")

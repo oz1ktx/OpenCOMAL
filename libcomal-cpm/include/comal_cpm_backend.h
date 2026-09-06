@@ -82,6 +82,7 @@ struct RunRequest {
     bool hasSourceText{false};
     QString consoleInput;
     std::function<std::string()> consoleInputProvider;
+    std::function<void(const std::string&)> consoleOutputSink;
     QString hostDirectory;
     IExecutionControl* executionControl{nullptr};
 };

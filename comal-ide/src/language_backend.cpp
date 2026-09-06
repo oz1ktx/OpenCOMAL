@@ -48,9 +48,17 @@ BackendRunResult ComalBackendAdapter::run(const BackendRunContext& ctx)
 BackendRunResult Z80BackendStub::run(const BackendRunContext& ctx)
 {
     const comal::cpm::Z80CpmBackend backend;
+    std::function<void(const std::string&)> outputSink;
+    if (ctx.z80OutputSink) {
+        outputSink = [sink = ctx.z80OutputSink](const std::string& text) {
+            sink(QString::fromStdString(text));
+        };
+    }
     const comal::cpm::RunResult cpmResult = backend.run(
         comal::cpm::RunRequest{ctx.programPath, ctx.source, ctx.hasSourceText, ctx.directCommand,
-                               ctx.z80InputProvider, ctx.cpmDrivePath, ctx.executionControl});
+                               ctx.z80InputProvider,
+                               outputSink,
+                               ctx.cpmDrivePath, ctx.executionControl});
 
     BackendRunResult result;
     result.ok = cpmResult.ok;
